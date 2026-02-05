@@ -111,13 +111,16 @@ def main():
                 pass
 
             # Step 3: Fill AAP login form (if present)
+            # Wait longer for OAuth redirect and login page to load
             try:
-                page.fill("#username", username, timeout=5000)
+                # Wait for username field to appear (may take time after OAuth redirect)
+                page.wait_for_selector("#username", timeout=30000)
+                page.fill("#username", username)
                 page.fill("#password", password)
                 page.click("button[type='submit']")
                 page.wait_for_load_state('networkidle', timeout=timeout)
             except PlaywrightTimeout:
-                # Maybe already authenticated
+                # Maybe already authenticated or different login flow
                 pass
 
             # Step 4: Handle "Authorize" page if it appears
