@@ -1,0 +1,143 @@
+---
+# Test user-to-team assignment API calls
+# This will help us understand why wrong users are being assigned
+
+- name: Test User Team Assignment API
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    # ========================================================================
+    # Section 1: Get team IDs
+    # ========================================================================
+
+    - name: "Get cloud-team details"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/?name=cloud-team"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_team
+
+    - name: "Display cloud-team ID and related URLs"
+      ansible.builtin.debug:
+        msg:
+          - "Team ID: {{ r_cloud_team.json.results[0].id }}"
+          - "Team URL: {{ r_cloud_team.json.results[0].url }}"
+          - "Related users URL: {{ r_cloud_team.json.results[0].related.users | default('NOT FOUND') }}"
+          - "Full team object: {{ r_cloud_team.json.results[0] }}"
+
+    # ========================================================================
+    # Section 2: Get user IDs
+    # ========================================================================
+
+    - name: "Get clouduser1 details"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=clouduser1"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_clouduser1
+
+    - name: "Display clouduser1 details"
+      ansible.builtin.debug:
+        msg:
+          - "User count: {{ r_clouduser1.json.count }}"
+          - "User ID: {{ r_clouduser1.json.results[0].id }}"
+          - "Username: {{ r_clouduser1.json.results[0].username }}"
+          - "Full user object: {{ r_clouduser1.json.results[0] }}"
+
+    - name: "Get networkuser1 details"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=networkuser1"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_networkuser1
+
+    - name: "Display networkuser1 details"
+      ansible.builtin.debug:
+        msg:
+          - "User count: {{ r_networkuser1.json.count }}"
+          - "User ID: {{ r_networkuser1.json.results[0].id }}"
+          - "Username: {{ r_networkuser1.json.results[0].username }}"
+
+    # ========================================================================
+    # Section 3: Check current team membership
+    # ========================================================================
+
+    - name: "Get current cloud-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_current_members
+
+    - name: "Display current cloud-team members"
+      ansible.builtin.debug:
+        msg:
+          - "Member count: {{ r_current_members.json.count }}"
+          - "Members: {{ r_current_members.json.results | map(attribute='username') | list }}"
+
+    # ========================================================================
+    # Section 4: Test assignment endpoint
+    # ========================================================================
+
+    - name: "TEST: Try Controller API v2 team users endpoint"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/teams/{{ r_cloud_team.json.results[0].id }}/users/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          id: "{{ r_clouduser1.json.results[0].id }}"
+        status_code: [-1, 200, 201, 204, 400, 404, 405, 409]
+      register: r_test_assign
+      ignore_errors: true
+
+    - name: "Display assignment result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_test_assign.status }}"
+          - "Response: {{ r_test_assign.json | default(r_test_assign.msg) }}"
+          - "Changed: {{ r_test_assign.changed | default('N/A') }}"
+
+    # ========================================================================
+    # Section 5: Check members again after assignment
+    # ========================================================================
+
+    - name: "Get cloud-team members after assignment"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_members_after
+
+    - name: "Display members after assignment"
+      ansible.builtin.debug:
+        msg:
+          - "Member count: {{ r_members_after.json.count }}"
+          - "Members: {{ r_members_after.json.results | map(attribute='username') | list }}"
+          - "Expected: clouduser1"
+          - "Match: {{ 'clouduser1' in (r_members_after.json.results | map(attribute='username') | list) }}"

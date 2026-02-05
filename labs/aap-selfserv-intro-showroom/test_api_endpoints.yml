@@ -1,0 +1,86 @@
+---
+# Test different AAP 2.6 API endpoints to find what actually works
+- name: Test AAP 2.6 API Endpoints
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    aap_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    admin_user: "admin"
+    admin_pass: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: Get cloud-team details
+      ansible.builtin.uri:
+        url: "{{ aap_url }}/api/gateway/v1/teams/?name=cloud-team"
+        user: "{{ admin_user }}"
+        password: "{{ admin_pass }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_team
+
+    - name: Get clouduser1 details
+      ansible.builtin.uri:
+        url: "{{ aap_url }}/api/gateway/v1/users/?username=clouduser1"
+        user: "{{ admin_user }}"
+        password: "{{ admin_pass }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_user
+
+    - name: Get first job template
+      ansible.builtin.uri:
+        url: "{{ aap_url }}/api/controller/v2/job_templates/?name__istartswith=Cloud/AWS"
+        user: "{{ admin_user }}"
+        password: "{{ admin_pass }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_template
+
+    - name: Display team ID
+      debug:
+        msg: "Team ID: {{ r_team.json.results[0].id }}"
+
+    - name: Display user ID
+      debug:
+        msg: "User ID: {{ r_user.json.results[0].id }}"
+
+    - name: Display template ID and execute_role ID
+      debug:
+        msg: "Template ID: {{ r_template.json.results[0].id }}, Execute Role ID: {{ r_template.json.results[0].summary_fields.object_roles.execute_role.id }}"
+
+    - name: TEST 1 - Try assigning user to team via object roles
+      ansible.builtin.uri:
+        url: "{{ aap_url }}/api/controller/v2/teams/{{ r_team.json.results[0].id }}/roles/"
+        method: POST
+        user: "{{ admin_user }}"
+        password: "{{ admin_pass }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          id: "{{ r_user.json.results[0].id }}"
+        status_code: [-1, 200, 201, 204, 400, 404, 405]
+      register: r_test1
+      ignore_errors: true
+
+    - debug:
+        msg: "TEST 1 Result: {{ r_test1.status }} - {{ r_test1.json | default('No JSON') }}"
+
+    - name: TEST 2 - Try assigning execute role directly to team via role ID
+      ansible.builtin.uri:
+        url: "{{ aap_url }}/api/controller/v2/roles/{{ r_template.json.results[0].summary_fields.object_roles.execute_role.id }}/teams/"
+        method: POST
+        user: "{{ admin_user }}"
+        password: "{{ admin_pass }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          id: "{{ r_team.json.results[0].id }}"
+        status_code: [-1, 200, 201, 204, 400, 404, 405]
+      register: r_test2
+      ignore_errors: true
+
+    - debug:
+        msg: "TEST 2 Result: {{ r_test2.status }} - {{ r_test2.json | default('No JSON') }}"
