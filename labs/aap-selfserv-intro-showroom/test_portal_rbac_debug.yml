@@ -1,0 +1,106 @@
+---
+# Debug Portal RBAC page - take screenshot to see what's actually there
+
+- name: Debug Portal RBAC Page
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: "Navigate to Portal RBAC page and take screenshots at each step"
+      shell: |
+        python3 << 'PYTHON_SCRIPT'
+        from playwright.sync_api import sync_playwright
+        import os
+
+        portal_url = os.environ['SELF_SERVICE_PORTAL_URL']
+        username = "admin"
+        password = os.environ['AAP_ADMIN_PASSWORD']
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(ignore_https_errors=True)
+            page = context.new_page()
+
+            # Step 1: Go to Portal
+            print("Step 1: Navigating to Portal...")
+            page.goto(portal_url, timeout=60000)
+            page.wait_for_load_state('networkidle')
+            page.screenshot(path='/tmp/portal_step1_home.png')
+            print(f"  Title: {page.title()}")
+            print(f"  URL: {page.url}")
+
+            # Step 2: Try to click Sign In
+            print("Step 2: Looking for Sign In button...")
+            try:
+                page.click("button:has-text('Sign In')", timeout=10000)
+                page.wait_for_load_state('networkidle')
+                page.screenshot(path='/tmp/portal_step2_signin.png')
+                print(f"  After Sign In - URL: {page.url}")
+            except Exception as e:
+                print(f"  Sign In button not found or error: {e}")
+
+            # Step 3: Try AAP login
+            print("Step 3: Attempting AAP login...")
+            try:
+                page.fill("#username", username, timeout=5000)
+                page.fill("#password", password)
+                page.screenshot(path='/tmp/portal_step3_filled.png')
+                page.click("button[type='submit']")
+                page.wait_for_load_state('networkidle', timeout=60000)
+                page.screenshot(path='/tmp/portal_step4_after_login.png')
+                print(f"  After login - URL: {page.url}")
+            except Exception as e:
+                print(f"  Login form not found or error: {e}")
+
+            # Step 4: Check for Authorize button
+            print("Step 4: Checking for Authorize page...")
+            try:
+                if page.locator("button:has-text('Authorize')").is_visible(timeout=5000):
+                    print("  Found Authorize button, clicking...")
+                    page.click("button:has-text('Authorize')")
+                    page.wait_for_load_state('networkidle', timeout=60000)
+                    page.screenshot(path='/tmp/portal_step5_after_authorize.png')
+                    print(f"  After authorize - URL: {page.url}")
+            except Exception as e:
+                print(f"  Authorize button not found: {e}")
+
+            # Step 5: Navigate to RBAC page
+            print("Step 5: Navigating to RBAC page...")
+            page.goto(f"{portal_url}/settings/rbac", timeout=60000)
+            page.wait_for_load_state('networkidle')
+            page.screenshot(path='/tmp/portal_step6_rbac_page.png')
+            print(f"  RBAC page - URL: {page.url}")
+            print(f"  RBAC page - Title: {page.title()}")
+
+            # Get page content to see what text is available
+            print("Step 6: Analyzing page content...")
+            page_text = page.inner_text('body')
+            print(f"  Page contains 'All roles': {'All roles' in page_text}")
+            print(f"  Page contains 'ssa-portal-users': {'ssa-portal-users' in page_text}")
+            print(f"  Page contains 'RBAC': {'RBAC' in page_text}")
+            print(f"  First 500 chars of page text: {page_text[:500]}")
+
+            browser.close()
+
+        print("\n=== Screenshots saved ===")
+        print("Step 1: /tmp/portal_step1_home.png")
+        print("Step 2: /tmp/portal_step2_signin.png")
+        print("Step 3: /tmp/portal_step3_filled.png")
+        print("Step 4: /tmp/portal_step4_after_login.png")
+        print("Step 5: /tmp/portal_step5_after_authorize.png")
+        print("Step 6: /tmp/portal_step6_rbac_page.png")
+        PYTHON_SCRIPT
+      environment:
+        SELF_SERVICE_PORTAL_URL: "{{ portal_url }}"
+        AAP_ADMIN_PASSWORD: "{{ aap_admin_password }}"
+      register: r_debug
+
+    - name: "Display debug output"
+      ansible.builtin.debug:
+        var: r_debug.stdout_lines
