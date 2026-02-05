@@ -28,6 +28,18 @@ if ! command -v oc &> /dev/null; then
     exit 1
 fi
 
+# Check if kubernetes Python library is installed
+echo "🔍 Checking for kubernetes Python library..."
+if python -c "import kubernetes" 2>/dev/null; then
+    echo "✅ Kubernetes library found"
+    TEST_FILE="test_portal_oauth_client.yml"
+else
+    echo "⚠️  Kubernetes library not found"
+    echo "   Using oc command fallback"
+    echo "   To install: ./install_kubernetes.sh"
+    TEST_FILE="test_portal_oauth_oc.yml"
+fi
+
 # Login to OpenShift as system:admin
 echo "🔐 Logging into OpenShift as system:admin..."
 oc login -u system:admin > /dev/null 2>&1
@@ -40,11 +52,11 @@ else
 fi
 
 echo ""
-echo "🧪 Running RHDH OAuth client test..."
+echo "🧪 Running RHDH OAuth client test ($TEST_FILE)..."
 echo ""
 
-# Run the test (uses oc command, not kubernetes module)
-ansible-playbook test_portal_oauth_oc.yml
+# Run the test
+ansible-playbook "$TEST_FILE"
 
 echo ""
 echo "=========================================="
