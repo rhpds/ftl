@@ -1,0 +1,140 @@
+---
+# Solve Module 2: Sovereign SRE Agent Demo
+# Triggers a failing pipeline and verifies agent response
+
+- name: Solve Module 2 - Sovereign SRE Agent Demo
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    agent_namespace: "agent-{{ base_namespace_prefix }}"
+    gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.apps.cluster.example.com') }}"
+    gitea_user: "{{ base_namespace_prefix }}"
+
+  tasks:
+    - name: Display Module 2 solver info
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 2: Sovereign SRE Agent Demo - Solver
+          ================================================================================
+
+          This solver will:
+          1. Trigger a pipeline run with the 'broken' branch
+          2. Wait for the pipeline to fail
+          3. Verify the agent created a Gitea issue
+
+          ================================================================================
+
+    # =========================================================================
+    # Step 1: Trigger pipeline run with broken branch
+    # =========================================================================
+    - name: Check if pipeline exists
+      ansible.builtin.command: >
+        oc get pipeline build-agent -n {{ agent_namespace }} -o name
+      register: r_pipeline_exists
+      changed_when: false
+      ignore_errors: true
+
+    - name: Fail if pipeline doesn't exist
+      ansible.builtin.fail:
+        msg: |
+          Pipeline 'build-agent' not found in namespace {{ agent_namespace }}.
+          The lab environment may not be properly deployed.
+      when: r_pipeline_exists.rc != 0
+
+    - name: Trigger pipeline run with broken branch
+      ansible.builtin.command: >
+        oc create -n {{ agent_namespace }} -f -
+      args:
+        stdin: |
+          apiVersion: tekton.dev/v1
+          kind: PipelineRun
+          metadata:
+            generateName: build-agent-
+            namespace: {{ agent_namespace }}
+          spec:
+            pipelineRef:
+              name: build-agent
+            params:
+              - name: GIT_REVISION
+                value: broken
+              - name: GIT_REPO
+                value: {{ gitea_url }}/{{ gitea_user }}/mcp.git
+            workspaces:
+              - name: workspace
+                volumeClaimTemplate:
+                  spec:
+                    accessModes:
+                      - ReadWriteOnce
+                    resources:
+                      requests:
+                        storage: 1Gi
+      register: r_pipeline_start
+      changed_when: r_pipeline_start.rc == 0
+
+    - name: Display pipeline trigger result
+      ansible.builtin.debug:
+        msg: "Pipeline run triggered: {{ r_pipeline_start.stdout }}"
+
+    - name: Extract PipelineRun name
+      ansible.builtin.set_fact:
+        pipelinerun_name: "{{ r_pipeline_start.stdout | regex_search('build-agent-[a-z0-9]+') }}"
+
+    # =========================================================================
+    # Step 2: Wait for pipeline to fail
+    # =========================================================================
+    - name: Wait for pipeline run to complete (will fail)
+      ansible.builtin.command: >
+        oc wait pipelinerun {{ pipelinerun_name }}
+        -n {{ agent_namespace }}
+        --for=condition=Succeeded=False
+        --timeout=10m
+      register: r_pipeline_wait
+      changed_when: false
+      ignore_errors: true
+
+    - name: Display pipeline completion
+      ansible.builtin.debug:
+        msg: |
+          Pipeline run completed (expected failure).
+          The agent should now create a Gitea issue automatically.
+
+    # =========================================================================
+    # Step 3: Wait for agent to create issue
+    # =========================================================================
+    - name: Wait for agent to process failure (30 seconds)
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Verify issue was created
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues"
+        method: GET
+        user: "{{ gitea_user }}"
+        password: "{{ lookup('env', 'PASSWORD') }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: 200
+      register: r_issues
+      until: r_issues.json | length > 0
+      retries: 6
+      delay: 10
+
+    - name: Display solver completion
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 2 Solver Complete
+          ================================================================================
+
+          ✅ Pipeline run triggered with broken branch
+          ✅ Pipeline failed as expected
+          ✅ Agent created Gitea issue: {{ gitea_url }}/{{ gitea_user }}/mcp/issues/{{ r_issues.json[0].number }}
+
+          Issue Title: {{ r_issues.json[0].title }}
+
+          Run the grader to verify all checkpoints pass.
+          ================================================================================

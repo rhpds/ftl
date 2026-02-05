@@ -1,0 +1,85 @@
+---
+# Grade Lab: Model Context Protocol (MCP) Enterprise Integration
+# Main grading playbook that orchestrates all module graders
+
+- name: Display Lab Grading Start
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_name: "Model Context Protocol (MCP) Enterprise Integration"
+    total_modules: 4
+
+  tasks:
+    - name: Display grading start message
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Starting Lab Grading: {{ lab_name }}
+          ================================================================================
+          Total Modules: {{ total_modules }}
+
+          Module 1: Lab Setup
+          Module 2: Sovereign SRE Agent Demo
+          Module 3: MCP Server Administration
+          Module 4: MCP Registry
+
+          ================================================================================
+
+# ============================================================================
+# Module 1: Lab Setup
+# ============================================================================
+- name: Grade Module 1
+  import_playbook: grade_module_01.yml
+  tags: ['module1', 'setup']
+
+# ============================================================================
+# Module 2: Sovereign SRE Agent Demo
+# ============================================================================
+- name: Grade Module 2
+  import_playbook: grade_module_02.yml
+  tags: ['module2', 'agent']
+
+# ============================================================================
+# Module 3: MCP Server Administration
+# ============================================================================
+- name: Grade Module 3
+  import_playbook: grade_module_03.yml
+  tags: ['module3', 'admin']
+
+# ============================================================================
+# Module 4: MCP Registry
+# ============================================================================
+- name: Grade Module 4
+  import_playbook: grade_module_04.yml
+  tags: ['module4', 'registry']
+
+# ============================================================================
+# Final Summary
+# ============================================================================
+- name: Display Lab Grading Complete
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_name: "Model Context Protocol (MCP) Enterprise Integration"
+
+  tasks:
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Lab Grading Complete: {{ lab_name }}
+          ================================================================================
+
+          ✅ Module 1: Lab Setup
+          ✅ Module 2: Sovereign SRE Agent Demo
+          ✅ Module 3: MCP Server Administration
+          ✅ Module 4: MCP Registry
+
+          All modules graded successfully!
+
+          Check the grading report at: /tmp/grading_dir/grading_report.txt
+          ================================================================================

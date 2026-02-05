@@ -1,0 +1,87 @@
+---
+# Solve Lab: Model Context Protocol (MCP) Enterprise Integration
+# Main solver playbook that orchestrates all module solvers
+
+- name: Display Lab Solver Start
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_name: "Model Context Protocol (MCP) Enterprise Integration"
+    total_modules: 4
+
+  tasks:
+    - name: Display solver start message
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Starting Lab Auto-Solver: {{ lab_name }}
+          ================================================================================
+          Total Modules: {{ total_modules }}
+
+          This will automatically complete all lab exercises:
+
+          Module 1: Lab Setup (verification only)
+          Module 2: Sovereign SRE Agent Demo (trigger pipeline, create issue)
+          Module 3: MCP Server Administration (tool filters, telemetry, new servers)
+          Module 4: MCP Registry (deploy registry, register servers)
+
+          ================================================================================
+
+# ============================================================================
+# Module 1: Lab Setup
+# ============================================================================
+- name: Solve Module 1
+  import_playbook: solve_module_01.yml
+  tags: ['module1', 'setup']
+
+# ============================================================================
+# Module 2: Sovereign SRE Agent Demo
+# ============================================================================
+- name: Solve Module 2
+  import_playbook: solve_module_02.yml
+  tags: ['module2', 'agent']
+
+# ============================================================================
+# Module 3: MCP Server Administration
+# ============================================================================
+- name: Solve Module 3
+  import_playbook: solve_module_03.yml
+  tags: ['module3', 'admin']
+
+# ============================================================================
+# Module 4: MCP Registry
+# ============================================================================
+- name: Solve Module 4
+  import_playbook: solve_module_04.yml
+  tags: ['module4', 'registry']
+
+# ============================================================================
+# Final Summary
+# ============================================================================
+- name: Display Lab Solver Complete
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_name: "Model Context Protocol (MCP) Enterprise Integration"
+
+  tasks:
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Lab Auto-Solver Complete: {{ lab_name }}
+          ================================================================================
+
+          ✅ Module 1: Lab Setup (verified)
+          ✅ Module 2: Sovereign SRE Agent Demo (completed)
+          ✅ Module 3: MCP Server Administration (completed)
+          ✅ Module 4: MCP Registry (completed)
+
+          All modules solved successfully!
+
+          Run the grader to verify: ansible-playbook grade_lab.yml
+          ================================================================================

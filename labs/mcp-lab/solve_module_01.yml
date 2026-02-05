@@ -1,0 +1,39 @@
+---
+# Solve Module 1: Lab Setup
+# Module 1 is pre-deployed environment validation
+# There is nothing to "solve" - just verify the environment is ready
+
+- name: Solve Module 1 - Lab Setup
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
+
+  tasks:
+    - name: Display Module 1 info
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 1: Lab Setup
+          ================================================================================
+
+          Module 1 validates pre-deployed environment components.
+          There are no student actions to complete - the lab environment should be
+          ready to use after provisioning by AgnosticV.
+
+          Expected components:
+          - MCP OpenShift Server in mcp-openshift-{{ base_namespace_prefix }}
+          - MCP Gitea Server in mcp-gitea-{{ base_namespace_prefix }}
+          - Gitea repository {{ base_namespace_prefix }}/mcp
+          - LibreChat route
+
+          If any components are missing, the lab environment was not properly deployed.
+          Contact the lab administrator or re-provision the environment.
+          ================================================================================
+
+    - name: Verify all components are ready
+      ansible.builtin.debug:
+        msg: "Module 1 validation complete. Run grade_module_01.yml to check all components."

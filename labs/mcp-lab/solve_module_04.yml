@@ -1,0 +1,258 @@
+---
+# Solve Module 4: MCP Registry
+# Deploys PostgreSQL, creates registry resources, and verifies server registration
+
+- name: Solve Module 4 - MCP Registry
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+
+  tasks:
+    - name: Display Module 4 solver info
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 4: MCP Registry - Solver
+          ================================================================================
+
+          This solver will:
+          1. Deploy PostgreSQL database using CloudNativePG
+          2. Create Secret for database credentials
+          3. Create ConfigMap with server catalog
+          4. Create MCPRegistry resource
+          5. Create Route to expose registry API
+          6. Verify servers are registered
+
+          ================================================================================
+
+    # =========================================================================
+    # Step 1: Deploy PostgreSQL database
+    # =========================================================================
+    - name: Deploy PostgreSQL Cluster
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: postgresql.cnpg.io/v1
+          kind: Cluster
+          metadata:
+            name: mcp-registry-db
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            instances: 1
+            storage:
+              size: 1Gi
+            bootstrap:
+              initdb:
+                database: registry
+                postInitApplicationSQL:
+                  - |
+                    BEGIN;
+
+                    DO $body$
+                      DECLARE
+                        migrator_user TEXT := 'db_migrator';
+                        migrator_password TEXT := 'migrator_password';
+
+                        app_user TEXT := 'db_app';
+                        app_password TEXT := 'app_password';
+
+                        db_name TEXT := 'registry';
+                      BEGIN
+                        EXECUTE format('CREATE USER %I WITH PASSWORD %L', migrator_user, migrator_password);
+                        EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', db_name, migrator_user);
+                        EXECUTE format('GRANT CREATE ON SCHEMA public TO %I', migrator_user);
+                        EXECUTE format('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %I', migrator_user);
+
+                        CREATE ROLE toolhive_registry_server;
+
+                        EXECUTE format('CREATE USER %I WITH PASSWORD %L', app_user, app_password);
+                        EXECUTE format('GRANT toolhive_registry_server TO %I', app_user);
+                        EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', db_name, app_user);
+                      END;
+                    $body$;
+
+                    COMMIT;
+
+    - name: Wait for PostgreSQL to be ready
+      kubernetes.core.k8s_info:
+        kind: Cluster
+        name: mcp-registry-db
+        namespace: "{{ mcp_gitea_namespace }}"
+        api_version: postgresql.cnpg.io/v1
+      register: r_pg_cluster
+      until:
+        - r_pg_cluster.resources | length > 0
+        - r_pg_cluster.resources[0].status.phase is defined
+        - r_pg_cluster.resources[0].status.phase == "Cluster in healthy state"
+      retries: 60
+      delay: 10
+
+    # =========================================================================
+    # Step 2: Create Secret for database credentials
+    # =========================================================================
+    - name: Create Secret for database passwords
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: mcp-registry-db-password
+            namespace: "{{ mcp_gitea_namespace }}"
+          type: Opaque
+          stringData:
+            user-password: app_password
+            migrator-password: migrator_password
+
+    # =========================================================================
+    # Step 3: Create ConfigMap with server catalog
+    # =========================================================================
+    - name: Create ConfigMap with server catalog
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: rh-one-mcp
+            namespace: "{{ mcp_gitea_namespace }}"
+          data:
+            registry.json: |
+              {
+                "$schema": "https://raw.githubusercontent.com/stacklok/toolhive/main/pkg/registry/data/schema.json",
+                "version": "1.0.0",
+                "last_updated": "2025-01-14T00:00:00Z",
+                "servers": {
+                  "kubernetes-mcp-server": {
+                    "description": "A powerful and flexible Kubernetes Model Context Protocol (MCP) server",
+                    "tier": "Community",
+                    "status": "Active",
+                    "transport": "sse",
+                    "tools": ["pods_list", "pods_get", "pods_log", "resources_list"],
+                    "tags": ["kubernetes", "infrastructure", "openshift"],
+                    "image": "quay.io/containers/kubernetes_mcp_server:latest-linux-amd64"
+                  },
+                  "gitea-mcp-server": {
+                    "description": "Gitea MCP Server for repository management",
+                    "tier": "Official",
+                    "status": "Active",
+                    "transport": "streamable-http",
+                    "tools": ["repo_list", "issue_list", "issue_create"],
+                    "tags": ["git", "repository", "devops"],
+                    "image": "docker.gitea.com/gitea-mcp-server:latest"
+                  }
+                }
+              }
+
+    # =========================================================================
+    # Step 4: Create MCPRegistry resource
+    # =========================================================================
+    - name: Create MCPRegistry resource
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: toolhive.stacklok.dev/v1alpha1
+          kind: MCPRegistry
+          metadata:
+            name: mcp-registry
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            displayName: "ToolHive Official Registry (Git)"
+            registries:
+              - name: rh-one-mcp
+                format: toolhive
+                configMapRef:
+                  name: rh-one-mcp
+                  key: registry.json
+                syncPolicy:
+                  interval: "1h"
+            databaseConfig:
+              host: "mcp-registry-db-rw.{{ mcp_gitea_namespace }}.svc.cluster.local"
+              port: 5432
+              user: db_app
+              migrationUser: db_migrator
+              database: registry
+              sslMode: require
+              dbAppUserPasswordSecretRef:
+                name: mcp-registry-db-password
+                key: user-password
+              dbMigrationUserPasswordSecretRef:
+                name: mcp-registry-db-password
+                key: migrator-password
+
+    - name: Wait for MCP Registry pod to be running
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mcp_gitea_namespace }}"
+        label_selectors:
+          - "app=mcp-registry"
+      register: r_registry_pods
+      until:
+        - r_registry_pods.resources | length > 0
+        - r_registry_pods.resources[0].status.phase == "Running"
+      retries: 60
+      delay: 10
+
+    # =========================================================================
+    # Step 5: Create Route to expose registry API
+    # =========================================================================
+    - name: Create Route for registry API
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+            name: mcp-registry
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            port:
+              targetPort: http
+            tls:
+              termination: edge
+            to:
+              kind: Service
+              name: mcp-registry-api
+              weight: 100
+            wildcardPolicy: None
+
+    - name: Wait for route to be available
+      ansible.builtin.pause:
+        seconds: 10
+
+    # =========================================================================
+    # Step 6: Verify servers are registered
+    # =========================================================================
+    - name: Query registry API
+      ansible.builtin.uri:
+        url: "https://mcp-registry-{{ mcp_gitea_namespace }}.{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') }}/registry/v0.1/servers"
+        method: GET
+        validate_certs: false
+        return_content: yes
+      register: r_registry
+      until: r_registry.json.metadata.count >= 2
+      retries: 12
+      delay: 5
+
+    - name: Display solver completion
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 4 Solver Complete
+          ================================================================================
+
+          ✅ PostgreSQL database deployed and healthy
+          ✅ Database credentials secret created
+          ✅ Server catalog ConfigMap created
+          ✅ MCPRegistry resource deployed
+          ✅ Registry API route created
+          ✅ {{ r_registry.json.metadata.count }} servers registered
+
+          Registry URL: https://mcp-registry-{{ mcp_gitea_namespace }}.{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') }}/registry/v0.1/servers
+
+          Run the grader to verify all checkpoints pass.
+          ================================================================================

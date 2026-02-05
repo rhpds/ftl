@@ -1,0 +1,217 @@
+---
+# Solve Module 3: MCP Server Administration
+# Creates tool filters, enables telemetry, and deploys additional MCP servers
+
+- name: Solve Module 3 - MCP Server Administration
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
+    mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+
+  tasks:
+    - name: Display Module 3 solver info
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 3: MCP Server Administration - Solver
+          ================================================================================
+
+          This solver will:
+          1. Create MCPToolConfig for read-only tool filtering
+          2. Enable Prometheus telemetry on OpenShift MCP Server
+          3. Create ServiceMonitor for metrics collection
+          4. Deploy Fetch MCP Server
+          5. Deploy Yardstick MCP Server
+
+          ================================================================================
+
+    # =========================================================================
+    # Step 1: Create MCPToolConfig for tool filtering
+    # =========================================================================
+    - name: Create MCPToolConfig for read-only access
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: toolhive.stacklok.dev/v1alpha1
+          kind: MCPToolConfig
+          metadata:
+            name: openshift-tool-filter
+            namespace: "{{ mcp_openshift_namespace }}"
+          spec:
+            toolsFilter:
+              - events_list
+              - namespaces_list
+              - pods_get
+              - pods_list
+              - pods_list_in_namespace
+              - pods_log
+              - resources_get
+              - resources_list
+
+    - name: Update MCPServer to use tool filter
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: toolhive.stacklok.dev/v1alpha1
+          kind: MCPServer
+          metadata:
+            name: openshift
+            namespace: "{{ mcp_openshift_namespace }}"
+          spec:
+            toolConfigRef:
+              name: openshift-tool-filter
+
+    # =========================================================================
+    # Step 2: Enable telemetry on OpenShift MCP Server
+    # =========================================================================
+    - name: Enable Prometheus telemetry
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: toolhive.stacklok.dev/v1alpha1
+          kind: MCPServer
+          metadata:
+            name: openshift
+            namespace: "{{ mcp_openshift_namespace }}"
+          spec:
+            telemetry:
+              prometheus:
+                enabled: true
+
+    - name: Wait for MCP server to restart with new config
+      ansible.builtin.pause:
+        seconds: 10
+
+    # =========================================================================
+    # Step 3: Create ServiceMonitor
+    # =========================================================================
+    - name: Create ServiceMonitor for metrics collection
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: monitoring.coreos.com/v1
+          kind: ServiceMonitor
+          metadata:
+            name: mcp-openshift
+            namespace: "{{ mcp_openshift_namespace }}"
+            labels:
+              team: mcp
+          spec:
+            namespaceSelector:
+              matchNames:
+                - "{{ mcp_openshift_namespace }}"
+            selector:
+              matchLabels:
+                app: mcpserver
+                toolhive-name: openshift
+            endpoints:
+              - port: http
+                path: /metrics
+                interval: 30s
+                scheme: http
+
+    # =========================================================================
+    # Step 4: Deploy Fetch MCP Server
+    # =========================================================================
+    - name: Deploy Fetch MCP Server
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: toolhive.stacklok.dev/v1alpha1
+          kind: MCPServer
+          metadata:
+            name: fetch
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            image: ghcr.io/stackloklabs/gofetch/server:1.0.2
+            transport: streamable-http
+            port: 8080
+            targetPort: 8080
+            permissionProfile:
+              type: builtin
+              name: network
+            resources:
+              limits:
+                cpu: "100m"
+                memory: "128Mi"
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+
+    # =========================================================================
+    # Step 5: Deploy Yardstick MCP Server
+    # =========================================================================
+    - name: Deploy Yardstick MCP Server
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: toolhive.stacklok.dev/v1alpha1
+          kind: MCPServer
+          metadata:
+            name: yardstick
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            image: ghcr.io/stackloklabs/yardstick/yardstick-server:1.1.0
+            transport: stdio
+            port: 8080
+            permissionProfile:
+              type: builtin
+              name: network
+            resources:
+              limits:
+                cpu: "100m"
+                memory: "128Mi"
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+
+    # =========================================================================
+    # Wait for deployments
+    # =========================================================================
+    - name: Wait for Fetch MCP Server pod to be running
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mcp_gitea_namespace }}"
+        label_selectors:
+          - "app=mcpserver"
+          - "toolhive-name=fetch"
+      register: r_fetch_pods
+      until:
+        - r_fetch_pods.resources | length > 0
+        - r_fetch_pods.resources[0].status.phase == "Running"
+      retries: 30
+      delay: 10
+
+    - name: Wait for Yardstick MCP Server pod to be running
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mcp_gitea_namespace }}"
+        label_selectors:
+          - "app=mcpserver"
+          - "toolhive-name=yardstick"
+      register: r_yardstick_pods
+      until:
+        - r_yardstick_pods.resources | length > 0
+        - r_yardstick_pods.resources[0].status.phase == "Running"
+      retries: 30
+      delay: 10
+
+    - name: Display solver completion
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 3 Solver Complete
+          ================================================================================
+
+          ✅ MCPToolConfig created for read-only access
+          ✅ Telemetry enabled on OpenShift MCP Server
+          ✅ ServiceMonitor created for Prometheus
+          ✅ Fetch MCP Server deployed and running
+          ✅ Yardstick MCP Server deployed and running
+
+          Run the grader to verify all checkpoints pass.
+          ================================================================================

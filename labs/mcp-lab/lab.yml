@@ -1,0 +1,200 @@
+---
+# FTL Lab Metadata: Model Context Protocol (MCP) Lab
+# Source: https://github.com/rhpds/lb1726-mcp-showroom
+
+lab:
+  id: mcp-lab
+  name: "Model Context Protocol (MCP) Enterprise Integration"
+  description: "Hands-on experience with MCP in enterprise Kubernetes environments"
+  version: "1.0"
+  estimated_time: "60-90 minutes"
+  source_repo: "https://github.com/rhpds/lb1726-mcp-showroom"
+
+# Lab Environment
+environment:
+  type: "openshift"
+  ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
+  base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+
+  # Environment variables expected
+  required_vars:
+    - OPENSHIFT_API_URL
+    - USER  # Student username (e.g., user1, user2)
+    - PASSWORD  # Student password
+    - GITEA_URL
+    - LIBRECHAT_URL
+
+# Modules (matching Showroom structure)
+modules:
+  - id: "01"
+    name: "Lab Setup"
+    description: "Set up lab environment - verify OpenShift access, MCP servers, Gitea, and LibreChat"
+    estimated_time: "5 minutes"
+
+    # What students do (from module-01.adoc)
+    student_actions:
+      - "Log in to OpenShift Console"
+      - "Log in to LibreChat and activate MCP servers"
+      - "Log in to Gitea and navigate to mcp repository"
+
+    # Validation checkpoints
+    checkpoints:
+      - id: "1.1"
+        description: "OpenShift access validated"
+        validation: "Can list pods in user namespaces"
+
+      - id: "1.2"
+        description: "MCP OpenShift Server pod is running"
+        validation: "Pod exists in mcp-openshift-{user} namespace"
+
+      - id: "1.3"
+        description: "MCP Gitea Server pod is running"
+        validation: "Pod exists in mcp-gitea-{user} namespace"
+
+      - id: "1.4"
+        description: "Gitea repository accessible"
+        validation: "mcp repository exists for user"
+
+      - id: "1.5"
+        description: "LibreChat accessible"
+        validation: "LibreChat route exists"
+
+  - id: "02"
+    name: "Sovereign SRE Agent Demo"
+    description: "AI agent automatically diagnoses CI/CD pipeline failure using MCP servers"
+    estimated_time: "20-30 minutes"
+
+    student_actions:
+      - "Deploy autonomous SRE agent"
+      - "Observe agent diagnosis of pipeline failure"
+      - "Verify agent created Gitea issue"
+      - "Use LibreChat to query infrastructure with natural language"
+
+    checkpoints:
+      - id: "2.1"
+        description: "Agent pod deployed and running"
+        validation: "agent-{user} namespace contains running agent pod"
+
+      - id: "2.2"
+        description: "Agent connected to MCP servers"
+        validation: "Agent logs show successful MCP connections (23 + 106 tools)"
+
+      - id: "2.3"
+        description: "Pipeline failure diagnosed"
+        validation: "Agent identified the failure cause"
+
+      - id: "2.4"
+        description: "Gitea issue created by agent"
+        validation: "Issue exists in Gitea mcp repository"
+
+  - id: "03"
+    name: "MCP Server Administration"
+    description: "Configure and manage MCP servers - tool filtering, telemetry, observability"
+    estimated_time: "20-30 minutes"
+
+    student_actions:
+      - "Create MCPToolConfig for read-only access"
+      - "Enable Prometheus telemetry"
+      - "Create ServiceMonitor for metrics collection"
+      - "Deploy additional MCP servers (fetch, yardstick)"
+
+    checkpoints:
+      - id: "3.1"
+        description: "MCPToolConfig created for tool filtering"
+        validation: "MCPToolConfig resource exists with read-only tools"
+
+      - id: "3.2"
+        description: "Telemetry enabled on OpenShift MCP Server"
+        validation: "MCP server exposes Prometheus metrics"
+
+      - id: "3.3"
+        description: "ServiceMonitor created"
+        validation: "ServiceMonitor resource exists"
+
+      - id: "3.4"
+        description: "Fetch MCP Server deployed"
+        validation: "fetch server pod running"
+
+      - id: "3.5"
+        description: "Yardstick MCP Server deployed"
+        validation: "yardstick server pod running"
+
+  - id: "04"
+    name: "MCP Registry"
+    description: "Deploy MCP Registry for centralized server discovery and governance"
+    estimated_time: "20-30 minutes"
+
+    student_actions:
+      - "Deploy MCP Registry with PostgreSQL backend"
+      - "Register MCP servers in registry"
+      - "Query registry for server discovery"
+      - "Implement governance workflows"
+
+    checkpoints:
+      - id: "4.1"
+        description: "PostgreSQL database deployed"
+        validation: "PostgreSQL pod running in mcp-registry namespace"
+
+      - id: "4.2"
+        description: "MCP Registry deployed"
+        validation: "mcp-registry pod running"
+
+      - id: "4.3"
+        description: "Registry service accessible"
+        validation: "mcp-registry service exists"
+
+      - id: "4.4"
+        description: "MCP servers registered"
+        validation: "Registry contains server registrations"
+
+# Pre-deployed Resources (by AgnosticV/catalog)
+predeployed_resources:
+  openshift_namespaces:
+    - "mcp-openshift-{{ base_namespace_prefix }}"
+    - "mcp-gitea-{{ base_namespace_prefix }}"
+    - "agent-{{ base_namespace_prefix }}"
+    - "mcp-registry"
+
+  mcp_servers:
+    openshift:
+      namespace: "mcp-openshift-{{ base_namespace_prefix }}"
+      deployment: "mcp-openshift-server"
+      service: "mcp-openshift-proxy"
+      tools_count: 23
+
+    gitea:
+      namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+      deployment: "mcp-gitea-server"
+      service: "mcp-gitea-proxy"
+      tools_count: 106
+
+  external_services:
+    - name: "Gitea"
+      url_var: "GITEA_URL"
+      user_var: "GITEA_USER"
+
+    - name: "LibreChat"
+      url_var: "LIBRECHAT_URL"
+      user_var: "LIBRECHAT_USER"
+
+# Grading Configuration
+grading:
+  continue_on_failure: true
+  report_format: "text"
+  report_path: "/tmp/grading_dir/grading_report.txt"
+
+  # Total checkpoints across all modules
+  total_checkpoints: 18
+
+  # Passing criteria
+  passing_threshold: 0.8  # 80% of checkpoints must pass
+
+# Technology Stack
+technologies:
+  - OpenShift/Kubernetes
+  - Model Context Protocol (MCP)
+  - ToolHive (MCP Operator)
+  - LibreChat (AI interface)
+  - Gitea (Git repository)
+  - Prometheus (metrics)
+  - PostgreSQL (registry backend)

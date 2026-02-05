@@ -1,0 +1,96 @@
+---
+# Grade Module 4: MCP Registry
+# Validates PostgreSQL deployment, registry deployment, and server registration
+
+- name: Initialize FTL Grading Session - Module 4
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "MCP Lab - Module 4: MCP Registry"
+    student_name: "{{ lookup('env', 'USER') | default('student') }}"
+  roles:
+    - ftl_run_init
+
+- name: Grade Module 4 - MCP Registry
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+    openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
+
+  tasks:
+    # =========================================================================
+    # Checkpoint 4.1: PostgreSQL database deployed
+    # =========================================================================
+    - name: "4.1: Verify PostgreSQL cluster is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "PostgreSQL database pod is running"
+        pod_name: "mcp-registry-db-.*"  # CNPG creates pods with this pattern
+        pod_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          PostgreSQL database pod not found or not running in {{ mcp_gitea_namespace }}.
+          Deploy PostgreSQL using CNPG Cluster resource.
+          Check pod status: oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry-db
+
+    # =========================================================================
+    # Checkpoint 4.2: MCP Registry deployed
+    # =========================================================================
+    - name: "4.2: Verify MCP Registry pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "MCP Registry pod is running"
+        pod_name: "mcp-registry-.*"  # Matches registry pods
+        pod_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          MCP Registry pod not found or not running in {{ mcp_gitea_namespace }}.
+          Deploy MCP Registry using MCPRegistry resource.
+          Check pod status: oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry
+
+    # =========================================================================
+    # Checkpoint 4.3: Registry service accessible
+    # =========================================================================
+    - name: "4.3: Verify MCP Registry service exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_service_exists
+      vars:
+        task_description_message: "MCP Registry service 'mcp-registry-api' exists"
+        service_name: "mcp-registry-api"
+        service_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          MCP Registry service 'mcp-registry-api' not found in {{ mcp_gitea_namespace }}.
+          This should be created automatically when MCPRegistry is deployed.
+          Check services: oc get svc -n {{ mcp_gitea_namespace }} | grep mcp-registry
+
+    # =========================================================================
+    # Checkpoint 4.4: MCP servers registered
+    # =========================================================================
+    - name: "4.4: Verify MCP servers are registered in registry"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "MCP servers registered in registry (at least 2)"
+        command: >
+          curl -s -k https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/v0.1/servers
+          | jq '.metadata.count'
+        expected_output_regex: "^[2-9]$|^[1-9][0-9]+$"  # At least 2 servers
+        student_error_message: |
+          Registry does not contain expected number of servers (need at least 2).
+          Verify:
+          - ConfigMap with server catalog exists
+          - MCPRegistry references the ConfigMap
+          - Registry has synced: oc logs -n {{ mcp_gitea_namespace }} <mcp-registry-pod>
+          Query registry: curl https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/v0.1/servers | jq
+
+- name: Finalize FTL Grading Session - Module 4
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish
