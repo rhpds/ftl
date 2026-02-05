@@ -7,7 +7,6 @@
 - name: Initialize success flag
   ansible.builtin.set_fact:
     success: false
-  delegate_to: localhost
 
 # Validate required parameters
 # Ensure critical variables are provided before proceeding
@@ -20,7 +19,6 @@
       - task_description_message | length > 0
     fail_msg: "Required variables missing: file_path and task_description_message are required"
     quiet: true
-  delegate_to: localhost
 
 # Check if file/directory exists and get stats
 # Gather file information for validation
@@ -28,7 +26,6 @@
   ansible.builtin.stat:
     path: "{{ file_path }}"
   register: r_file_stat
-  delegate_to: localhost
 
 # Validate file type if file exists
 # Check if the path is a file, directory, or link as expected
@@ -42,7 +39,6 @@
         (file_type == 'directory' and r_file_stat.stat.isdir) or
         (file_type == 'link' and r_file_stat.stat.islnk)
       }}
-  delegate_to: localhost
 
 # Validate permissions if specified
 # Check if file has expected permissions (e.g., '0644')
@@ -53,7 +49,6 @@
     - check_mode_permissions | length > 0
   ansible.builtin.set_fact:
     permissions_valid: "{{ r_file_stat.stat.mode == check_mode_permissions }}"
-  delegate_to: localhost
 
 # Validate owner if specified
 # Check if file has expected owner
@@ -64,7 +59,6 @@
     - check_owner | length > 0
   ansible.builtin.set_fact:
     owner_valid: "{{ r_file_stat.stat.pw_name == check_owner }}"
-  delegate_to: localhost
 
 # Validate group if specified
 # Check if file has expected group
@@ -75,7 +69,6 @@
     - check_group | length > 0
   ansible.builtin.set_fact:
     group_valid: "{{ r_file_stat.stat.gr_name == check_group }}"
-  delegate_to: localhost
 
 # Evaluate overall success
 # File must exist, match type, and pass all optional checks
@@ -89,7 +82,6 @@
         (owner_valid | default(true)) and
         (group_valid | default(true))
       }}
-  delegate_to: localhost
 
 # Create PASS message
 # Report successful validation to student
@@ -97,7 +89,6 @@
   when: success | bool
   ansible.builtin.set_fact:
     grader_output_message: "PASS: {{ task_description_message }}"
-  delegate_to: localhost
 
 # Create FAIL message with detailed error
 # Report failure with helpful error message indicating what failed
@@ -117,11 +108,9 @@
       {% elif not (group_valid | default(true)) %}
       (wrong group: expected {{ check_group }}, got {{ r_file_stat.stat.gr_name }})
       {% endif %}
-  delegate_to: localhost
 
 # Log the grading result
 # Call the logging role to append result to report file
 - name: Log grading result
   ansible.builtin.import_role:
     name: ftl_run_log_grade_to_log
-  delegate_to: localhost

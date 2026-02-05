@@ -11,7 +11,6 @@
       - grader_output_message | length > 0
     fail_msg: "grader_output_message must be provided to log grading results"
     quiet: true
-  delegate_to: localhost
 
 # Append grading result to report file
 # Format: "PASS: Task description" or "FAIL: Task description: Error message"
@@ -22,7 +21,6 @@
     line: "{{ grader_output_message }}"
     create: true
     mode: '0644'
-  delegate_to: localhost
 
 # Debug output for verbose mode
 # Helps developers see grading results in real-time during testing
@@ -30,4 +28,3 @@
   ansible.builtin.debug:
     msg: "{{ grader_output_message }}"
     verbosity: 1
-  delegate_to: localhost

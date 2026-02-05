@@ -7,7 +7,6 @@
 - name: Initialize success flag
   ansible.builtin.set_fact:
     success: false
-  delegate_to: localhost
 
 # Validate required parameters
 # Ensure critical variables are provided before proceeding
@@ -20,7 +19,6 @@
       - task_description_message | length > 0
     fail_msg: "Required variables missing: command and task_description_message are required"
     quiet: true
-  delegate_to: localhost
 
 # Execute the command
 # Run the specified command and capture output and return code
@@ -33,7 +31,6 @@
   register: r_command
   changed_when: false
   failed_when: false
-  delegate_to: localhost
 
 # Evaluate success based on exact output match
 # If expected_output is provided, stdout must exactly match
@@ -43,7 +40,6 @@
     - expected_output | length > 0
   ansible.builtin.set_fact:
     success: "{{ r_command.stdout.strip() == expected_output }}"
-  delegate_to: localhost
 
 # Evaluate success based on regex pattern
 # If expected_output_regex is provided, stdout must match the pattern
@@ -54,7 +50,6 @@
     - expected_output is not defined or expected_output | length == 0
   ansible.builtin.set_fact:
     success: "{{ r_command.stdout is regex(expected_output_regex) }}"
-  delegate_to: localhost
 
 # Evaluate success based on return code
 # If no output validation is specified, check return code only
@@ -64,7 +59,6 @@
     - (expected_output_regex is not defined or expected_output_regex | length == 0)
   ansible.builtin.set_fact:
     success: "{{ r_command.rc == expected_rc }}"
-  delegate_to: localhost
 
 # Create PASS message
 # Report successful validation to student
@@ -72,7 +66,6 @@
   when: success | bool
   ansible.builtin.set_fact:
     grader_output_message: "PASS: {{ task_description_message }}"
-  delegate_to: localhost
 
 # Create FAIL message
 # Report failure with helpful error message
@@ -82,11 +75,9 @@
     grader_output_message: >-
       FAIL: {{ task_description_message }}: {{ student_error_message }}
       (expected rc={{ expected_rc }}, got rc={{ r_command.rc }})
-  delegate_to: localhost
 
 # Log the grading result
 # Call the logging role to append result to report file
 - name: Log grading result
   ansible.builtin.import_role:
     name: ftl_run_log_grade_to_log
-  delegate_to: localhost

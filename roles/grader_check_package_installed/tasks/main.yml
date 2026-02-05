@@ -6,7 +6,6 @@
 - name: Initialize success flag
   ansible.builtin.set_fact:
     success: false
-  delegate_to: localhost
 
 # Validate required parameters
 - name: Validate required variables
@@ -18,7 +17,6 @@
       - task_description_message | length > 0
     fail_msg: "Required variables missing: package_name and task_description_message are required"
     quiet: true
-  delegate_to: localhost
 
 # Check if package is installed using check_mode
 # In check_mode, package module reports 'changed' if package would be installed
@@ -30,21 +28,18 @@
   check_mode: true
   register: r_package
   failed_when: false
-  delegate_to: localhost
 
 # Determine success based on package state
 # Package is installed if check_mode shows no changes needed
 - name: Determine success
   ansible.builtin.set_fact:
     success: "{{ not r_package.changed }}"
-  delegate_to: localhost
 
 # Create PASS message
 - name: Create Pass message
   when: success | bool
   ansible.builtin.set_fact:
     grader_output_message: "PASS: {{ task_description_message }}"
-  delegate_to: localhost
 
 # Create FAIL message
 - name: Create Fail message
@@ -53,10 +48,8 @@
     grader_output_message: >-
       FAIL: {{ task_description_message }}: {{ student_error_message }}
       (package '{{ package_name }}' not installed)
-  delegate_to: localhost
 
 # Log the grading result
 - name: Log grading result
   ansible.builtin.import_role:
     name: ftl_run_log_grade_to_log
-  delegate_to: localhost

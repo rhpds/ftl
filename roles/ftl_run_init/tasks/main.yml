@@ -10,7 +10,6 @@
     state: directory
     mode: '0755'
     owner: "{{ ansible_user | default(omit) }}"
-  delegate_to: localhost
 
 # Remove any previous grading report
 # This ensures each grading run starts fresh without confusion from old results
@@ -18,7 +17,6 @@
   ansible.builtin.file:
     path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
     state: absent
-  delegate_to: localhost
 
 # Create report file with header
 # The header provides context about the grading session (lab, student, timestamp)
@@ -27,7 +25,6 @@
     src: grader_student_report_file.j2
     dest: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
     mode: '0644'
-  delegate_to: localhost
 
 # Initialize grading session variables
 # These track the overall grading state across all graders
@@ -35,7 +32,6 @@
   ansible.builtin.set_fact:
     ftl_grading_start_time: "{{ ansible_date_time.iso8601 }}"
     ftl_grading_session_id: "{{ ansible_date_time.epoch }}"
-  delegate_to: localhost
 
 # Display grading session info
 # Helps students know what's being graded
@@ -51,4 +47,3 @@
       Session:   {{ ftl_grading_session_id }}
       Report:    {{ grader_working_dir }}/{{ grader_student_report_file }}
       ============================================================
-  delegate_to: localhost

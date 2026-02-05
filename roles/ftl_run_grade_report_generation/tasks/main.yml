@@ -9,14 +9,12 @@
   ansible.builtin.slurp:
     src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
   register: r_report
-  delegate_to: localhost
 
 # Check for any FAIL entries in the report
 # If "FAIL" appears anywhere, the lab is considered failed
 - name: Check for failures in report
   ansible.builtin.set_fact:
     lab_passed: "{{ 'FAIL' not in (r_report.content | b64decode) }}"
-  delegate_to: localhost
 
 # Count the number of failed checks
 # This gives students feedback on how many issues need to be fixed
@@ -25,7 +23,6 @@
     grep -c '^FAIL' "{{ grader_working_dir }}/{{ grader_student_report_file }}" || true
   register: r_error_count
   changed_when: false
-  delegate_to: localhost
 
 # Calculate SHA256 hash of the report
 # This provides integrity verification and prevents report tampering
@@ -34,7 +31,6 @@
     path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
     checksum_algorithm: sha256
   register: r_stat
-  delegate_to: localhost
 
 # Append summary section separator
 # Makes the report easier to read with clear visual sections
@@ -47,7 +43,6 @@
       Summary
       ================================================================================
     insertafter: EOF
-  delegate_to: localhost
 
 # Append final status
 # Shows SUCCESS with 0 errors or FAILED with error count
@@ -56,7 +51,6 @@
     path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
     line: "{{ 'SUCCESS 0 Errors' if lab_passed else 'FAILED ' + r_error_count.stdout + ' Errors' }}"
     insertafter: EOF
-  delegate_to: localhost
 
 # Append SHA256 signature
 # Provides cryptographic proof of report authenticity
@@ -67,7 +61,6 @@
 
       SHA256: {{ r_stat.stat.checksum }}
     insertafter: EOF
-  delegate_to: localhost
 
 # AgnosticD userinfo integration
 # When running in AgnosticV catalogs, report results to AgnosticD for visibility
@@ -87,7 +80,6 @@
           grade_lab_id: "{{ lab_id }}"
           grade_lab_guid: "{{ guid }}"
           grade_lab_student: "{{ student_name }}"
-      delegate_to: localhost
 
 # Set grading result facts for downstream use
 # Other playbooks or roles can check these facts to determine grading outcome
@@ -96,4 +88,3 @@
     ftl_lab_passed: "{{ lab_passed }}"
     ftl_error_count: "{{ r_error_count.stdout }}"
     ftl_report_checksum: "{{ r_stat.stat.checksum }}"
-  delegate_to: localhost

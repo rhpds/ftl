@@ -8,7 +8,6 @@
   ansible.builtin.slurp:
     src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
   register: r_final_report
-  delegate_to: localhost
 
 # Display the complete grading report to the student
 # This provides immediate feedback on lab progress and any issues to fix
@@ -16,7 +15,6 @@
   ansible.builtin.debug:
     msg: "{{ (r_final_report.content | b64decode).split('\n') }}"
   when: display_full_report | bool
-  delegate_to: localhost
 
 # Provide guidance on next steps based on results
 # If lab passed, congratulate the student
@@ -40,7 +38,6 @@
 
       Report location: {{ grader_working_dir }}/{{ grader_student_report_file }}
       ============================================================
-  delegate_to: localhost
 
 # Copy report to standard location for student access
 # This ensures students can always find their report at a known path
@@ -50,7 +47,6 @@
     dest: "/tmp/grading_report.txt"
     mode: '0644'
     remote_src: true
-  delegate_to: localhost
   ignore_errors: true
 
 # Archive previous reports for history
@@ -61,5 +57,4 @@
     dest: "{{ grader_working_dir }}/grading_report_{{ ansible_date_time.epoch }}.txt"
     mode: '0644'
     remote_src: true
-  delegate_to: localhost
   ignore_errors: true

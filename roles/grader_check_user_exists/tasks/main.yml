@@ -6,7 +6,6 @@
 - name: Initialize success flag
   ansible.builtin.set_fact:
     success: false
-  delegate_to: localhost
 
 # Validate required parameters
 - name: Validate required variables
@@ -18,7 +17,6 @@
       - task_description_message | length > 0
     fail_msg: "Required variables missing: username and task_description_message are required"
     quiet: true
-  delegate_to: localhost
 
 # Get user account information
 # Using getent module to retrieve user details from system database
@@ -28,21 +26,18 @@
     key: "{{ username }}"
   register: r_user
   failed_when: false
-  delegate_to: localhost
 
 # Check if user exists
 # User exists if getent found an entry in passwd database
 - name: Check if user exists
   ansible.builtin.set_fact:
     user_exists: "{{ r_user.ansible_facts.getent_passwd is defined and username in r_user.ansible_facts.getent_passwd }}"
-  delegate_to: localhost
 
 # Set success to true if user exists (basic check)
 - name: Set initial success based on user existence
   when: user_exists | bool
   ansible.builtin.set_fact:
     success: true
-  delegate_to: localhost
 
 # Optional: Verify user groups if check_groups is specified
 - name: Verify user groups
@@ -57,7 +52,6 @@
       register: r_user_groups
       changed_when: false
       failed_when: false
-      delegate_to: localhost
 
     # Check if all required groups are present
     - name: Validate group membership
@@ -65,7 +59,6 @@
         success: "{{ item in r_user_groups.stdout.split() }}"
       loop: "{{ check_groups.split(',') | map('trim') | list }}"
       when: success | bool
-      delegate_to: localhost
 
 # Optional: Verify user shell if check_shell is specified
 - name: Verify user shell
@@ -79,13 +72,11 @@
     - name: Get user shell
       ansible.builtin.set_fact:
         actual_shell: "{{ r_user.ansible_facts.getent_passwd[username][5] }}"
-      delegate_to: localhost
 
     # Compare actual shell with expected shell
     - name: Validate shell
       ansible.builtin.set_fact:
         success: "{{ actual_shell == check_shell }}"
-      delegate_to: localhost
 
 # Optional: Verify user home directory if check_home is specified
 - name: Verify user home directory
@@ -99,20 +90,17 @@
     - name: Get user home directory
       ansible.builtin.set_fact:
         actual_home: "{{ r_user.ansible_facts.getent_passwd[username][4] }}"
-      delegate_to: localhost
 
     # Compare actual home with expected home
     - name: Validate home directory
       ansible.builtin.set_fact:
         success: "{{ actual_home == check_home }}"
-      delegate_to: localhost
 
 # Create PASS message
 - name: Create Pass message
   when: success | bool
   ansible.builtin.set_fact:
     grader_output_message: "PASS: {{ task_description_message }}"
-  delegate_to: localhost
 
 # Create FAIL message
 - name: Create Fail message
@@ -121,10 +109,8 @@
     grader_output_message: >-
       FAIL: {{ task_description_message }}: {{ student_error_message }}
       (user '{{ username }}' validation failed)
-  delegate_to: localhost
 
 # Log the grading result
 - name: Log grading result
   ansible.builtin.import_role:
     name: ftl_run_log_grade_to_log
-  delegate_to: localhost

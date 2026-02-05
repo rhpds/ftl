@@ -7,7 +7,6 @@
 - name: Initialize success flag
   ansible.builtin.set_fact:
     success: false
-  delegate_to: localhost
 
 # Validate required parameters
 # Ensure critical variables are provided before proceeding
@@ -20,7 +19,6 @@
       - task_description_message | length > 0
     fail_msg: "Required variables missing: service_name and task_description_message are required"
     quiet: true
-  delegate_to: localhost
 
 # Get service status
 # Gather information about the service state
@@ -30,7 +28,6 @@
   check_mode: true
   register: r_service
   failed_when: false
-  delegate_to: localhost
 
 # Check if service is active (running)
 # Service must be in active state
@@ -38,7 +35,6 @@
   ansible.builtin.set_fact:
     service_active: "{{ r_service.status.ActiveState == 'active' }}"
   when: r_service.status is defined
-  delegate_to: localhost
 
 # Check if service is enabled (if requested)
 # Service must be enabled to start on boot
@@ -47,7 +43,6 @@
   ansible.builtin.set_fact:
     service_enabled: "{{ r_service.status.UnitFileState == 'enabled' }}"
   when: r_service.status is defined
-  delegate_to: localhost
 
 # Evaluate overall success
 # Service must be active and (if checked) enabled
@@ -58,7 +53,6 @@
         (service_active | default(false)) and
         (not (check_enabled | bool) or (service_enabled | default(false)))
       }}
-  delegate_to: localhost
 
 # Create PASS message
 # Report successful validation to student
@@ -66,7 +60,6 @@
   when: success | bool
   ansible.builtin.set_fact:
     grader_output_message: "PASS: {{ task_description_message }}"
-  delegate_to: localhost
 
 # Create FAIL message
 # Report failure with helpful error message
@@ -80,11 +73,9 @@
       {% elif check_enabled | bool and not (service_enabled | default(false)) %}
       (service not enabled)
       {% endif %}
-  delegate_to: localhost
 
 # Log the grading result
 # Call the logging role to append result to report file
 - name: Log grading result
   ansible.builtin.import_role:
     name: ftl_run_log_grade_to_log
-  delegate_to: localhost
