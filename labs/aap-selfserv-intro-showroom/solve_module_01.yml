@@ -121,7 +121,7 @@
 
     - name: "Assign clouduser1 to cloud-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ cloud_team_id }}/users/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/teams/{{ cloud_team_id }}/associate/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -129,7 +129,7 @@
         validate_certs: false
         body_format: json
         body:
-          id: "{{ r_clouduser1.json.results[0].id }}"
+          instances: ["{{ r_clouduser1.json.results[0].id }}"]
         status_code: [200, 201, 204, 400]
       when: r_clouduser1.json.count | default(0) | int > 0
 
@@ -145,7 +145,7 @@
 
     - name: "Assign networkuser1 to network-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ network_team_id }}/users/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/teams/{{ network_team_id }}/associate/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -153,7 +153,7 @@
         validate_certs: false
         body_format: json
         body:
-          id: "{{ r_networkuser1.json.results[0].id }}"
+          instances: ["{{ r_networkuser1.json.results[0].id }}"]
         status_code: [200, 201, 204, 400]
       when: r_networkuser1.json.count | default(0) | int > 0
 
@@ -169,7 +169,7 @@
 
     - name: "Assign rheluser1 to rhel-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ rhel_team_id }}/users/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/teams/{{ rhel_team_id }}/associate/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -177,7 +177,7 @@
         validate_certs: false
         body_format: json
         body:
-          id: "{{ r_rheluser1.json.results[0].id }}"
+          instances: ["{{ r_rheluser1.json.results[0].id }}"]
         status_code: [200, 201, 204, 400]
       when: r_rheluser1.json.count | default(0) | int > 0
 
