@@ -634,8 +634,15 @@
                     page.wait_for_timeout(2000)
 
                     # Step 1: Fill name and description
-                    page.locator('input').filter(has_text='Name').fill('ssa-portal-users')
+                    # Wait for form to appear
+                    page.wait_for_selector('input[type="text"]', timeout=10000)
+                    page.wait_for_timeout(1000)
+
+                    # Fill name (first text input in form)
+                    page.locator('input[type="text"]').first.fill('ssa-portal-users')
                     page.wait_for_timeout(500)
+
+                    # Fill description (first textarea)
                     page.locator('textarea').first.fill('Role for Cloud and Network teams')
                     page.wait_for_timeout(500)
                     page.get_by_role('button', name='Next').click()
@@ -726,8 +733,15 @@
                     page.wait_for_timeout(2000)
 
                     # Step 1: Fill name and description
-                    page.locator('input').filter(has_text='Name').fill('saa-portal-rhel-team')
+                    # Wait for form to appear
+                    page.wait_for_selector('input[type="text"]', timeout=10000)
+                    page.wait_for_timeout(1000)
+
+                    # Fill name (first text input in form)
+                    page.locator('input[type="text"]').first.fill('saa-portal-rhel-team')
                     page.wait_for_timeout(500)
+
+                    # Fill description (first textarea)
                     page.locator('textarea').first.fill('Role for RHEL team')
                     page.wait_for_timeout(500)
                     page.get_by_role('button', name='Next').click()
