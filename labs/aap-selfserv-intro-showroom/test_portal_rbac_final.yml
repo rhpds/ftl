@@ -58,13 +58,26 @@
             print("\nStep 2: Navigating to RBAC page...")
             page.goto(f"{portal_url}/rbac", timeout=60000)
             page.wait_for_load_state('networkidle')
-            page.wait_for_timeout(5000)  # Extra wait for dynamic content
+
+            # Wait for RBAC content to load (look for "All roles" heading)
+            try:
+                page.wait_for_selector('text=All roles', timeout=15000)
+                print("  ✅ RBAC page loaded")
+            except:
+                print("  ⚠️  'All roles' text not found, continuing anyway")
+
+            page.wait_for_timeout(3000)  # Additional wait for table to populate
             print(f"  URL: {page.url}")
 
             # Step 3: Get page content and search for policies
             print("\nStep 3: Searching for RBAC policies...")
             page_content = page.content()
             page_text = page.inner_text('body')
+
+            # Debug: Show first 500 chars of page text
+            print(f"\n  [DEBUG] Page text preview (first 500 chars):")
+            print(f"  {page_text[:500]}")
+            print()
 
             # Check for policies
             ssa_users_found = 'ssa-portal-users' in page_text
