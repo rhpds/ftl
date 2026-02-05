@@ -181,6 +181,264 @@
         status_code: [200, 201, 204, 400]
       when: r_rheluser1.json.count | default(0) | int > 0
 
+    # ========================================================================
+    # Section 1.4: Assign Roles to cloud-team
+    # ========================================================================
+
+    - name: "Get Cloud/AWS job templates"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__istartswith=Cloud/AWS"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_templates
+
+    - name: "Assign Execute role on Cloud/AWS templates to cloud-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ cloud_team_id }}"
+          role_definition: "JobTemplate Execute"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ r_cloud_templates.json.results }}"
+      when: r_cloud_templates.json.count | default(0) | int > 0
+
+    - name: "Get cloud inventories"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name__in=AWS Inventory,Azure Inventory,GCP Inventory"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_inventories
+
+    - name: "Assign Use role on cloud inventories to cloud-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ cloud_team_id }}"
+          role_definition: "Inventory Use"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ r_cloud_inventories.json.results }}"
+      when: r_cloud_inventories.json.count | default(0) | int > 0
+
+    - name: "Get cloud credentials"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name__in=AWS Credential,Azure Credential,RHEL - SSH Credentials"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_credentials
+
+    - name: "Assign Use role on cloud credentials to cloud-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ cloud_team_id }}"
+          role_definition: "Credential Use"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ r_cloud_credentials.json.results }}"
+      when: r_cloud_credentials.json.count | default(0) | int > 0
+
+    # ========================================================================
+    # Section 1.5: Assign Roles to network-team
+    # ========================================================================
+
+    - name: "Get Network job templates"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__istartswith=Network/"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_templates
+
+    - name: "Assign Execute role on Network templates to network-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ network_team_id }}"
+          role_definition: "JobTemplate Execute"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ r_network_templates.json.results }}"
+      when: r_network_templates.json.count | default(0) | int > 0
+
+    - name: "Get Network Inventory"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name=Network Inventory"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_inventory
+
+    - name: "Assign Use role on Network Inventory to network-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/{{ r_network_inventory.json.results[0].id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ network_team_id }}"
+          role_definition: "Inventory Use"
+        status_code: [200, 201, 204, 400]
+      when: r_network_inventory.json.count | default(0) | int > 0
+
+    - name: "Get Network Credential"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name=Network Credential"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_credential
+
+    - name: "Assign Use role on Network Credential to network-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/{{ r_network_credential.json.results[0].id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ network_team_id }}"
+          role_definition: "Credential Use"
+        status_code: [200, 201, 204, 400]
+      when: r_network_credential.json.count | default(0) | int > 0
+
+    # ========================================================================
+    # Section 1.6: Assign Roles to rhel-team
+    # ========================================================================
+
+    - name: "Get Linux/RHEL job templates"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__istartswith=Linux/RHEL"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_templates
+
+    - name: "Get additional RHEL job templates (Cloud/AWS Create RHEL instances)"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__in=Cloud/AWS Create RHEL10 instance,Cloud/AWS Create RHEL9 instance,RHEL / Update RHEL Time Servers"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_additional_templates
+
+    - name: "Combine RHEL templates"
+      ansible.builtin.set_fact:
+        all_rhel_templates: "{{ r_rhel_templates.json.results + r_rhel_additional_templates.json.results }}"
+
+    - name: "Assign Execute role on RHEL templates to rhel-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ rhel_team_id }}"
+          role_definition: "JobTemplate Execute"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ all_rhel_templates }}"
+      when: all_rhel_templates | length > 0
+
+    - name: "Get RHEL inventories"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name__in=RHEL Inventory,AWS Inventory"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_inventories
+
+    - name: "Assign Use role on RHEL inventories to rhel-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ rhel_team_id }}"
+          role_definition: "Inventory Use"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ r_rhel_inventories.json.results }}"
+      when: r_rhel_inventories.json.count | default(0) | int > 0
+
+    - name: "Get RHEL credentials"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name__in=AWS Credential,RHEL - SSH Credentials"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_credentials
+
+    - name: "Assign Use role on RHEL credentials to rhel-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/{{ item.id }}/access_list/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ rhel_team_id }}"
+          role_definition: "Credential Use"
+        status_code: [200, 201, 204, 400]
+      loop: "{{ r_rhel_credentials.json.results }}"
+      when: r_rhel_credentials.json.count | default(0) | int > 0
+
     - name: "Module 1 solve complete"
       ansible.builtin.debug:
-        msg: "✅ Module 1 solve complete - Teams created and users assigned"
+        msg: "✅ Module 1 solve complete - Teams, users, and all RBAC role assignments configured"
