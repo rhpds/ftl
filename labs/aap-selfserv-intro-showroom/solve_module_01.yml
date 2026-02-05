@@ -867,7 +867,7 @@
                 sys.exit(0)
 
         except Exception as e:
-            print(f"\n❌ ERROR: {e}")
+            print("\n❌ ERROR: " + str(e))
             import traceback
             traceback.print_exc()
             sys.exit(1)
