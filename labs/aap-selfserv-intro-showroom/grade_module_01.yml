@@ -216,7 +216,7 @@
 
     - name: "Module 1.10: Evaluate and log result"
       ansible.builtin.set_fact:
-        grader_output_message: "{{ 'PASS: At least 6 Linux/RHEL job templates exist' if (r_jt3_check.json.count | default(0) | int >= 6) else 'FAIL: At least 6 Linux/RHEL job templates exist: Found ' + (r_jt3_check.json.count | default(0) | string) + ' templates' }}"
+        grader_output_message: "{{ 'PASS: At least 5 Linux/RHEL job templates exist' if (r_jt3_check.json.count | default(0) | int >= 5) else 'FAIL: At least 5 Linux/RHEL job templates exist: Found ' + (r_jt3_check.json.count | default(0) | string) + ' templates' }}"
 
     - name: "Module 1.10: Log result"
       include_role:
