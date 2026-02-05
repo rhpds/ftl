@@ -22,6 +22,16 @@
 
   tasks:
     # ========================================================================
+    # Debug: Show URLs being used
+    # ========================================================================
+
+    - name: "Debug: Show Gateway and Controller URLs"
+      ansible.builtin.debug:
+        msg:
+          - "Gateway URL: {{ aap_gateway_url }}"
+          - "Controller URL: {{ aap_controller_url }}"
+
+    # ========================================================================
     # Section 1.1: Verify Demo Users Exist
     # ========================================================================
 
