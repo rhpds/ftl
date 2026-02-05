@@ -18,7 +18,8 @@
     # AAP 2.6 has separate routes:
     # - Gateway route for users: user1-aap-user1-aap.apps...
     # - Controller route for inventories/projects/templates: user1-aap-controller-user1-aap.apps...
-    aap_controller_url: "{{ aap_gateway_url | regex_replace('(user\\d+-aap)-', '\\1-controller-') }}"
+    # Match the pattern: user1-aap-user1-aap and insert -controller- in the middle
+    aap_controller_url: "{{ aap_gateway_url | regex_replace('(user\\d+-aap)-(user\\d+-aap\\.)', '\\1-controller-\\2') }}"
 
   tasks:
     # ========================================================================
