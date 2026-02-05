@@ -77,12 +77,17 @@
           - "OAuth Client ID: {{ oauth_client_id[:20] }}..."
           - "OAuth Client Secret: {{ oauth_client_secret[:30] }}..."
           - "AAP Host URL: {{ aap_host_url }}"
-          - "AAP Token: {{ aap_token[:20] if aap_token else 'N/A' }}..."
+          - "AAP Token: {{ aap_token[:20] if aap_token | length > 0 else 'N/A' }}..."
+          - ""
+          - "Note: Trying OAuth token endpoints at both:"
+          - "  1. AAP Host URL: {{ aap_host_url }}/api/o/token/"
+          - "  2. AAP Host URL: {{ aap_host_url }}/api/gateway/v1/tokens/"
+          - "  3. Portal URL: {{ portal_url }}/api/o/token/"
 
     # =============================================
     # Method 1: Get OAuth token using client credentials grant
     # =============================================
-    - name: "Method 1: Get OAuth token via client credentials grant"
+    - name: "Method 1a: Try OAuth token at AAP Host URL /api/o/token/"
       when: oauth_secret is defined
       ansible.builtin.uri:
         url: "{{ aap_host_url }}/api/o/token/"
@@ -93,9 +98,35 @@
           grant_type: "client_credentials"
           client_id: "{{ oauth_client_id }}"
           client_secret: "{{ oauth_client_secret }}"
-        status_code: [200, 400, 401]
+        status_code: [200, 400, 401, 404]
       register: r_oauth_client_creds
       ignore_errors: true
+
+    - name: "Method 1b: Try OAuth token at Portal URL /api/o/token/"
+      when:
+        - oauth_secret is defined
+        - r_oauth_client_creds.status is defined
+        - r_oauth_client_creds.status == 404
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/o/token/"
+        method: POST
+        validate_certs: false
+        body_format: form-urlencoded
+        body:
+          grant_type: "client_credentials"
+          client_id: "{{ oauth_client_id }}"
+          client_secret: "{{ oauth_client_secret }}"
+        status_code: [200, 400, 401, 404]
+      register: r_oauth_portal_token
+      ignore_errors: true
+
+    - name: "Use Portal token if AAP token failed"
+      when:
+        - r_oauth_portal_token is defined
+        - r_oauth_portal_token.status is defined
+        - r_oauth_portal_token.status == 200
+      ansible.builtin.set_fact:
+        r_oauth_client_creds: "{{ r_oauth_portal_token }}"
 
     - name: "Display client credentials token response"
       when: r_oauth_client_creds is defined and r_oauth_client_creds.status is defined
@@ -159,7 +190,7 @@
     # Method 3: Try AAP token directly
     # =============================================
     - name: "Method 3: Test RHDH Permission API with AAP token"
-      when: oauth_secret is defined and aap_token
+      when: oauth_secret is defined and aap_token | length > 0
       ansible.builtin.uri:
         url: "{{ portal_url }}/api/permission/policies"
         method: GET
