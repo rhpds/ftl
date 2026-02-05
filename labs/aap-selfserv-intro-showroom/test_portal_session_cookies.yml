@@ -1,0 +1,124 @@
+---
+# Test Portal API using session cookies from OAuth flow
+# Use requests library to follow redirects and maintain session
+
+- name: Test Portal API with Session Cookies
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: "Attempt to get session cookies via Python requests"
+      shell: |
+        python3 << 'PYTHON_SCRIPT'
+        import requests
+        import os
+        from urllib.parse import urljoin, urlparse, parse_qs
+
+        portal_url = os.environ['SELF_SERVICE_PORTAL_URL']
+        username = "admin"
+        password = os.environ['AAP_ADMIN_PASSWORD']
+
+        # Create session to maintain cookies
+        session = requests.Session()
+        session.verify = False  # Ignore SSL warnings
+
+        print("=== Step 1: GET Portal home ===")
+        r1 = session.get(portal_url, allow_redirects=True)
+        print(f"Status: {r1.status_code}")
+        print(f"URL: {r1.url}")
+        print(f"Cookies: {dict(session.cookies)}")
+
+        print("\n=== Step 2: Initiate OAuth login ===")
+        # Look for the OAuth sign-in URL
+        # Portal redirects to: /api/auth/rhaap/start or similar
+        signin_url = f"{portal_url}/api/auth/rhaap/start"
+        r2 = session.get(signin_url, allow_redirects=True)
+        print(f"Status: {r2.status_code}")
+        print(f"URL: {r2.url}")
+        print(f"Cookies: {dict(session.cookies)}")
+
+        # Check if we're at AAP login page
+        if 'user' in r2.text.lower() and 'password' in r2.text.lower():
+            print("\n=== Step 3: Found AAP login form ===")
+
+            # POST credentials to AAP OAuth
+            # The URL should be the current URL from redirect
+            login_url = r2.url
+
+            # Try to find the actual form action URL
+            # Usually it's the same URL or /login
+            r3 = session.post(
+                login_url,
+                data={
+                    'username': username,
+                    'password': password,
+                    'next': r2.url  # Preserve the 'next' parameter
+                },
+                allow_redirects=True
+            )
+            print(f"After login - Status: {r3.status_code}")
+            print(f"After login - URL: {r3.url}")
+            print(f"After login - Cookies: {dict(session.cookies)}")
+
+            # Check if we need to authorize
+            if 'authorize' in r3.text.lower():
+                print("\n=== Step 4: Found Authorize page ===")
+                # Click authorize - usually a POST to /o/authorize/
+                authorize_url = r3.url
+                r4 = session.post(
+                    authorize_url,
+                    data={'authorize': 'Authorize'},  # Or could be empty POST
+                    allow_redirects=True
+                )
+                print(f"After authorize - Status: {r4.status_code}")
+                print(f"After authorize - URL: {r4.url}")
+                print(f"After authorize - Cookies: {dict(session.cookies)}")
+
+        print("\n=== Step 5: Try Portal API with session cookies ===")
+
+        # Now try to access Portal RBAC API with the session cookies
+        api_url = f"{portal_url}/api/permission/policies"
+        r_api = session.get(api_url)
+
+        print(f"API Status: {r_api.status_code}")
+        print(f"API Response: {r_api.text[:500]}")
+
+        if r_api.status_code == 200:
+            print("\n✅ SUCCESS! Session cookies work for Portal API!")
+            import json
+            try:
+                data = r_api.json()
+                print(f"Policies found: {len(data)}")
+                for policy in data[:3]:  # Show first 3
+                    print(f"  - {policy}")
+            except:
+                pass
+        else:
+            print(f"\n❌ Failed: {r_api.status_code}")
+
+        # Also try roles API
+        print("\n=== Step 6: Try roles API ===")
+        roles_url = f"{portal_url}/api/permission/roles"
+        r_roles = session.get(roles_url)
+        print(f"Roles API Status: {r_roles.status_code}")
+        print(f"Roles Response: {r_roles.text[:300]}")
+
+        # Save cookies for reference
+        print("\n=== Final session cookies ===")
+        for cookie in session.cookies:
+            print(f"  {cookie.name} = {cookie.value[:20]}...")
+        PYTHON_SCRIPT
+      environment:
+        SELF_SERVICE_PORTAL_URL: "{{ portal_url }}"
+        AAP_ADMIN_PASSWORD: "{{ aap_admin_password }}"
+      register: r_session_test
+
+    - name: "Display session test output"
+      ansible.builtin.debug:
+        var: r_session_test.stdout_lines
