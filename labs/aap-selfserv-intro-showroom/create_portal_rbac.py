@@ -76,12 +76,16 @@ try:
 
             # Step 2: Add groups
             page.locator('text=Select users and groups').first.click()
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(2000)
 
-            page.locator('text=cloud-team').locator('..').locator('input[type="checkbox"]').check()
+            # Wait for dropdown options to load
+            page.wait_for_selector('text=cloud-team', timeout=10000)
             page.wait_for_timeout(500)
 
-            page.locator('text=network-team').locator('..').locator('input[type="checkbox"]').check()
+            page.locator('text=cloud-team').locator('..').locator('input[type="checkbox"]').first.check()
+            page.wait_for_timeout(500)
+
+            page.locator('text=network-team').locator('..').locator('input[type="checkbox"]').first.check()
             page.wait_for_timeout(500)
 
             page.locator('body').click()
@@ -157,9 +161,13 @@ try:
             page.wait_for_timeout(2000)
 
             page.locator('text=Select users and groups').first.click()
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(2000)
 
-            page.locator('text=rhel-team').locator('..').locator('input[type="checkbox"]').check()
+            # Wait for dropdown options to load
+            page.wait_for_selector('text=rhel-team', timeout=10000)
+            page.wait_for_timeout(500)
+
+            page.locator('text=rhel-team').locator('..').locator('input[type="checkbox"]').first.check()
             page.wait_for_timeout(500)
 
             page.locator('body').click()
