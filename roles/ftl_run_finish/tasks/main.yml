@@ -54,7 +54,7 @@
 - name: Archive previous grading reports
   ansible.builtin.copy:
     src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
-    dest: "{{ grader_working_dir }}/grading_report_{{ ansible_date_time.epoch }}.txt"
+    dest: "{{ grader_working_dir }}/grading_report_{{ now(utc=True).strftime('%s') }}.txt"
     mode: '0644'
     remote_src: true
   ignore_errors: true
