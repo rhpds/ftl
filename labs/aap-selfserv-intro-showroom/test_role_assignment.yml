@@ -49,9 +49,19 @@
     # Section 2: Check current role assignments
     # ========================================================================
 
+    - name: "Get cloud-team from Controller API (has roles)"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/teams/{{ r_cloud_team.json.results[0].id }}/"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_team_controller
+
     - name: "Get cloud-team current roles"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.roles }}"
+        url: "{{ aap_gateway_url }}{{ r_cloud_team_controller.json.related.roles }}"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -100,7 +110,7 @@
 
     - name: "Get cloud-team roles after assignment"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.roles }}"
+        url: "{{ aap_gateway_url }}{{ r_cloud_team_controller.json.related.roles }}"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
