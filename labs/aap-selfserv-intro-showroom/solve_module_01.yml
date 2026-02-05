@@ -705,7 +705,7 @@
                     ]
                     for perm in scaffolder_perms:
                         try:
-                            page.locator(f'text={perm}').locator('..').locator('input[type="checkbox"]').first.check()
+                            page.locator('text=' + perm).locator('..').locator('input[type="checkbox"]').first.check()
                             page.wait_for_timeout(300)
                         except:
                             pass
@@ -843,7 +843,7 @@
                     ]
                     for perm in scaffolder_perms:
                         try:
-                            page.locator(f'text={perm}').locator('..').locator('input[type="checkbox"]').first.check()
+                            page.locator('text=' + perm).locator('..').locator('input[type="checkbox"]').first.check()
                             page.wait_for_timeout(300)
                         except:
                             pass
