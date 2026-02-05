@@ -1,0 +1,164 @@
+---
+# Debug team assignment - show exactly what's happening
+# This will trace through the exact logic of solve_module_01.yml
+
+- name: Debug Team Assignment Logic
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+    organization_id: 1
+
+  tasks:
+    # ========================================================================
+    # Get all team IDs (same logic as solver)
+    # ========================================================================
+
+    - name: "Get cloud-team ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/?name=cloud-team"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_team
+
+    - name: "Get network-team ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/?name=network-team"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_team
+
+    - name: "Get rhel-team ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/?name=rhel-team"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_team
+
+    - name: "Set team IDs (same as solver)"
+      ansible.builtin.set_fact:
+        cloud_team_id: "{{ r_cloud_team.json.results[0].id }}"
+        network_team_id: "{{ r_network_team.json.results[0].id }}"
+        rhel_team_id: "{{ r_rhel_team.json.results[0].id }}"
+
+    - name: "Display team IDs"
+      ansible.builtin.debug:
+        msg:
+          - "cloud_team_id: {{ cloud_team_id }}"
+          - "network_team_id: {{ network_team_id }}"
+          - "rhel_team_id: {{ rhel_team_id }}"
+
+    # ========================================================================
+    # Get all user IDs (same logic as solver)
+    # ========================================================================
+
+    - name: "Get clouduser1 ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=clouduser1"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_clouduser1
+
+    - name: "Get networkuser1 ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=networkuser1"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_networkuser1
+
+    - name: "Get rheluser1 ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=rheluser1"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rheluser1
+
+    - name: "Display user IDs"
+      ansible.builtin.debug:
+        msg:
+          - "clouduser1 ID: {{ r_clouduser1.json.results[0].id }}"
+          - "networkuser1 ID: {{ r_networkuser1.json.results[0].id }}"
+          - "rheluser1 ID: {{ r_rheluser1.json.results[0].id }}"
+
+    # ========================================================================
+    # Show what will be sent for each assignment
+    # ========================================================================
+
+    - name: "Display assignment URLs and bodies"
+      ansible.builtin.debug:
+        msg:
+          - "=== Assignment 1: clouduser1 to cloud-team ==="
+          - "URL: {{ aap_gateway_url }}/api/controller/v2/teams/{{ cloud_team_id }}/users/"
+          - "Body: {id: {{ r_clouduser1.json.results[0].id }}}"
+          - ""
+          - "=== Assignment 2: networkuser1 to network-team ==="
+          - "URL: {{ aap_gateway_url }}/api/controller/v2/teams/{{ network_team_id }}/users/"
+          - "Body: {id: {{ r_networkuser1.json.results[0].id }}}"
+          - ""
+          - "=== Assignment 3: rheluser1 to rhel-team ==="
+          - "URL: {{ aap_gateway_url }}/api/controller/v2/teams/{{ rhel_team_id }}/users/"
+          - "Body: {id: {{ r_rheluser1.json.results[0].id }}}"
+
+    # ========================================================================
+    # Check current members of each team
+    # ========================================================================
+
+    - name: "Get cloud-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_members
+
+    - name: "Get network-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_network_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_members
+
+    - name: "Get rhel-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_rhel_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_members
+
+    - name: "Display current team memberships"
+      ansible.builtin.debug:
+        msg:
+          - "=== Current Team Memberships ==="
+          - "cloud-team: {{ r_cloud_members.json.results | map(attribute='username') | list }}"
+          - "network-team: {{ r_network_members.json.results | map(attribute='username') | list }}"
+          - "rhel-team: {{ r_rhel_members.json.results | map(attribute='username') | list }}"
