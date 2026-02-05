@@ -15,23 +15,7 @@
     aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
     self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
 
-    # AAP 2.6 has separate routes:
-    # - Gateway route for users: user1-aap-user1-aap.apps...
-    # - Controller route for inventories/projects/templates: user1-aap-controller-user1-aap.apps...
-    # Pattern: https://userN-aap-userN-aap.apps -> https://userN-aap-controller-userN-aap.apps
-    aap_controller_url: "{{ aap_gateway_url | regex_replace('^(https://user\\d+-aap-)(user\\d+-aap\\.)', '\\1controller-\\2') }}"
-
   tasks:
-    # ========================================================================
-    # Debug: Show URLs being used
-    # ========================================================================
-
-    - name: "Debug: Show Gateway and Controller URLs"
-      ansible.builtin.debug:
-        msg:
-          - "Gateway URL: {{ aap_gateway_url }}"
-          - "Controller URL: {{ aap_controller_url }}"
-
     # ========================================================================
     # Section 1.1: Verify Demo Users Exist
     # ========================================================================
@@ -99,7 +83,7 @@
 
     - name: "Module 1.4: Check AWS Inventory exists"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/inventories/?name=AWS%20Inventory"
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name=AWS%20Inventory"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -118,7 +102,7 @@
 
     - name: "Module 1.5: Check Network Inventory exists"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/inventories/?name=Network%20Inventory"
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name=Network%20Inventory"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -137,7 +121,7 @@
 
     - name: "Module 1.6: Check RHEL Inventory exists"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/inventories/?name=RHEL%20Inventory"
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name=RHEL%20Inventory"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -160,7 +144,7 @@
 
     - name: "Module 1.7: Check SelfService Demo playbooks project"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/projects/?name=SelfService%20Demo%20playbooks"
+        url: "{{ aap_gateway_url }}/api/controller/v2/projects/?name=SelfService%20Demo%20playbooks"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -183,7 +167,7 @@
 
     - name: "Module 1.8: Check Cloud/AWS job templates"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/job_templates/?name__startswith=Cloud/AWS"
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__startswith=Cloud/AWS"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -202,7 +186,7 @@
 
     - name: "Module 1.9: Check Network job templates"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/job_templates/?name__startswith=Network/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__startswith=Network/"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -221,7 +205,7 @@
 
     - name: "Module 1.10: Check Linux/RHEL job templates"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/v2/job_templates/?name__startswith=Linux/RHEL"
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__startswith=Linux/RHEL"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
