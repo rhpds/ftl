@@ -43,8 +43,8 @@ echo ""
 echo "🧪 Running RHDH OAuth client test..."
 echo ""
 
-# Run the test
-ansible-playbook test_portal_oauth_client.yml
+# Run the test (uses oc command, not kubernetes module)
+ansible-playbook test_portal_oauth_oc.yml
 
 echo ""
 echo "=========================================="
