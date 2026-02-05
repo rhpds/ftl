@@ -1,0 +1,187 @@
+---
+# Discover Portal authentication API endpoints
+# Try to get auth token without browser automation
+
+- name: Test Portal Auth API Discovery
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    # ========================================================================
+    # Try 1: Direct auth endpoints
+    # ========================================================================
+
+    - name: "Try 1a: POST /api/auth/login"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/auth/login"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ aap_admin_username }}"
+          password: "{{ aap_admin_password }}"
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 404, 405]
+      register: r_auth_login
+      ignore_errors: true
+
+    - name: "Display auth login result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_auth_login.status }}"
+          - "Response: {{ r_auth_login.json | default(r_auth_login.msg) }}"
+
+    - name: "Try 1b: POST /api/auth/session"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/auth/session"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ aap_admin_username }}"
+          password: "{{ aap_admin_password }}"
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 404, 405]
+      register: r_auth_session
+      ignore_errors: true
+
+    - name: "Display auth session result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_auth_session.status }}"
+          - "Response: {{ r_auth_session.json | default(r_auth_session.msg) }}"
+
+    # ========================================================================
+    # Try 2: Backstage/RHDH auth endpoints
+    # ========================================================================
+
+    - name: "Try 2a: GET /api/auth/providers"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/auth/providers"
+        method: GET
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 404, 405]
+      register: r_auth_providers
+      ignore_errors: true
+
+    - name: "Display auth providers result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_auth_providers.status }}"
+          - "Response: {{ r_auth_providers.json | default(r_auth_providers.msg) }}"
+
+    - name: "Try 2b: GET /api/auth/rhaap/start"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/auth/rhaap/start"
+        method: GET
+        validate_certs: false
+        follow_redirects: none
+        status_code: [-1, 200, 201, 302, 307, 400, 401, 404, 405]
+      register: r_auth_rhaap_start
+      ignore_errors: true
+
+    - name: "Display RHAAP start result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_auth_rhaap_start.status }}"
+          - "Location header: {{ r_auth_rhaap_start.location | default('N/A') }}"
+          - "Response: {{ r_auth_rhaap_start.json | default(r_auth_rhaap_start.msg) }}"
+
+    # ========================================================================
+    # Try 3: Permission/RBAC API with different auth methods
+    # ========================================================================
+
+    - name: "Try 3a: GET /api/permission/policies (no auth)"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/permission/policies"
+        method: GET
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_policies_noauth
+      ignore_errors: true
+
+    - name: "Display policies no-auth result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_policies_noauth.status }}"
+          - "Response: {{ r_policies_noauth.json | default(r_policies_noauth.msg) }}"
+
+    - name: "Try 3b: GET /api/permission/policies (with basic auth)"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/permission/policies"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_policies_basic
+      ignore_errors: true
+
+    - name: "Display policies basic-auth result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_policies_basic.status }}"
+          - "Response: {{ r_policies_basic.json | default(r_policies_basic.msg) }}"
+
+    # ========================================================================
+    # Try 4: Session-based approach (get cookies first)
+    # ========================================================================
+
+    - name: "Try 4a: GET Portal home to get session cookie"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/"
+        method: GET
+        validate_certs: false
+        status_code: [-1, 200, 302, 307]
+      register: r_portal_home
+      ignore_errors: true
+
+    - name: "Display portal home result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_portal_home.status }}"
+          - "Cookies: {{ r_portal_home.cookies | default('N/A') }}"
+          - "Set-Cookie headers: {{ r_portal_home.set_cookie | default('N/A') }}"
+
+    # ========================================================================
+    # Try 5: Check OpenShift OAuth endpoints
+    # ========================================================================
+
+    - name: "Try 5a: Check if Portal uses OpenShift OAuth"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/.well-known/oauth-authorization-server"
+        method: GET
+        validate_certs: false
+        status_code: [-1, 200, 404]
+      register: r_oauth_wellknown
+      ignore_errors: true
+
+    - name: "Display OAuth well-known result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_oauth_wellknown.status }}"
+          - "Response: {{ r_oauth_wellknown.json | default(r_oauth_wellknown.msg) }}"
+
+    # ========================================================================
+    # Summary
+    # ========================================================================
+
+    - name: "Summary of Portal Auth API Discovery"
+      ansible.builtin.debug:
+        msg:
+          - "=== Portal Auth API Discovery Results ==="
+          - "POST /api/auth/login: {{ r_auth_login.status }}"
+          - "POST /api/auth/session: {{ r_auth_session.status }}"
+          - "GET /api/auth/providers: {{ r_auth_providers.status }}"
+          - "GET /api/auth/rhaap/start: {{ r_auth_rhaap_start.status }} {{ '(redirect)' if r_auth_rhaap_start.status | default(0) in [302, 307] else '' }}"
+          - "GET /api/permission/policies (no auth): {{ r_policies_noauth.status }}"
+          - "GET /api/permission/policies (basic auth): {{ r_policies_basic.status }}"
+          - "GET /.well-known/oauth-authorization-server: {{ r_oauth_wellknown.status }}"
+          - ""
+          - "🔍 Look for 200/201/302 status codes above - those endpoints exist!"
