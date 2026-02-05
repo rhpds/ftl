@@ -182,7 +182,27 @@
       when: r_rheluser1.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.4: Assign Roles to cloud-team
+    # Section 1.4: Get Role Definition IDs (dynamic lookup for AAP 2.6)
+    # ========================================================================
+
+    - name: "Get all role definitions"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_definitions/"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_role_definitions
+
+    - name: "Set role definition IDs"
+      ansible.builtin.set_fact:
+        role_jt_execute_id: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'JobTemplate Execute') | map(attribute='id') | first }}"
+        role_inv_use_id: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'Inventory Use') | map(attribute='id') | first }}"
+        role_cred_use_id: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'Credential Use') | map(attribute='id') | first }}"
+
+    # ========================================================================
+    # Section 1.5: Assign Roles to cloud-team
     # ========================================================================
 
     - name: "Get Cloud/AWS job templates"
@@ -206,7 +226,7 @@
         body_format: json
         body:
           team: "{{ cloud_team_id }}"
-          role_definition: "JobTemplate Execute"
+          role_definition: "{{ role_jt_execute_id }}"
           content_type: "awx.jobtemplate"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
@@ -234,7 +254,7 @@
         body_format: json
         body:
           team: "{{ cloud_team_id }}"
-          role_definition: "Inventory Use"
+          role_definition: "{{ role_inv_use_id }}"
           content_type: "awx.inventory"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
@@ -262,7 +282,7 @@
         body_format: json
         body:
           team: "{{ cloud_team_id }}"
-          role_definition: "Credential Use"
+          role_definition: "{{ role_cred_use_id }}"
           content_type: "awx.credential"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
@@ -270,7 +290,7 @@
       when: r_cloud_credentials.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.5: Assign Roles to network-team
+    # Section 1.6: Assign Roles to network-team
     # ========================================================================
 
     - name: "Get Network job templates"
@@ -294,7 +314,7 @@
         body_format: json
         body:
           team: "{{ network_team_id }}"
-          role_definition: "JobTemplate Execute"
+          role_definition: "{{ role_jt_execute_id }}"
           content_type: "awx.jobtemplate"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
@@ -322,7 +342,7 @@
         body_format: json
         body:
           team: "{{ network_team_id }}"
-          role_definition: "Inventory Use"
+          role_definition: "{{ role_inv_use_id }}"
           content_type: "awx.inventory"
           object_id: "{{ r_network_inventory.json.results[0].id }}"
         status_code: [200, 201, 204, 400]
@@ -349,14 +369,14 @@
         body_format: json
         body:
           team: "{{ network_team_id }}"
-          role_definition: "Credential Use"
+          role_definition: "{{ role_cred_use_id }}"
           content_type: "awx.credential"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       when: r_network_credential.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.6: Assign Roles to rhel-team
+    # Section 1.7: Assign Roles to rhel-team
     # ========================================================================
 
     - name: "Get Linux/RHEL job templates"
@@ -394,7 +414,7 @@
         body_format: json
         body:
           team: "{{ rhel_team_id }}"
-          role_definition: "JobTemplate Execute"
+          role_definition: "{{ role_jt_execute_id }}"
           content_type: "awx.jobtemplate"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
@@ -422,7 +442,7 @@
         body_format: json
         body:
           team: "{{ rhel_team_id }}"
-          role_definition: "Inventory Use"
+          role_definition: "{{ role_inv_use_id }}"
           content_type: "awx.inventory"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
@@ -450,7 +470,7 @@
         body_format: json
         body:
           team: "{{ rhel_team_id }}"
-          role_definition: "Credential Use"
+          role_definition: "{{ role_cred_use_id }}"
           content_type: "awx.credential"
           object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
