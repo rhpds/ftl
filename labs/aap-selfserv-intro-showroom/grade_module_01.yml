@@ -245,9 +245,112 @@
         name: ftl_run_log_grade_to_log
       when: r_rhel_team.json.count | default(0) | int > 0
 
+    # ========================================================================
+    # Section 1.6: Verify Portal RBAC Policies
+    # ========================================================================
+
+    - name: "Module 1.10: Check Portal RBAC policies via HTML parsing"
+      shell: |
+        python3 << 'PYTHON_SCRIPT'
+        from playwright.sync_api import sync_playwright
+        import os
+        import sys
+
+        portal_url = os.environ['SELF_SERVICE_PORTAL_URL']
+        username = "admin"
+        password = os.environ['AAP_ADMIN_PASSWORD']
+
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(ignore_https_errors=True)
+                page = context.new_page()
+
+                # Login
+                page.goto(portal_url, timeout=60000)
+                page.wait_for_load_state('networkidle')
+
+                try:
+                    page.click("button:has-text('Sign In')", timeout=10000)
+                    page.wait_for_load_state('networkidle', timeout=30000)
+                except:
+                    pass
+
+                page.wait_for_timeout(3000)
+                username_input = page.locator("input[type='text'], input[name='username']").first
+                if username_input.is_visible(timeout=5000):
+                    username_input.fill(username)
+                password_input = page.locator("input[type='password']").first
+                if password_input.is_visible(timeout=5000):
+                    password_input.fill(password)
+                page.click("button:has-text('Log in')", timeout=5000)
+                page.wait_for_load_state('networkidle', timeout=60000)
+
+                # Navigate to RBAC page
+                page.wait_for_selector('text=Templates', timeout=10000)
+                page.wait_for_timeout(2000)
+                page.click('text=Administration', timeout=10000)
+                page.wait_for_timeout(2000)
+                page.click('text=RBAC', timeout=10000)
+                page.wait_for_load_state('networkidle')
+                page.wait_for_timeout(3000)
+
+                # Parse HTML for policies
+                page_text = page.inner_text('body')
+
+                # Check for policies
+                ssa_users_found = 'ssa-portal-users' in page_text
+                ssa_rhel_found = 'ssa-portal-rhel-team' in page_text
+
+                browser.close()
+
+                # Output JSON for Ansible parsing
+                import json
+                print(json.dumps({
+                    "ssa_users_found": ssa_users_found,
+                    "ssa_rhel_found": ssa_rhel_found
+                }))
+
+                sys.exit(0)
+
+        except Exception as e:
+            print(json.dumps({
+                "ssa_users_found": False,
+                "ssa_rhel_found": False,
+                "error": str(e)
+            }))
+            sys.exit(0)
+        PYTHON_SCRIPT
+      environment:
+        SELF_SERVICE_PORTAL_URL: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+        AAP_ADMIN_PASSWORD: "{{ aap_admin_password }}"
+      register: r_portal_rbac
+      ignore_errors: true
+
+    - name: "Module 1.10: Parse Portal RBAC result"
+      ansible.builtin.set_fact:
+        portal_rbac_result: "{{ r_portal_rbac.stdout | from_json }}"
+      when: r_portal_rbac.rc == 0
+
+    - name: "Module 1.10: Evaluate ssa-portal-users policy"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: Portal policy ssa-portal-users created' if (portal_rbac_result.ssa_users_found | default(false)) else 'FAIL: Portal policy ssa-portal-users created: Policy not found. Create role ssa-portal-users in Self-Service Portal > Administration > RBAC' }}"
+
+    - name: "Module 1.10: Log result"
+      include_role:
+        name: ftl_run_log_grade_to_log
+
+    - name: "Module 1.11: Evaluate saa-portal-rhel-team policy"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: Portal policy saa-portal-rhel-team created' if (portal_rbac_result.ssa_rhel_found | default(false)) else 'FAIL: Portal policy saa-portal-rhel-team created: Policy not found. Create role saa-portal-rhel-team in Self-Service Portal > Administration > RBAC' }}"
+
+    - name: "Module 1.11: Log result"
+      include_role:
+        name: ftl_run_log_grade_to_log
+
     - name: "Module 1 grading complete"
       ansible.builtin.debug:
-        msg: "✅ Module 1 grading complete - AAP RBAC configuration verified"
+        msg: "✅ Module 1 grading complete - AAP RBAC and Portal RBAC verified (11 checkpoints)"
 
 - name: Generate Grading Report
   hosts: localhost
