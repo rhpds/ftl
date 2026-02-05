@@ -71,7 +71,7 @@ try:
 
             page.locator('textarea').first.fill('Role for Cloud and Network teams')
             page.wait_for_timeout(500)
-            page.get_by_role('button', name='Next').click()
+            page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
             # Step 2: Add groups
@@ -94,7 +94,7 @@ try:
             page.locator('body').click()
             page.wait_for_timeout(1000)
 
-            page.get_by_role('button', name='Next').click()
+            page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
             # Step 3: Add permissions
@@ -135,7 +135,7 @@ try:
 
             page.wait_for_timeout(1000)
 
-            page.get_by_role('button', name='Next').click()
+            page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
             page.get_by_role('button', name='Create').click()
@@ -167,7 +167,7 @@ try:
 
             page.locator('textarea').first.fill('Role for RHEL team')
             page.wait_for_timeout(500)
-            page.get_by_role('button', name='Next').click()
+            page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
             # Click the input field to open dropdown
@@ -214,7 +214,7 @@ try:
             page.locator('body').click()
             page.wait_for_timeout(1000)
 
-            page.get_by_role('button', name='Next').click()
+            page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
             page.locator('text=Select plugins').click()
@@ -285,7 +285,7 @@ try:
 
             page.wait_for_timeout(1000)
 
-            page.get_by_role('button', name='Next').click()
+            page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
             page.get_by_role('button', name='Create').click()
