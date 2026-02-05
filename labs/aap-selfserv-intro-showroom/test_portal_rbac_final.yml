@@ -56,7 +56,7 @@
 
             # Step 2: Navigate to RBAC page
             print("\nStep 2: Navigating to RBAC page...")
-            page.goto(f"{portal_url}/settings/rbac", timeout=60000)
+            page.goto(f"{portal_url}/rbac", timeout=60000)
             page.wait_for_load_state('networkidle')
             page.wait_for_timeout(5000)  # Extra wait for dynamic content
             print(f"  URL: {page.url}")
@@ -68,7 +68,7 @@
 
             # Check for policies
             ssa_users_found = 'ssa-portal-users' in page_text
-            ssa_rhel_found = 'saa-portal-rhel-team' in page_text or 'saa-portal-rhel' in page_text
+            ssa_rhel_found = 'ssa-portal-rhel-team' in page_text
 
             print(f"  ✅ ssa-portal-users found: {ssa_users_found}")
             print(f"  ✅ saa-portal-rhel-team found: {ssa_rhel_found}")
