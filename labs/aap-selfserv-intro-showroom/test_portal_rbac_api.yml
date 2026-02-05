@@ -1,0 +1,147 @@
+---
+# Test Self-Service Portal RBAC API endpoints
+# Goal: Find API endpoints to validate RBAC policies
+
+- name: Test Portal RBAC API
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: "Display Portal URL"
+      ansible.builtin.debug:
+        msg: "Portal URL: {{ portal_url }}"
+
+    # Try common Backstage/RHDH API endpoints
+
+    - name: "Test 1: Try /api/permission/policies endpoint"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/permission/policies"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_policies_1
+      ignore_errors: true
+
+    - name: "Display /api/permission/policies response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_policies_1.status }}"
+          - "Response: {{ r_policies_1.json | default(r_policies_1.msg) }}"
+      when: r_policies_1 is defined
+
+    - name: "Test 2: Try /api/permission/roles endpoint"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/permission/roles"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_roles_1
+      ignore_errors: true
+
+    - name: "Display /api/permission/roles response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_roles_1.status }}"
+          - "Response: {{ r_roles_1.json | default(r_roles_1.msg) }}"
+      when: r_roles_1 is defined
+
+    - name: "Test 3: Try /api/catalog/entities?kind=Group endpoint"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/catalog/entities?kind=Group"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_groups
+      ignore_errors: true
+
+    - name: "Display catalog groups response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_groups.status }}"
+          - "Count: {{ r_groups.json.items | default([]) | length }}"
+          - "First item: {{ r_groups.json.items[0] | default('N/A') }}"
+      when: r_groups is defined and r_groups.status == 200
+
+    - name: "Test 4: Try /api/catalog/entities endpoint (all entities)"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/catalog/entities"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_all_entities
+      ignore_errors: true
+
+    - name: "Display all entities summary"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_all_entities.status }}"
+          - "Total entities: {{ r_all_entities.json.items | default([]) | length }}"
+          - "Entity kinds: {{ r_all_entities.json.items | default([]) | map(attribute='kind') | unique | list }}"
+      when: r_all_entities is defined and r_all_entities.status == 200
+
+    - name: "Test 5: Try /api/permission-backend/policies endpoint"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/permission-backend/policies"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_policies_2
+      ignore_errors: true
+
+    - name: "Display permission-backend/policies response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_policies_2.status }}"
+          - "Response: {{ r_policies_2.json | default(r_policies_2.msg) }}"
+      when: r_policies_2 is defined
+
+    - name: "Test 6: Try /api/ endpoint (API discovery)"
+      ansible.builtin.uri:
+        url: "{{ portal_url }}/api/"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [-1, 200, 201, 400, 401, 403, 404]
+      register: r_api_discovery
+      ignore_errors: true
+
+    - name: "Display API discovery response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_api_discovery.status }}"
+          - "Response: {{ r_api_discovery.json | default(r_api_discovery.content | default(r_api_discovery.msg)) }}"
+      when: r_api_discovery is defined
+
+    - name: "Summary: Which endpoints returned 200?"
+      ansible.builtin.debug:
+        msg:
+          - "=== API Endpoint Results ==="
+          - "/api/permission/policies: {{ r_policies_1.status | default('N/A') }}"
+          - "/api/permission/roles: {{ r_roles_1.status | default('N/A') }}"
+          - "/api/catalog/entities?kind=Group: {{ r_groups.status | default('N/A') }}"
+          - "/api/catalog/entities: {{ r_all_entities.status | default('N/A') }}"
+          - "/api/permission-backend/policies: {{ r_policies_2.status | default('N/A') }}"
+          - "/api/: {{ r_api_discovery.status | default('N/A') }}"
