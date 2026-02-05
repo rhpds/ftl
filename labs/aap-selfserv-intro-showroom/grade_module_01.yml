@@ -10,10 +10,15 @@
 
   vars:
     # Environment variables from AgnosticD or bastion environment
-    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
     aap_admin_username: "admin"
     aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
     self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+
+    # AAP 2.6 has separate routes:
+    # - Gateway route for users: user1-aap-user1-aap.apps...
+    # - Controller route for inventories/projects/templates: user1-aap-controller-user1-aap.apps...
+    aap_controller_url: "{{ aap_gateway_url | regex_replace('(user\\d+-aap)-', '\\1-controller-') }}"
 
   tasks:
     # ========================================================================
@@ -22,7 +27,7 @@
 
     - name: "Module 1.1: Check clouduser1 exists in AAP"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/gateway/v1/users/?username=clouduser1"
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=clouduser1"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -41,7 +46,7 @@
 
     - name: "Module 1.2: Check networkuser1 exists in AAP"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/gateway/v1/users/?username=networkuser1"
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=networkuser1"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -60,7 +65,7 @@
 
     - name: "Module 1.3: Check rheluser1 exists in AAP"
       ansible.builtin.uri:
-        url: "{{ aap_controller_url }}/api/gateway/v1/users/?username=rheluser1"
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username=rheluser1"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
