@@ -3,9 +3,9 @@ FTL Grading Report
 ================================================================================
 
 Lab:      {{ lab_id | default('Unknown Lab') }}
-Date:     {{ ansible_date_time.date }} {{ ansible_date_time.time }} {{ ansible_date_time.tz }}
-Student:  {{ student_name }}
-GUID:     {{ guid }}
+Date:     {{ now(utc=True).strftime('%Y-%m-%d %H:%M:%S UTC') }}
+Student:  {{ student_name | default('student') }}
+GUID:     {{ guid | default('unknown') }}
 
 ================================================================================
 Results

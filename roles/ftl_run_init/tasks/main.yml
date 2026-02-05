@@ -30,8 +30,8 @@
 # These track the overall grading state across all graders
 - name: Initialize grading session variables
   ansible.builtin.set_fact:
-    ftl_grading_start_time: "{{ ansible_date_time.iso8601 }}"
-    ftl_grading_session_id: "{{ ansible_date_time.epoch }}"
+    ftl_grading_start_time: "{{ now(utc=True).isoformat() }}"
+    ftl_grading_session_id: "{{ now(utc=True).strftime('%s') }}"
 
 # Display grading session info
 # Helps students know what's being graded
