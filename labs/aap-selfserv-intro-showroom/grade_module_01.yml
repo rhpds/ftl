@@ -150,7 +150,7 @@
 
     - name: "Module 1.7: Get cloud-team roles"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.roles }}"
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ r_cloud_team.json.results[0].id }}/roles/"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -210,7 +210,7 @@
 
     - name: "Module 1.10: Get network-team roles"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}{{ r_network_team.json.results[0].related.roles }}"
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ r_network_team.json.results[0].id }}/roles/"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -270,7 +270,7 @@
 
     - name: "Module 1.13: Get rhel-team roles"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}{{ r_rhel_team.json.results[0].related.roles }}"
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ r_rhel_team.json.results[0].id }}/roles/"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
