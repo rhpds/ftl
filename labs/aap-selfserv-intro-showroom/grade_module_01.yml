@@ -2,6 +2,13 @@
 # Grade Module 1: Configure AAP for Self-Service Portal
 # Validates that students created teams and assigned proper RBAC
 
+- name: Initialize FTL Grading Session
+  hosts: localhost
+  gather_facts: false
+  become: false
+  roles:
+    - ftl_run_init
+
 - name: Grade Module 1 - Configure AAP RBAC
   hosts: localhost
   gather_facts: false
@@ -237,3 +244,11 @@
     - name: "Module 1 grading complete"
       ansible.builtin.debug:
         msg: "✅ Module 1 grading complete - AAP RBAC configuration verified"
+
+- name: Generate Grading Report
+  hosts: localhost
+  gather_facts: false
+  become: false
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish

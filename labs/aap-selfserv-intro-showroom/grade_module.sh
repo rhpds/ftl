@@ -123,6 +123,17 @@ echo "========================================="
 echo "Duration: ${DURATION} seconds"
 echo ""
 
+# Show grading report if it exists
+if [[ -f /tmp/grading_dir/grading_report.txt ]]; then
+    echo "Grading Report:"
+    echo "----------------------------------------"
+    cat /tmp/grading_dir/grading_report.txt
+    echo "----------------------------------------"
+    echo ""
+    echo "Full report: /tmp/grading_dir/grading_report.txt"
+    echo ""
+fi
+
 # Deactivate venv
 deactivate
 
