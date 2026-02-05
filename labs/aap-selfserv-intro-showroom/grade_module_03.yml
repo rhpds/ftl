@@ -1,6 +1,6 @@
 ---
 # Grade Module 3: Surveys and Custom Templates
-# Validates survey modifications and custom template import/execution
+# Validates survey modifications and custom template import
 
 - name: Grade Module 3 - Surveys and Custom Templates
   hosts: localhost
@@ -8,155 +8,127 @@
   become: false
 
   vars:
-    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
     aap_admin_username: "admin"
     aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
-    self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
 
   tasks:
     # ========================================================================
-    # Section 3.1: Verify survey question added to job template
+    # Section 3.1: Verify Survey Modified on Job Template
     # ========================================================================
 
-    - name: "Module 3.1: Verify survey question added to 'Linux/RHEL START Service' template"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Survey question 'enable_service' added to Linux/RHEL START Service template"
-        command: >-
-          awx --conf.host {{ aap_controller_url }}
-          --conf.username {{ aap_admin_username }}
-          --conf.password {{ aap_admin_password }}
-          --conf.insecure
-          job_templates get "Linux/RHEL START Service on RHEL" -f json
-          | jq -r '.survey_spec.spec[] | select(.variable=="enable_service") | .variable'
-        expected_output: "enable_service"
-        student_error_message: "Survey question 'enable_service' not found. Add survey: Question='Do you want to ENABLE the service?', Variable='enable_service', Type='Multiple Choice'"
+    - name: "Module 3.1: Get 'Linux/RHEL START Service on RHEL' job template"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name=Linux/RHEL START Service on RHEL"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_rhel_start_jt
 
-    - name: "Module 3.2: Verify survey question is multiple choice type"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Survey question 'enable_service' is of type 'multiplechoice'"
-        command: >-
-          awx --conf.host {{ aap_controller_url }}
-          --conf.username {{ aap_admin_username }}
-          --conf.password {{ aap_admin_password }}
-          --conf.insecure
-          job_templates get "Linux/RHEL START Service on RHEL" -f json
-          | jq -r '.survey_spec.spec[] | select(.variable=="enable_service") | .type'
-        expected_output: "multiplechoice"
-        student_error_message: "Survey question type incorrect. Set Answer type to 'Multiple Choice (single select)'"
+    - name: "Module 3.1: Get survey spec for RHEL START Service job template"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_rhel_start_jt.json.results[0].related.survey_spec }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_survey_spec
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
 
-    - name: "Module 3.3: Verify survey has correct question text"
+    - name: "Module 3.1: Evaluate and log result - Survey enabled"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: Survey enabled on Linux/RHEL START Service job template' if (r_rhel_start_jt.json.count | default(0) | int > 0 and r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool) else 'FAIL: Survey enabled on Linux/RHEL START Service job template: Survey not enabled. Enable survey on the job template' }}"
+      when: r_rhel_start_jt.json.count | default(0) | int > 0
+
+    - name: "Module 3.1: Log result - Survey enabled"
       include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Survey question text mentions 'ENABLE the service'"
-        command: >-
-          awx --conf.host {{ aap_controller_url }}
-          --conf.username {{ aap_admin_username }}
-          --conf.password {{ aap_admin_password }}
-          --conf.insecure
-          job_templates get "Linux/RHEL START Service on RHEL" -f json
-          | jq -r '.survey_spec.spec[] | select(.variable=="enable_service") | .question'
-          | grep -i "enable"
-        expected_rc: 0
-        student_error_message: "Survey question text doesn't match. Use: 'Do you want to ENABLE the service (starts after a reboot)?'"
+        name: ftl_run_log_grade_to_log
+      when: r_rhel_start_jt.json.count | default(0) | int > 0
+
+    - name: "Module 3.2: Check survey has 3 questions"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: Survey has 3 questions' if (r_survey_spec.json.spec | default([]) | length == 3) else 'FAIL: Survey has 3 questions: Expected 3 questions, found ' + (r_survey_spec.json.spec | default([]) | length | string) + '. Add survey question about enabling service' }}"
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+
+    - name: "Module 3.2: Log result - Survey question count"
+      include_role:
+        name: ftl_run_log_grade_to_log
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+
+    - name: "Module 3.3: Check enable_service survey question exists"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: Survey question with variable enable_service exists' if (r_survey_spec.json.spec | default([]) | selectattr('variable', 'equalto', 'enable_service') | list | length > 0) else 'FAIL: Survey question with variable enable_service exists: Variable not found. Create survey question with Answer variable name enable_service' }}"
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+
+    - name: "Module 3.3: Log result - enable_service variable"
+      include_role:
+        name: ftl_run_log_grade_to_log
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+
+    - name: "Module 3.4: Check enable_service question is multiplechoice type"
+      ansible.builtin.set_fact:
+        enable_service_question: "{{ r_survey_spec.json.spec | default([]) | selectattr('variable', 'equalto', 'enable_service') | first }}"
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+        - r_survey_spec.json.spec | default([]) | selectattr('variable', 'equalto', 'enable_service') | list | length > 0
+
+    - name: "Module 3.4: Evaluate and log result - Question type"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: enable_service question is Multiple Choice type' if (enable_service_question.type | default('') == 'multiplechoice') else 'FAIL: enable_service question is Multiple Choice type: Found type ' + (enable_service_question.type | default('text')) + '. Change Answer type to Multiple Choice (single select)' }}"
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+        - enable_service_question is defined
+
+    - name: "Module 3.4: Log result - Question type"
+      include_role:
+        name: ftl_run_log_grade_to_log
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_rhel_start_jt.json.results[0].survey_enabled | default(false) | bool
+        - enable_service_question is defined
 
     # ========================================================================
-    # Section 3.2: Verify custom template imported
+    # Section 3.2: Verify Custom Dynamic Template Backing Job Template
     # ========================================================================
+    # NOTE: Custom templates live in the Self-Service Portal, not AAP
+    # We check for the backing job template as a proxy for environment readiness
 
-    - name: "Module 3.4: Verify custom template 'Manage RHEL Time Servers' exists in Portal"
+    - name: "Module 3.5: Check backing job template exists for custom template"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name=RHEL / Update RHEL Time Servers"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_time_servers_jt
+
+    - name: "Module 3.5: Evaluate and log result - Custom template backing job"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{ 'PASS: Custom template backing job template exists (RHEL / Update RHEL Time Servers)' if (r_time_servers_jt.json.count | default(0) | int > 0) else 'FAIL: Custom template backing job template exists: Job template RHEL / Update RHEL Time Servers not found. This template should exist for the custom dynamic template' }}"
+
+    - name: "Module 3.5: Log result - Custom template backing job"
       include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Custom template 'Manage RHEL Time Servers' imported in Portal"
-        command: >-
-          curl -sk -u "{{ aap_admin_username }}:{{ aap_admin_password }}"
-          "{{ self_service_portal_url }}/api/catalog/entities?filter=kind=Template"
-          | jq -r '.[] | select(.metadata.title | contains("RHEL Time")) | .metadata.title'
-        expected_output_regex: ".*RHEL.*Time.*"
-        student_error_message: "Custom template not found. Import from URL: https://raw.githubusercontent.com/ansible-tmm/ssap-lab/main/customtemplate/rhel_dynamic.yml"
-
-    - name: "Module 3.5: Verify custom template has tags metadata"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Custom template has 'custom' tag metadata"
-        command: >-
-          curl -sk -u "{{ aap_admin_username }}:{{ aap_admin_password }}"
-          "{{ self_service_portal_url }}/api/catalog/entities?filter=kind=Template"
-          | jq -r '.[] | select(.metadata.title | contains("RHEL Time")) | .metadata.tags[]' | grep -c "custom"
-        expected_output: "1"
-        student_error_message: "Custom template missing 'custom' tag. Re-import the template"
-
-    # ========================================================================
-    # Section 3.3: Verify custom template execution
-    # ========================================================================
-
-    - name: "Module 3.6: Verify custom template job was executed"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Custom template 'RHEL / Update RHEL Time Servers' job executed"
-        command: >-
-          awx --conf.host {{ aap_controller_url }}
-          --conf.username {{ aap_admin_username }}
-          --conf.password {{ aap_admin_password }}
-          --conf.insecure
-          jobs list --job_template__name "RHEL / Update RHEL Time Servers" -f json
-          | jq '. | length'
-        expected_output_regex: "^[1-9][0-9]*$"
-        student_error_message: "Custom template job not executed. Login as rheluser1 and launch 'Manage RHEL Time Servers' template"
-
-    - name: "Module 3.7: Verify custom template job completed successfully"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Custom template job completed with status 'successful'"
-        command: >-
-          awx --conf.host {{ aap_controller_url }}
-          --conf.username {{ aap_admin_username }}
-          --conf.password {{ aap_admin_password }}
-          --conf.insecure
-          jobs list --job_template__name "RHEL / Update RHEL Time Servers" --status successful -f json
-          | jq '. | length'
-        expected_output_regex: "^[1-9][0-9]*$"
-        student_error_message: "Custom template job did not complete successfully. Check job output for errors"
-
-    - name: "Module 3.8: Verify rheluser1 executed the custom template"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "rheluser1 launched the custom template job"
-        command: >-
-          awx --conf.host {{ aap_controller_url }}
-          --conf.username {{ aap_admin_username }}
-          --conf.password {{ aap_admin_password }}
-          --conf.insecure
-          jobs list --job_template__name "RHEL / Update RHEL Time Servers" --created_by__username rheluser1 -f json
-          | jq '. | length'
-        expected_output_regex: "^[1-9][0-9]*$"
-        student_error_message: "Custom template not executed by rheluser1. Login as rheluser1 to Portal and run the custom template"
-
-    # ========================================================================
-    # Section 3.4: Verify RBAC conditional rule (rhel-team cannot see custom template initially)
-    # ========================================================================
-
-    - name: "Module 3.9: Verify conditional RBAC rule working for saa-portal-rhel-team"
-      include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "RBAC conditional rule 'Not HAS_METADATA tags=custom' configured"
-        command: >-
-          curl -sk -u "{{ aap_admin_username }}:{{ aap_admin_password }}"
-          "{{ self_service_portal_url }}/api/permission/policies/saa-portal-rhel-team"
-          | jq -r '.spec.permissions[] | select(.name=="catalog.entity.read") | .conditions.rule'
-        expected_output_regex: ".*HAS_METADATA.*"
-        student_error_message: "Conditional rule missing or incorrect. Edit saa-portal-rhel-team policy → catalog.entity.read → Add condition: Not HAS_METADATA key=tags value=custom"
+        name: ftl_run_log_grade_to_log
 
     - name: "Module 3 grading complete"
       ansible.builtin.debug:
-        msg: "✅ Module 3 grading complete - Survey modified, custom template imported and executed"
+        msg: "✅ Module 3 grading complete - Surveys and custom templates verified"

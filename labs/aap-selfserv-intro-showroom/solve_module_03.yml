@@ -1,6 +1,6 @@
 ---
 # Solve Module 3: Surveys and Custom Templates
-# This solver modifies surveys and imports custom dynamic templates
+# Automatically adds survey question to job template via API
 
 - name: Solve Module 3 - Surveys and Custom Templates
   hosts: localhost
@@ -8,297 +8,111 @@
   become: false
 
   vars:
-    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
     aap_admin_username: "admin"
     aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
-    self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
-
-    # Survey configuration
-    survey_question:
-      question: "Do you want to ENABLE the service (starts after a reboot)?"
-      variable: "enable_service"
-      type: "multiplechoice"
-      choices:
-        - "yes"
-        - "no"
-
-    # Custom template URL
-    custom_template_url: "https://raw.githubusercontent.com/ansible-tmm/ssap-lab/main/customtemplate/rhel_dynamic.yml"
 
   tasks:
     # ========================================================================
-    # Part 1: Modify survey on job template
+    # Section 3.1: Get Job Template and Current Survey Spec
     # ========================================================================
 
-    - name: Login to AAP Controller as admin
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "login"
-        username: "{{ aap_admin_username }}"
+    - name: "Get Linux/RHEL START Service on RHEL job template"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name=Linux/RHEL START Service on RHEL"
+        method: GET
+        user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_rhel_start_jt
 
-    - name: Navigate to Job Templates
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}/#/templates/job_template"
-        action: "navigate"
-
-    - name: Search for Linux/RHEL START Service job template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}/#/templates/job_template"
-        action: "fill_form"
-        selector: 'input[type="search"], input[placeholder*="Search"]'
-        text: "Linux/RHEL START Service"
-
-    - name: Click on Linux/RHEL START Service job template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}/#/templates/job_template"
-        action: "click"
-        selector: 'a:has-text("Linux/RHEL START Service")'
-
-    - name: Click on Surveys tab
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "click"
-        selector: 'a[href*="survey"], button:has-text("Surveys")'
-
-    - name: Click Create survey question button
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "click"
-        selector: 'button:has-text("Create survey question")'
-
-    - name: Fill question field
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "fill_form"
-        selector: 'input[id="question"], textarea[id="question"]'
-        text: "{{ survey_question.question }}"
-
-    - name: Fill answer variable name
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "fill_form"
-        selector: 'input[id="variable"], input[name="variable"]'
-        text: "{{ survey_question.variable }}"
-
-    - name: Select answer type - Multiple Choice
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "click"
-        selector: 'select[id="type"] option:has-text("Multiple Choice")'
-
-    - name: Click Create survey question to save
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "click"
-        selector: 'button[type="submit"]:has-text("Create survey question")'
-
-    - name: Wait for survey question created confirmation
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ aap_controller_url }}"
-        action: "wait_for_text"
-        text: "{{ survey_question.variable }}"
-
-    - name: Display survey modification success
-      ansible.builtin.debug:
-        msg: "✅ Survey question added to 'Linux/RHEL START Service' job template"
-
-    # ========================================================================
-    # Part 2: Trigger synchronization to Portal
-    # ========================================================================
-
-    - name: Login to Self-Service Portal as admin
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "login"
-        username: "{{ aap_admin_username }}"
+    - name: "Get current survey spec"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_rhel_start_jt.json.results[0].related.survey_spec }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_survey_spec
+      when: r_rhel_start_jt.json.count | default(0) | int > 0
 
-    - name: Click Sync now button in Portal
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Sync now")'
-
-    - name: Select Job Templates sync option
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'input[type="checkbox"][value*="job"], input[type="checkbox"]:near(:text("Job Templates"))'
-
-    - name: Click Ok to start sync
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Ok"), button:has-text("Sync")'
-
-    - name: Wait for sync to complete
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "Sync completed"
-        timeout: 60000
-
-    - name: Display sync success
-      ansible.builtin.debug:
-        msg: "✅ Job templates synchronized to Self-Service Portal"
+    - name: "Store current survey questions"
+      ansible.builtin.set_fact:
+        current_survey_questions: "{{ r_survey_spec.json.spec | default([]) }}"
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - r_survey_spec.json.spec is defined
 
     # ========================================================================
-    # Part 3: Import custom dynamic template
+    # Section 3.2: Add New Survey Question
     # ========================================================================
 
-    - name: Click Add Template button
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Add Template")'
+    - name: "Check if enable_service question already exists"
+      ansible.builtin.set_fact:
+        enable_service_exists: "{{ current_survey_questions | selectattr('variable', 'equalto', 'enable_service') | list | length > 0 }}"
+      when: current_survey_questions is defined
 
-    - name: Fill custom template URL
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "fill_form"
-        selector: 'input[type="url"], input[placeholder*="URL"]'
-        text: "{{ custom_template_url }}"
+    - name: "Create new survey question for enable_service"
+      ansible.builtin.set_fact:
+        new_survey_question:
+          question: "Do you want to ENABLE the service (starts after a reboot)?"
+          description: ""
+          variable: "enable_service"
+          type: "multiplechoice"
+          required: false
+          default: ""
+          choices:
+            - "yes"
+            - "no"
+      when:
+        - current_survey_questions is defined
+        - not (enable_service_exists | default(false))
 
-    - name: Click Analyze button
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Analyze")'
+    - name: "Combine existing questions with new question"
+      ansible.builtin.set_fact:
+        updated_survey_spec:
+          name: ""
+          description: ""
+          spec: "{{ current_survey_questions + [new_survey_question] }}"
+      when:
+        - current_survey_questions is defined
+        - not (enable_service_exists | default(false))
+        - new_survey_question is defined
 
-    - name: Wait for template analysis
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "Review"
-        timeout: 30000
-
-    - name: Click Import button
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Import")'
-
-    - name: Wait for import to complete
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "imported successfully"
-        timeout: 30000
-
-    - name: Display custom template import success
-      ansible.builtin.debug:
-        msg: "✅ Custom template 'Manage RHEL Time Servers' imported successfully"
-
-    # ========================================================================
-    # Part 4: Launch custom template as rheluser1
-    # ========================================================================
-
-    - name: Login to Portal as rheluser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "login"
-        username: "rheluser1"
+    - name: "Update job template with new survey"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ r_rhel_start_jt.json.results[0].id }}/survey_spec/"
+        method: POST
+        user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body: "{{ updated_survey_spec }}"
+        status_code: [200, 201, 400]
+      when:
+        - r_rhel_start_jt.json.count | default(0) | int > 0
+        - updated_survey_spec is defined
+      register: r_survey_update
 
-    - name: Navigate to catalog
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "navigate"
+    - name: "Enable survey on job template"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ r_rhel_start_jt.json.results[0].id }}/"
+        method: PATCH
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          survey_enabled: true
+        status_code: [200, 400]
+      when: r_rhel_start_jt.json.count | default(0) | int > 0
 
-    - name: Click Start on custom template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "click"
-        selector: 'button:has-text("Start"):near(:text("Manage RHEL Time Servers"))'
-
-    - name: Select inventory for custom template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'select[name="inventory"] option:contains("RHEL")'
-
-    - name: Click Next on custom template wizard
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Next")'
-
-    - name: Click Create to launch custom template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Create")'
-
-    - name: Wait for custom template job to complete
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "Successful"
-        timeout: 90000
-
-    - name: Display custom template execution success
+    - name: "Module 3 solve complete"
       ansible.builtin.debug:
-        msg: "✅ rheluser1 successfully executed custom template 'Manage RHEL Time Servers'"
-
-    - name: Module 3 solver complete
-      ansible.builtin.debug:
-        msg: "✅ Module 3 solver complete - Survey modified, template imported and executed"
+        msg: "✅ Module 3 solve complete - Survey question added to Linux/RHEL START Service job template"

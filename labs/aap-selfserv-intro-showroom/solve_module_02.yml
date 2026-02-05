@@ -1,6 +1,6 @@
 ---
 # Solve Module 2: User Persona Testing
-# This solver executes job templates as different users to complete module 2
+# Automatically launches job templates as different users via API
 
 - name: Solve Module 2 - User Persona Testing
   hosts: localhost
@@ -8,199 +8,166 @@
   become: false
 
   vars:
-    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
-    self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
     aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
-
-    # User personas to test
-    users:
-      - username: "clouduser1"
-        password: "{{ aap_admin_password }}"
-        job_template: "Cloud/AWS Check Region Connectivity"
-        description: "Cloud user executing cloud automation"
-
-      - username: "networkuser1"
-        password: "{{ aap_admin_password }}"
-        job_template: "Network/Check Device Status"
-        description: "Network user executing network automation"
-
-      - username: "rheluser1"
-        password: "{{ aap_admin_password }}"
-        job_template: "Linux/RHEL Package Management"
-        description: "RHEL user executing RHEL automation"
 
   tasks:
     # ========================================================================
-    # Execute job template as clouduser1
+    # Section 2.1: Execute job template as clouduser1
     # ========================================================================
 
-    - name: Login to Portal as clouduser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "login"
-        username: "clouduser1"
+    - name: "Get Cloud/AWS job template for clouduser1"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__icontains=Cloud/AWS"
+        method: GET
+        user: "clouduser1"
         password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_cloud_templates
 
-    - name: Navigate to clouduser1 job templates
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "navigate"
-
-    - name: Click Cloud/AWS job template as clouduser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "click"
-        selector: 'button:has-text("Start"):near(:text("Cloud/AWS Check Region Connectivity"))'
-
-    - name: Launch cloud job template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Next")'
-
-    - name: Confirm cloud job launch
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Create")'
-
-    - name: Wait for cloud job to complete
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "Successful"
-        timeout: 60000
-
-    - name: Display clouduser1 job completion
-      ansible.builtin.debug:
-        msg: "✅ clouduser1 successfully executed Cloud/AWS job template"
-
-    # ========================================================================
-    # Execute job template as networkuser1
-    # ========================================================================
-
-    - name: Login to Portal as networkuser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "login"
-        username: "networkuser1"
+    - name: "Launch Cloud/AWS job template as clouduser1"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ r_cloud_templates.json.results[0].id }}/launch/"
+        method: POST
+        user: "clouduser1"
         password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body: {}
+        status_code: [200, 201, 400]
+      register: r_cloud_job_launch
+      when: r_cloud_templates.json.count | default(0) | int > 0
 
-    - name: Navigate to networkuser1 job templates
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "navigate"
-
-    - name: Click Network job template as networkuser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "click"
-        selector: 'button:has-text("Start"):near(:text("Network/"))'
-
-    - name: Launch network job template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Next")'
-
-    - name: Confirm network job launch
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Create")'
-
-    - name: Wait for network job to complete
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "Successful"
-        timeout: 60000
-
-    - name: Display networkuser1 job completion
-      ansible.builtin.debug:
-        msg: "✅ networkuser1 successfully executed Network job template"
-
-    # ========================================================================
-    # Execute job template as rheluser1
-    # ========================================================================
-
-    - name: Login to Portal as rheluser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "login"
-        username: "rheluser1"
+    - name: "Wait for clouduser1 job to complete"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/jobs/{{ r_cloud_job_launch.json.id }}/"
+        method: GET
+        user: "clouduser1"
         password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_job_status
+      until: r_cloud_job_status.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 30
+      delay: 10
+      when:
+        - r_cloud_job_launch is defined
+        - r_cloud_job_launch.json.id is defined
 
-    - name: Navigate to rheluser1 job templates
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "navigate"
-
-    - name: Click RHEL job template as rheluser1
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}/catalog"
-        action: "click"
-        selector: 'button:has-text("Start"):near(:text("Linux/RHEL"))'
-
-    - name: Launch RHEL job template
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Next")'
-
-    - name: Confirm RHEL job launch
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "click"
-        selector: 'button:has-text("Create")'
-
-    - name: Wait for RHEL job to complete
-      include_role:
-        name: solver_browser_action
-      vars:
-        url: "{{ self_service_portal_url }}"
-        action: "wait_for_text"
-        text: "Successful"
-        timeout: 60000
-
-    - name: Display rheluser1 job completion
+    - name: "Display clouduser1 job result"
       ansible.builtin.debug:
-        msg: "✅ rheluser1 successfully executed RHEL job template"
+        msg: "✅ clouduser1 executed {{ r_cloud_templates.json.results[0].name }} - Status: {{ r_cloud_job_status.json.status }}"
+      when:
+        - r_cloud_job_status is defined
+        - r_cloud_job_status.json.status is defined
 
-    - name: Module 2 solver complete
+    # ========================================================================
+    # Section 2.2: Execute job template as networkuser1
+    # ========================================================================
+
+    - name: "Get Network job template for networkuser1"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__icontains=Network/"
+        method: GET
+        user: "networkuser1"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_network_templates
+
+    - name: "Launch Network job template as networkuser1"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ r_network_templates.json.results[0].id }}/launch/"
+        method: POST
+        user: "networkuser1"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body: {}
+        status_code: [200, 201, 400]
+      register: r_network_job_launch
+      when: r_network_templates.json.count | default(0) | int > 0
+
+    - name: "Wait for networkuser1 job to complete"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/jobs/{{ r_network_job_launch.json.id }}/"
+        method: GET
+        user: "networkuser1"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_job_status
+      until: r_network_job_status.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 30
+      delay: 10
+      when:
+        - r_network_job_launch is defined
+        - r_network_job_launch.json.id is defined
+
+    - name: "Display networkuser1 job result"
       ansible.builtin.debug:
-        msg: "✅ Module 2 solver complete - All user personas tested job execution"
+        msg: "✅ networkuser1 executed {{ r_network_templates.json.results[0].name }} - Status: {{ r_network_job_status.json.status }}"
+      when:
+        - r_network_job_status is defined
+        - r_network_job_status.json.status is defined
+
+    # ========================================================================
+    # Section 2.3: Execute job template as rheluser1
+    # ========================================================================
+
+    - name: "Get Linux/RHEL job template for rheluser1"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__icontains=Linux/RHEL"
+        method: GET
+        user: "rheluser1"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 404]
+      register: r_rhel_templates
+
+    - name: "Launch Linux/RHEL job template as rheluser1"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ r_rhel_templates.json.results[0].id }}/launch/"
+        method: POST
+        user: "rheluser1"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body: {}
+        status_code: [200, 201, 400]
+      register: r_rhel_job_launch
+      when: r_rhel_templates.json.count | default(0) | int > 0
+
+    - name: "Wait for rheluser1 job to complete"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/jobs/{{ r_rhel_job_launch.json.id }}/"
+        method: GET
+        user: "rheluser1"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_job_status
+      until: r_rhel_job_status.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 30
+      delay: 10
+      when:
+        - r_rhel_job_launch is defined
+        - r_rhel_job_launch.json.id is defined
+
+    - name: "Display rheluser1 job result"
+      ansible.builtin.debug:
+        msg: "✅ rheluser1 executed {{ r_rhel_templates.json.results[0].name }} - Status: {{ r_rhel_job_status.json.status }}"
+      when:
+        - r_rhel_job_status is defined
+        - r_rhel_job_status.json.status is defined
+
+    - name: "Module 2 solve complete"
+      ansible.builtin.debug:
+        msg: "✅ Module 2 solve complete - All user personas executed job templates"
