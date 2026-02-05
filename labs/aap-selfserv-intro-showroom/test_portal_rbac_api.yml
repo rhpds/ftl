@@ -19,15 +19,14 @@
 
     # Try common Backstage/RHDH API endpoints
 
-    - name: "Test 1: Try /api/permission/policies endpoint"
+    - name: "Test 1: Try /api/permission/policies endpoint (NO AUTH - like ocp4_workload_dynamic_user_provisioning)"
       ansible.builtin.uri:
         url: "{{ portal_url }}/api/permission/policies"
         method: GET
-        user: "{{ aap_admin_username }}"
-        password: "{{ aap_admin_password }}"
-        force_basic_auth: yes
         validate_certs: false
-        status_code: [-1, 200, 201, 400, 401, 403, 404]
+        headers:
+          Content-Type: "application/json"
+        status_code: [200, 401, 403, 404]
       register: r_policies_1
       ignore_errors: true
 
@@ -35,7 +34,8 @@
       ansible.builtin.debug:
         msg:
           - "Status: {{ r_policies_1.status }}"
-          - "Response: {{ r_policies_1.json | default(r_policies_1.msg) }}"
+          - "Response type: {{ r_policies_1.json | type_debug if r_policies_1.status == 200 else 'N/A' }}"
+          - "Response preview: {{ r_policies_1.json[:2] | default(r_policies_1.msg) if r_policies_1.status == 200 else r_policies_1.msg }}"
       when: r_policies_1 is defined
 
     - name: "Test 2: Try /api/permission/roles endpoint"
@@ -145,3 +145,27 @@
           - "/api/catalog/entities: {{ r_all_entities.status | default('N/A') }}"
           - "/api/permission-backend/policies: {{ r_policies_2.status | default('N/A') }}"
           - "/api/: {{ r_api_discovery.status | default('N/A') }}"
+
+    - name: "If /api/permission/policies worked, search for our policies"
+      when: r_policies_1.status == 200
+      block:
+        - name: "Display full policies response"
+          ansible.builtin.debug:
+            var: r_policies_1.json
+
+        - name: "Search for ssa-portal-users policy"
+          ansible.builtin.set_fact:
+            ssa_users_found: "{{ 'ssa-portal-users' in (r_policies_1.json | string) }}"
+
+        - name: "Search for saa-portal-rhel-team policy"
+          ansible.builtin.set_fact:
+            ssa_rhel_found: "{{ 'saa-portal-rhel-team' in (r_policies_1.json | string) }}"
+
+        - name: "Policy Search Results"
+          ansible.builtin.debug:
+            msg:
+              - "🎯 Policy Search Results:"
+              - "  ssa-portal-users: {{ 'FOUND ✓' if ssa_users_found else 'NOT FOUND ✗' }}"
+              - "  saa-portal-rhel-team: {{ 'FOUND ✓' if ssa_rhel_found else 'NOT FOUND ✗' }}"
+              - ""
+              - "{{ '✅ SUCCESS: Can validate Portal RBAC via API!' if (ssa_users_found and ssa_rhel_found) else '⚠️  API works but policies not found' }}"
