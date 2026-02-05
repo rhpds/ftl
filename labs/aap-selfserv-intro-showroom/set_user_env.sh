@@ -22,7 +22,9 @@ export SELF_SERVICE_PORTAL_URL="https://self-service-rhaap-portal-user${USER_NUM
 export OPENSHIFT_USERNAME="user${USER_NUM}"
 export OPENSHIFT_PASSWORD="${COMMON_PASSWORD}"
 export OPENSHIFT_CONSOLE_URL="https://console-openshift-console.${CLUSTER_DOMAIN}"
+export OPENSHIFT_API_URL="https://api.cluster-${GUID}.dynamic.redhatworkshops.io:6443"
 export AAP_NAMESPACE="user${USER_NUM}-aap"
+export PORTAL_NAMESPACE="user${USER_NUM}-aap-ssap"
 export SHOWROOM_URL="https://showroom-showroom-${GUID}-1-user${USER_NUM}.${CLUSTER_DOMAIN}/"
 
 echo "========================================="

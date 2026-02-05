@@ -11,8 +11,8 @@
     portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
     aap_admin_username: "admin"
     aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
-    # Extract namespace from portal URL
-    portal_namespace: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') | regex_replace('^https://[^-]+-[^-]+-[^-]+-([^.]+)\\..*', '\\1') }}"
+    # Portal namespace from environment (set by set_user_env.sh)
+    portal_namespace: "{{ lookup('env', 'PORTAL_NAMESPACE') }}"
 
   tasks:
     # =============================================
