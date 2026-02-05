@@ -197,7 +197,7 @@
 
     - name: "Assign Execute role on Cloud/AWS templates to cloud-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -207,6 +207,8 @@
         body:
           team: "{{ cloud_team_id }}"
           role_definition: "JobTemplate Execute"
+          content_type: "awx.jobtemplate"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ r_cloud_templates.json.results }}"
       when: r_cloud_templates.json.count | default(0) | int > 0
@@ -223,7 +225,7 @@
 
     - name: "Assign Use role on cloud inventories to cloud-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -233,6 +235,8 @@
         body:
           team: "{{ cloud_team_id }}"
           role_definition: "Inventory Use"
+          content_type: "awx.inventory"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ r_cloud_inventories.json.results }}"
       when: r_cloud_inventories.json.count | default(0) | int > 0
@@ -249,7 +253,7 @@
 
     - name: "Assign Use role on cloud credentials to cloud-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -259,6 +263,8 @@
         body:
           team: "{{ cloud_team_id }}"
           role_definition: "Credential Use"
+          content_type: "awx.credential"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ r_cloud_credentials.json.results }}"
       when: r_cloud_credentials.json.count | default(0) | int > 0
@@ -279,7 +285,7 @@
 
     - name: "Assign Execute role on Network templates to network-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -289,6 +295,8 @@
         body:
           team: "{{ network_team_id }}"
           role_definition: "JobTemplate Execute"
+          content_type: "awx.jobtemplate"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ r_network_templates.json.results }}"
       when: r_network_templates.json.count | default(0) | int > 0
@@ -305,7 +313,7 @@
 
     - name: "Assign Use role on Network Inventory to network-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/{{ r_network_inventory.json.results[0].id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -315,6 +323,8 @@
         body:
           team: "{{ network_team_id }}"
           role_definition: "Inventory Use"
+          content_type: "awx.inventory"
+          object_id: "{{ r_network_inventory.json.results[0].id }}"
         status_code: [200, 201, 204, 400]
       when: r_network_inventory.json.count | default(0) | int > 0
 
@@ -330,7 +340,7 @@
 
     - name: "Assign Use role on Network Credential to network-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/{{ r_network_credential.json.results[0].id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -340,6 +350,8 @@
         body:
           team: "{{ network_team_id }}"
           role_definition: "Credential Use"
+          content_type: "awx.credential"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       when: r_network_credential.json.count | default(0) | int > 0
 
@@ -373,7 +385,7 @@
 
     - name: "Assign Execute role on RHEL templates to rhel-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -383,6 +395,8 @@
         body:
           team: "{{ rhel_team_id }}"
           role_definition: "JobTemplate Execute"
+          content_type: "awx.jobtemplate"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ all_rhel_templates }}"
       when: all_rhel_templates | length > 0
@@ -399,7 +413,7 @@
 
     - name: "Assign Use role on RHEL inventories to rhel-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -409,6 +423,8 @@
         body:
           team: "{{ rhel_team_id }}"
           role_definition: "Inventory Use"
+          content_type: "awx.inventory"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ r_rhel_inventories.json.results }}"
       when: r_rhel_inventories.json.count | default(0) | int > 0
@@ -425,7 +441,7 @@
 
     - name: "Assign Use role on RHEL credentials to rhel-team"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/{{ item.id }}/access_list/"
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
         method: POST
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -435,6 +451,8 @@
         body:
           team: "{{ rhel_team_id }}"
           role_definition: "Credential Use"
+          content_type: "awx.credential"
+          object_id: "{{ item.id }}"
         status_code: [200, 201, 204, 400]
       loop: "{{ r_rhel_credentials.json.results }}"
       when: r_rhel_credentials.json.count | default(0) | int > 0
