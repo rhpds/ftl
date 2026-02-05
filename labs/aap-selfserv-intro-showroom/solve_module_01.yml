@@ -106,7 +106,95 @@
         rhel_team_id: "{{ r_rhel_team.json.results[0].id }}"
 
     # ========================================================================
-    # Section 1.3: Assign Users to Teams
+    # Section 1.3: Clean up existing team memberships
+    # ========================================================================
+
+    - name: "Get current cloud-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_cloud_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_team_current_users
+      when: r_cloud_team.json.count | default(0) | int > 0
+
+    - name: "Remove all users from cloud-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ cloud_team_id }}/users/disassociate/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          instances: ["{{ item.id }}"]
+        status_code: [200, 201, 204, 400, 404]
+      loop: "{{ r_cloud_team_current_users.json.results | default([]) }}"
+      when:
+        - r_cloud_team.json.count | default(0) | int > 0
+        - r_cloud_team_current_users.json.results | default([]) | length > 0
+
+    - name: "Get current network-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_network_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_network_team_current_users
+      when: r_network_team.json.count | default(0) | int > 0
+
+    - name: "Remove all users from network-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ network_team_id }}/users/disassociate/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          instances: ["{{ item.id }}"]
+        status_code: [200, 201, 204, 400, 404]
+      loop: "{{ r_network_team_current_users.json.results | default([]) }}"
+      when:
+        - r_network_team.json.count | default(0) | int > 0
+        - r_network_team_current_users.json.results | default([]) | length > 0
+
+    - name: "Get current rhel-team members"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_rhel_team.json.results[0].related.users }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_rhel_team_current_users
+      when: r_rhel_team.json.count | default(0) | int > 0
+
+    - name: "Remove all users from rhel-team"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/{{ rhel_team_id }}/users/disassociate/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          instances: ["{{ item.id }}"]
+        status_code: [200, 201, 204, 400, 404]
+      loop: "{{ r_rhel_team_current_users.json.results | default([]) }}"
+      when:
+        - r_rhel_team.json.count | default(0) | int > 0
+        - r_rhel_team_current_users.json.results | default([]) | length > 0
+
+    # ========================================================================
+    # Section 1.4: Assign Correct Users to Teams
     # ========================================================================
 
     - name: "Get clouduser1 ID"
@@ -182,7 +270,7 @@
       when: r_rheluser1.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.4: Get Role Definition IDs (dynamic lookup for AAP 2.6)
+    # Section 1.5: Get Role Definition IDs (dynamic lookup for AAP 2.6)
     # ========================================================================
 
     - name: "Get all role definitions"
@@ -202,7 +290,7 @@
         role_cred_use_id: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'Credential Use') | map(attribute='id') | first }}"
 
     # ========================================================================
-    # Section 1.5: Assign Roles to cloud-team
+    # Section 1.6: Assign Roles to cloud-team
     # ========================================================================
 
     - name: "Get Cloud/AWS job templates"
@@ -290,7 +378,7 @@
       when: r_cloud_credentials.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.6: Assign Roles to network-team
+    # Section 1.7: Assign Roles to network-team
     # ========================================================================
 
     - name: "Get Network job templates"
@@ -376,7 +464,7 @@
       when: r_network_credential.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.7: Assign Roles to rhel-team
+    # Section 1.8: Assign Roles to rhel-team
     # ========================================================================
 
     - name: "Get Linux/RHEL job templates"
@@ -478,7 +566,7 @@
       when: r_rhel_credentials.json.count | default(0) | int > 0
 
     # ========================================================================
-    # Section 1.8: Create Portal RBAC Policies
+    # Section 1.9: Create Portal RBAC Policies
     # ========================================================================
 
     - name: "Create Portal RBAC policies via browser automation"
