@@ -60,10 +60,10 @@ try:
         else:
             # Click Create button (top right, blue button)
             page.get_by_role('button', name='Create').click()
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(3000)
 
             # Step 1: Fill name and description
-            page.wait_for_selector('input[type="text"]', timeout=10000)
+            page.wait_for_selector('text=Enter name and description of role', timeout=10000)
             page.wait_for_timeout(1000)
 
             page.locator('input[type="text"]').first.fill('ssa-portal-users')
@@ -71,6 +71,9 @@ try:
 
             page.locator('textarea').first.fill('Role for Cloud and Network teams')
             page.wait_for_timeout(500)
+
+            # Wait for Next button to be ready
+            page.wait_for_selector('[data-testid="nextButton-1"]', state='visible', timeout=10000)
             page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
@@ -157,9 +160,10 @@ try:
             print("  ⚠️  Role saa-portal-rhel-team already exists, skipping\n")
         else:
             page.get_by_role('button', name='Create').click()
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(3000)
 
-            page.wait_for_selector('input[type="text"]', timeout=10000)
+            # Wait for the Create Role form to fully load
+            page.wait_for_selector('text=Enter name and description of role', timeout=10000)
             page.wait_for_timeout(1000)
 
             page.locator('input[type="text"]').first.fill('saa-portal-rhel-team')
@@ -167,6 +171,9 @@ try:
 
             page.locator('textarea').first.fill('Role for RHEL team')
             page.wait_for_timeout(500)
+
+            # Wait for Next button to be enabled
+            page.wait_for_selector('[data-testid="nextButton-1"]', state='visible', timeout=10000)
             page.get_by_test_id('nextButton-1').click()
             page.wait_for_timeout(2000)
 
