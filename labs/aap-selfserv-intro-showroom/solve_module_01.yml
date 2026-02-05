@@ -215,7 +215,7 @@
 
     - name: "Get cloud inventories"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name__in=AWS Inventory,Azure Inventory,GCP Inventory"
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name__in=AWS%20Inventory,Azure%20Inventory,GCP%20Inventory"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -243,7 +243,7 @@
 
     - name: "Get cloud credentials"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name__in=AWS Credential,Azure Credential,RHEL - SSH Credentials"
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name__in=AWS%20Credential,Azure%20Credential,RHEL%20-%20SSH%20Credentials"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -303,7 +303,7 @@
 
     - name: "Get Network Inventory"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name=Network Inventory"
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name=Network%20Inventory"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -330,7 +330,7 @@
 
     - name: "Get Network Credential"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name=Network Credential"
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name=Network%20Credential"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -371,7 +371,7 @@
 
     - name: "Get additional RHEL job templates (Cloud/AWS Create RHEL instances)"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__in=Cloud/AWS Create RHEL10 instance,Cloud/AWS Create RHEL9 instance,RHEL / Update RHEL Time Servers"
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__in=Cloud/AWS%20Create%20RHEL10%20instance,Cloud/AWS%20Create%20RHEL9%20instance,RHEL%20/%20Update%20RHEL%20Time%20Servers"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -403,7 +403,7 @@
 
     - name: "Get RHEL inventories"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name__in=RHEL Inventory,AWS Inventory"
+        url: "{{ aap_gateway_url }}/api/controller/v2/inventories/?name__in=RHEL%20Inventory,AWS%20Inventory"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
@@ -431,7 +431,7 @@
 
     - name: "Get RHEL credentials"
       ansible.builtin.uri:
-        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name__in=AWS Credential,RHEL - SSH Credentials"
+        url: "{{ aap_gateway_url }}/api/controller/v2/credentials/?name__in=AWS%20Credential,RHEL%20-%20SSH%20Credentials"
         method: GET
         user: "{{ aap_admin_username }}"
         password: "{{ aap_admin_password }}"
