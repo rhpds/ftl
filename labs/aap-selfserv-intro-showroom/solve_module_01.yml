@@ -785,9 +785,48 @@
                     page.locator('text=catalog.entity.read').locator('..').locator('input[type="checkbox"]').first.check()
                     page.wait_for_timeout(1000)
 
-                    # Add condition - click the condition icon (looks like checkmarks in Actions column)
-                    # This is complex - for now skip conditional rule and just add basic permissions
-                    print("  ⚠️  Note: Conditional rule (NOT HAS_METADATA tags=custom) must be added manually via UI\n")
+                    # Add conditional rule to catalog.entity.read
+                    print("  Adding conditional rule: NOT HAS_METADATA tags=custom...")
+
+                    # Click the conditional icon in Actions column for catalog.entity.read row
+                    # The icon is in the same row as catalog.entity.read
+                    catalog_row = page.locator('text=catalog.entity.read').locator('..')
+                    condition_button = catalog_row.locator('button').last  # Actions column button
+                    condition_button.click()
+                    page.wait_for_timeout(2000)
+
+                    # Modal should open: "Configure access for the catalog-entity"
+                    # Click the "Not" tab
+                    page.get_by_role('button', name='Not').click()
+                    page.wait_for_timeout(1000)
+
+                    # "Add rule" radio button should be selected by default
+                    # Select "HAS_METADATA" from Rule dropdown (it's the first visible dropdown/select)
+                    # Wait for the dropdown to be visible
+                    page.wait_for_selector('text=Rule', timeout=5000)
+                    rule_dropdown = page.locator('select').first
+                    rule_dropdown.select_option('HAS_METADATA')
+                    page.wait_for_timeout(500)
+
+                    # Fill key field with "tags"
+                    # The key field is labeled with "key *"
+                    page.wait_for_selector('text=key', timeout=5000)
+                    key_input = page.locator('input[type="text"]').nth(0)  # First text input after Rule dropdown
+                    key_input.fill('tags')
+                    page.wait_for_timeout(500)
+
+                    # Fill value field with "custom"
+                    # The value field is labeled with "value"
+                    page.wait_for_selector('text=value', timeout=5000)
+                    value_input = page.locator('input[type="text"]').nth(1)  # Second text input
+                    value_input.fill('custom')
+                    page.wait_for_timeout(500)
+
+                    # Click Save button to save the conditional rule
+                    page.get_by_role('button', name='Save').click()
+                    page.wait_for_timeout(2000)
+
+                    print("  ✅ Added conditional rule to catalog.entity.read\n")
 
                     # Expand Scaffolder section
                     page.locator('text=Scaffolder').locator('..').locator('svg').first.click()
@@ -818,8 +857,7 @@
                     # Review and create
                     page.get_by_role('button', name='Create').click()
                     page.wait_for_timeout(3000)
-                    print("  ✅ Created saa-portal-rhel-team role (without conditional rule)\n")
-                    print("  ⚠️  Manual step required: Edit role and add condition to catalog.entity.read\n")
+                    print("  ✅ Created saa-portal-rhel-team role with conditional rule\n")
 
                 browser.close()
 
