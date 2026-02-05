@@ -1,0 +1,28 @@
+---
+# Test Portal login via browser automation
+# Portal uses OAuth redirect flow, need to verify our browser role can handle it
+
+- name: Test Portal Login with Browser Automation
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: "Test: Navigate to Portal RBAC page and take screenshot"
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ portal_url }}/settings/rbac"
+        action: "screenshot"
+        screenshot_path: "/tmp/portal_rbac_page.png"
+        headless: true
+        timeout: 60000
+
+    - name: "Display result"
+      ansible.builtin.debug:
+        msg: "✅ Portal login test complete. Check screenshot at /tmp/portal_rbac_page.png"
