@@ -873,6 +873,8 @@
             sys.exit(1)
 
         PYTHON_SCRIPT
+      args:
+        executable: /bin/bash
       environment:
         SELF_SERVICE_PORTAL_URL: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
         AAP_ADMIN_PASSWORD: "{{ aap_admin_password }}"
