@@ -152,15 +152,23 @@ try:
         print("  Refreshing RBAC page to sync latest teams from AAP...")
         page.reload()
         page.wait_for_load_state('networkidle')
-        page.wait_for_timeout(5000)  # Longer wait after reload for Portal to sync
+        page.wait_for_timeout(3000)
+
+        # Wait for RBAC page to be fully loaded after reload
+        page.wait_for_selector('text=All roles', timeout=15000)
+        page.wait_for_timeout(2000)
         print("  ✅ Page refreshed\n")
 
         page_text = page.inner_text('body')
         if 'saa-portal-rhel-team' in page_text:
             print("  ⚠️  Role saa-portal-rhel-team already exists, skipping\n")
         else:
+            print("  Clicking Create button...")
+            # Ensure Create button is visible and clickable
+            page.wait_for_selector('button:has-text("Create")', state='visible', timeout=10000)
             page.get_by_role('button', name='Create').click()
             page.wait_for_timeout(3000)
+            print("  ✅ Create button clicked")
 
             # Wait for the Create Role form to fully load
             page.wait_for_selector('text=Enter name and description of role', timeout=10000)
