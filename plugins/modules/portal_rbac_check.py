@@ -126,6 +126,29 @@ def main():
                 if authorize_button.is_visible(timeout=5000):
                     authorize_button.click()
                     page.wait_for_load_state('networkidle', timeout=timeout)
+
+                    # Step 4b: Second login prompt may appear after Authorize
+                    # This is OpenShift OAuth requiring re-authentication
+                    try:
+                        # Look for "Log in to your account" or password field
+                        if page.locator("text=Log in to your account").is_visible(timeout=5000):
+                            # Fill credentials using generic input selectors
+                            # Username field (first input)
+                            username_inputs = page.locator("input[type='text'], input[name='username']")
+                            if username_inputs.count() > 0:
+                                username_inputs.first.fill(username)
+
+                            # Password field
+                            password_inputs = page.locator("input[type='password'], input[name='password']")
+                            if password_inputs.count() > 0:
+                                password_inputs.first.fill(password)
+
+                            # Click Log in button
+                            page.click("button:has-text('Log in')")
+                            page.wait_for_load_state('networkidle', timeout=timeout)
+                    except PlaywrightTimeout:
+                        # Second login didn't appear
+                        pass
             except:
                 # Authorize page didn't appear (already authorized)
                 pass
