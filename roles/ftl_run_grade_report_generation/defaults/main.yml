@@ -11,8 +11,3 @@ grader_student_report_file: grading_report.txt
 
 # AgnosticD integration
 agnosticd_user_info_enabled: "{{ agnosticd_integration | default(false) }}"
-
-# Lab metadata
-lab_id: "{{ lab_id | default('unknown') }}"
-guid: "{{ lookup('env', 'GUID') | default('unknown', true) }}"
-student_name: "{{ lookup('env', 'STUDENT_NAME') | default('student', true) }}"
