@@ -170,18 +170,31 @@ try:
             page.locator('text=Select users and groups').first.click()
             page.wait_for_timeout(3000)
 
-            # Wait for dropdown options to load with retry
+            # Wait for dropdown to open and load teams
             print("  Looking for rhel-team in dropdown...")
+
+            # First wait for a team we know exists to ensure dropdown is loaded
+            page.wait_for_selector('text=cloud-team', timeout=10000)
+            print("  ✅ Dropdown loaded")
+            page.wait_for_timeout(500)
+
+            # Try to find rhel-team - it might need scrolling
             try:
-                page.wait_for_selector('text=rhel-team', timeout=15000)
-                page.wait_for_timeout(500)
+                # Check if rhel-team is visible
+                rhel_element = page.locator('text=rhel-team').first
+                if not rhel_element.is_visible():
+                    print("  ⚠️  rhel-team not visible, scrolling dropdown...")
+                    # Scroll the dropdown by clicking on network-team first (which we know is above rhel-team)
+                    page.locator('text=network-team').first.scroll_into_view_if_needed()
+                    page.wait_for_timeout(500)
+                    # Now rhel-team should be visible
+                    rhel_element.scroll_into_view_if_needed()
+                    page.wait_for_timeout(500)
+
                 print("  ✅ Found rhel-team")
-            except:
-                print("  ⚠️  rhel-team not immediately visible, scrolling dropdown...")
-                page.keyboard.press('PageDown')
-                page.wait_for_timeout(1000)
-                page.wait_for_selector('text=rhel-team', timeout=10000)
-                print("  ✅ Found rhel-team after scroll")
+            except Exception as e:
+                print("  ⚠️  Error finding rhel-team: " + str(e))
+                raise
 
             page.locator('text=rhel-team').locator('..').locator('input[type="checkbox"]').first.check()
             page.wait_for_timeout(500)
