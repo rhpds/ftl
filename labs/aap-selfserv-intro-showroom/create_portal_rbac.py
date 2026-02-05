@@ -142,6 +142,13 @@ try:
         # Step 4: Create saa-portal-rhel-team role
         print("Step 4: Creating saa-portal-rhel-team role...")
 
+        # Reload page to ensure Portal has latest team data from AAP
+        print("  Refreshing RBAC page to sync latest teams from AAP...")
+        page.reload()
+        page.wait_for_load_state('networkidle')
+        page.wait_for_timeout(2000)
+        print("  ✅ Page refreshed\n")
+
         page_text = page.inner_text('body')
         if 'saa-portal-rhel-team' in page_text:
             print("  ⚠️  Role saa-portal-rhel-team already exists, skipping\n")
@@ -161,11 +168,20 @@ try:
             page.wait_for_timeout(2000)
 
             page.locator('text=Select users and groups').first.click()
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(3000)
 
-            # Wait for dropdown options to load
-            page.wait_for_selector('text=rhel-team', timeout=10000)
-            page.wait_for_timeout(500)
+            # Wait for dropdown options to load with retry
+            print("  Looking for rhel-team in dropdown...")
+            try:
+                page.wait_for_selector('text=rhel-team', timeout=15000)
+                page.wait_for_timeout(500)
+                print("  ✅ Found rhel-team")
+            except:
+                print("  ⚠️  rhel-team not immediately visible, scrolling dropdown...")
+                page.keyboard.press('PageDown')
+                page.wait_for_timeout(1000)
+                page.wait_for_selector('text=rhel-team', timeout=10000)
+                print("  ✅ Found rhel-team after scroll")
 
             page.locator('text=rhel-team').locator('..').locator('input[type="checkbox"]').first.check()
             page.wait_for_timeout(500)
@@ -262,4 +278,13 @@ except Exception as e:
     print("\n❌ ERROR: " + str(e))
     import traceback
     traceback.print_exc()
+
+    # Try to take screenshot for debugging
+    try:
+        screenshot_path = '/tmp/portal_rbac_error.png'
+        page.screenshot(path=screenshot_path)
+        print("\n📸 Screenshot saved to: " + screenshot_path)
+    except:
+        pass
+
     sys.exit(1)
