@@ -1,0 +1,267 @@
+---
+# Get AAP OAuth token and use it to access RHDH Permission API
+# Based on AAP 2.6 OAuth documentation
+
+- name: Test AAP OAuth Token for RHDH Permission API
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    - name: "Display URLs"
+      ansible.builtin.debug:
+        msg:
+          - "Portal URL: {{ portal_url }}"
+          - "AAP Gateway URL: {{ aap_gateway_url }}"
+
+    # =============================================
+    # Method 1: Get AAP OAuth Token via /api/o/token/
+    # =============================================
+    - name: "Method 1: Get AAP OAuth token (OAuth 2.0 password grant)"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/o/token/"
+        method: POST
+        validate_certs: false
+        body_format: form-urlencoded
+        body:
+          grant_type: "password"
+          username: "{{ aap_admin_username }}"
+          password: "{{ aap_admin_password }}"
+        status_code: [200, 400, 401]
+      register: r_oauth_token
+      ignore_errors: true
+
+    - name: "Display OAuth token response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_oauth_token.status }}"
+          - "Response: {{ r_oauth_token.json if r_oauth_token.status == 200 else r_oauth_token.msg }}"
+
+    - name: "Save access token"
+      when: r_oauth_token.status == 200
+      ansible.builtin.set_fact:
+        aap_access_token: "{{ r_oauth_token.json.access_token }}"
+
+    # =============================================
+    # Method 2: Create Personal Access Token
+    # =============================================
+    - name: "Method 2: Get admin user ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/users/?username={{ aap_admin_username }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        status_code: [200, 401]
+      register: r_admin_user
+      ignore_errors: true
+
+    - name: "Display admin user info"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_admin_user.status }}"
+          - "User ID: {{ r_admin_user.json.results[0].id if r_admin_user.status == 200 and r_admin_user.json.count > 0 else 'N/A' }}"
+
+    - name: "Create personal access token"
+      when: r_admin_user.status == 200 and r_admin_user.json.count > 0
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/v2/users/{{ r_admin_user.json.results[0].id }}/personal_tokens/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          description: "FTL RHDH API Test Token"
+          application: null
+          scope: "read"
+        status_code: [200, 201, 400, 401]
+      register: r_personal_token
+      ignore_errors: true
+
+    - name: "Display personal token response"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_personal_token.status }}"
+          - "Token: {{ r_personal_token.json.token if r_personal_token.status in [200, 201] else 'N/A' }}"
+      when: r_personal_token is defined
+
+    - name: "Save personal access token"
+      when: r_personal_token is defined and r_personal_token.status in [200, 201]
+      ansible.builtin.set_fact:
+        aap_personal_token: "{{ r_personal_token.json.token }}"
+
+    # =============================================
+    # Method 3: Test RHDH Permission API with AAP OAuth token
+    # =============================================
+    - name: "Method 3: Test RHDH Permission API with AAP OAuth token"
+      when: aap_access_token is defined
+      block:
+        - name: "Try /api/permission/policies with AAP OAuth token"
+          ansible.builtin.uri:
+            url: "{{ portal_url }}/api/permission/policies"
+            method: GET
+            validate_certs: false
+            headers:
+              Content-Type: "application/json"
+              Authorization: "Bearer {{ aap_access_token }}"
+            status_code: [200, 401, 403]
+          register: r_api_oauth
+          ignore_errors: true
+
+        - name: "Display result with OAuth token"
+          ansible.builtin.debug:
+            msg:
+              - "Status: {{ r_api_oauth.status }}"
+              - "Response: {{ r_api_oauth.json if r_api_oauth.status == 200 else r_api_oauth.msg }}"
+
+    # =============================================
+    # Method 4: Test RHDH Permission API with Personal Access Token
+    # =============================================
+    - name: "Method 4: Test RHDH Permission API with Personal Access Token"
+      when: aap_personal_token is defined
+      block:
+        - name: "Try /api/permission/policies with Personal Access Token"
+          ansible.builtin.uri:
+            url: "{{ portal_url }}/api/permission/policies"
+            method: GET
+            validate_certs: false
+            headers:
+              Content-Type: "application/json"
+              Authorization: "Bearer {{ aap_personal_token }}"
+            status_code: [200, 401, 403]
+          register: r_api_pat
+          ignore_errors: true
+
+        - name: "Display result with PAT"
+          ansible.builtin.debug:
+            msg:
+              - "Status: {{ r_api_pat.status }}"
+              - "Response: {{ r_api_pat.json if r_api_pat.status == 200 else r_api_pat.msg }}"
+
+    # =============================================
+    # Method 5: Get session via Playwright and extract cookies
+    # =============================================
+    - name: "Method 5: Get Portal session via Playwright"
+      shell: |
+        python3 << 'PYTHON_SCRIPT'
+        from playwright.sync_api import sync_playwright
+        import requests
+        import os
+        import json
+
+        portal_url = os.environ['SELF_SERVICE_PORTAL_URL']
+        username = "admin"
+        password = os.environ['AAP_ADMIN_PASSWORD']
+
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(ignore_https_errors=True)
+                page = context.new_page()
+
+                # Navigate and login via AAP OAuth
+                page.goto(portal_url, timeout=60000)
+                page.wait_for_load_state('networkidle')
+
+                try:
+                    page.click("button:has-text('Sign In')", timeout=10000)
+                    page.wait_for_load_state('networkidle', timeout=30000)
+                except:
+                    pass
+
+                page.wait_for_timeout(3000)
+                username_input = page.locator("input[type='text'], input[name='username']").first
+                if username_input.is_visible(timeout=5000):
+                    username_input.fill(username)
+                password_input = page.locator("input[type='password']").first
+                if password_input.is_visible(timeout=5000):
+                    password_input.fill(password)
+                page.click("button:has-text('Log in')", timeout=5000)
+                page.wait_for_load_state('networkidle', timeout=60000)
+                page.wait_for_timeout(3000)
+
+                # Extract cookies
+                cookies = context.cookies()
+                session_cookies = {}
+                for cookie in cookies:
+                    session_cookies[cookie['name']] = cookie['value']
+
+                browser.close()
+
+                # Now test API with cookies using requests
+                session = requests.Session()
+                session.verify = False
+                for name, value in session_cookies.items():
+                    session.cookies.set(name, value)
+
+                # Try Permission API
+                api_url = f"{portal_url}/api/permission/policies"
+                r_api = session.get(api_url)
+
+                result = {
+                    "success": r_api.status_code == 200,
+                    "status_code": r_api.status_code,
+                    "cookie_count": len(session_cookies),
+                    "cookie_names": list(session_cookies.keys())
+                }
+
+                if r_api.status_code == 200:
+                    result["policies"] = r_api.json()
+                    # Search for our policies
+                    response_str = json.dumps(r_api.json())
+                    result["ssa_users_found"] = 'ssa-portal-users' in response_str
+                    result["ssa_rhel_found"] = 'saa-portal-rhel-team' in response_str
+                else:
+                    result["error"] = r_api.text[:300]
+
+                print(json.dumps(result))
+
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}))
+        PYTHON_SCRIPT
+      environment:
+        SELF_SERVICE_PORTAL_URL: "{{ portal_url }}"
+        AAP_ADMIN_PASSWORD: "{{ aap_admin_password }}"
+      register: r_playwright_test
+      ignore_errors: true
+
+    - name: "Parse Playwright result"
+      ansible.builtin.set_fact:
+        playwright_result: "{{ r_playwright_test.stdout | from_json }}"
+      when: r_playwright_test.rc == 0
+
+    - name: "Display Playwright result"
+      ansible.builtin.debug:
+        msg:
+          - "Playwright login success: {{ playwright_result.success }}"
+          - "API status code: {{ playwright_result.status_code }}"
+          - "Cookies: {{ playwright_result.cookie_count }} ({{ playwright_result.cookie_names | join(', ') }})"
+          - "{{ 'ssa-portal-users found: ' + (playwright_result.ssa_users_found | string) if playwright_result.success else 'API call failed: ' + playwright_result.get('error', 'Unknown error') }}"
+          - "{{ 'saa-portal-rhel-team found: ' + (playwright_result.ssa_rhel_found | string) if playwright_result.success else '' }}"
+      when: playwright_result is defined
+
+    # =============================================
+    # Summary
+    # =============================================
+    - name: "Summary of all authentication methods"
+      ansible.builtin.debug:
+        msg:
+          - "========================================================================================================="
+          - "AAP OAuth Token for RHDH Permission API - Test Results"
+          - "========================================================================================================="
+          - "Method 1 (AAP OAuth /api/o/token/): {{ 'Success - Token obtained' if aap_access_token is defined else 'Failed - ' + (r_oauth_token.msg | default('Unknown error')) }}"
+          - "Method 2 (Personal Access Token): {{ 'Success - Token: ' + aap_personal_token[:20] + '...' if aap_personal_token is defined else 'Failed or not tested' }}"
+          - "Method 3 (RHDH API with OAuth token): {{ 'Status ' + (r_api_oauth.status | string) if r_api_oauth is defined else 'Not tested (no OAuth token)' }}"
+          - "Method 4 (RHDH API with PAT): {{ 'Status ' + (r_api_pat.status | string) if r_api_pat is defined else 'Not tested (no PAT)' }}"
+          - "Method 5 (Playwright + Session Cookies): {{ 'Status ' + (playwright_result.status_code | string) + ' ✓' if playwright_result is defined and playwright_result.success else 'Failed or not tested' }}"
+          - "========================================================================================================="
+          - "{{ '✅ SUCCESS: Method 5 (Playwright cookies) works! Can validate Portal RBAC via API!' if playwright_result is defined and playwright_result.success else '⚠️  Still searching for working authentication method' }}"
