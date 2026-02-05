@@ -75,7 +75,7 @@ try:
             page.wait_for_timeout(2000)
 
             # Step 2: Add groups
-            page.locator('text=Select users and groups').click()
+            page.locator('text=Select users and groups').first.click()
             page.wait_for_timeout(1000)
 
             page.locator('text=cloud-team').locator('..').locator('input[type="checkbox"]').check()
@@ -156,7 +156,7 @@ try:
             page.get_by_role('button', name='Next').click()
             page.wait_for_timeout(2000)
 
-            page.locator('text=Select users and groups').click()
+            page.locator('text=Select users and groups').first.click()
             page.wait_for_timeout(1000)
 
             page.locator('text=rhel-team').locator('..').locator('input[type="checkbox"]').check()
