@@ -64,6 +64,11 @@ source "${VENV_DIR}/bin/activate"
 # Change to lab directory
 cd "${LAB_DIR}"
 
+# Clean up old grading report
+echo "Cleaning up old grading reports..."
+rm -f /tmp/grading_dir/grading_report.txt
+mkdir -p /tmp/grading_dir
+
 # Run grading playbook
 echo ""
 echo "========================================="

@@ -17,6 +17,14 @@
 
   tasks:
     # ========================================================================
+    # Initialize grading session
+    # ========================================================================
+
+    - name: Initialize FTL grading session
+      include_role:
+        name: ftl_run_init
+
+    # ========================================================================
     # Section 1.1: Verify Demo Users Exist
     # ========================================================================
 
@@ -241,6 +249,18 @@
     - name: "Module 1.11: Log result"
       include_role:
         name: ftl_run_log_grade_to_log
+
+    # ========================================================================
+    # Finalize grading session
+    # ========================================================================
+
+    - name: Generate grading report
+      include_role:
+        name: ftl_run_grade_report_generation
+
+    - name: Display grading report
+      include_role:
+        name: ftl_run_finish
 
     - name: "Module 1 grading complete"
       ansible.builtin.debug:
