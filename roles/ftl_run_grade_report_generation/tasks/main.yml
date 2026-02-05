@@ -69,7 +69,7 @@
   when: agnosticd_user_info_enabled | default(false) | bool
   block:
     - name: Send grading status to AgnosticD userinfo
-      rhdp.ftl.agnosticd_user_info:
+      agnosticd_user_info:
         msg: |
           {{ '✓ Lab Passed' if lab_passed else '✗ Lab Failed (' + r_error_count.stdout + ' errors)' }}
           Full report: {{ grader_working_dir }}/{{ grader_student_report_file }}
