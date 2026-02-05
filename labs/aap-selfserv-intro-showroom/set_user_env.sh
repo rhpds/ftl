@@ -6,7 +6,7 @@
 USER_NUM="${1:-1}"  # Default to user1 if not specified
 
 # GUID and cluster domain from deployment
-GUID="j7kml"
+export GUID="j7kml"
 CLUSTER_DOMAIN="apps.cluster-${GUID}.dynamic.redhatworkshops.io"
 
 # Common password (all users share same password)

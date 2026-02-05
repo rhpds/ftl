@@ -6,6 +6,10 @@
   hosts: localhost
   gather_facts: false
   become: false
+  vars:
+    lab_id: "AAP Self-Service Portal - Module 1"
+    student_name: "{{ lookup('env', 'OPENSHIFT_USERNAME') | default('student') }}"
+    guid: "{{ lookup('env', 'GUID') | default('j7kml') }}"
   roles:
     - ftl_run_init
 

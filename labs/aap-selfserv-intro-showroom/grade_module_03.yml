@@ -2,6 +2,17 @@
 # Grade Module 3: Surveys and Custom Templates
 # Validates survey modifications and custom template import
 
+- name: Initialize FTL Grading Session
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "AAP Self-Service Portal - Module 3"
+    student_name: "{{ lookup('env', 'OPENSHIFT_USERNAME') | default('student') }}"
+    guid: "{{ lookup('env', 'GUID') | default('j7kml') }}"
+  roles:
+    - ftl_run_init
+
 - name: Grade Module 3 - Surveys and Custom Templates
   hosts: localhost
   gather_facts: false
@@ -132,3 +143,11 @@
     - name: "Module 3 grading complete"
       ansible.builtin.debug:
         msg: "✅ Module 3 grading complete - Surveys and custom templates verified"
+
+- name: Generate Grading Report
+  hosts: localhost
+  gather_facts: false
+  become: false
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish
