@@ -1,0 +1,69 @@
+---
+# Grade Lab: AAP Self-Service Portal Introduction
+# Main grading playbook that orchestrates all module graders
+
+- name: Grade AAP Self-Service Portal Introduction Lab
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_name: "Introduction to Ansible Automation Platform Self-Service Automation Portal"
+    total_modules: 3
+
+  tasks:
+    - name: Display lab grading start
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Starting Lab Grading: {{ lab_name }}
+          ================================================================================
+          Total Modules: {{ total_modules }}
+
+          Module 1: Configure AAP for Self-Service Portal
+          Module 2: User Persona Testing
+          Module 3: Surveys and Custom Templates
+          ================================================================================
+
+    # ========================================================================
+    # Module 1: Configure AAP RBAC and Portal RBAC
+    # ========================================================================
+
+    - name: Grade Module 1 - Configure AAP for Self-Service Portal
+      ansible.builtin.import_playbook: grade_module_01.yml
+      tags: ['module1', 'rbac']
+
+    # ========================================================================
+    # Module 2: User Persona Testing
+    # ========================================================================
+
+    - name: Grade Module 2 - User Persona Testing
+      ansible.builtin.import_playbook: grade_module_02.yml
+      tags: ['module2', 'personas']
+
+    # ========================================================================
+    # Module 3: Surveys and Custom Templates
+    # ========================================================================
+
+    - name: Grade Module 3 - Surveys and Custom Templates
+      ansible.builtin.import_playbook: grade_module_03.yml
+      tags: ['module3', 'surveys', 'templates']
+
+    # ========================================================================
+    # Final Summary
+    # ========================================================================
+
+    - name: Display lab grading completion
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Lab Grading Complete: {{ lab_name }}
+          ================================================================================
+
+          ✅ Module 1: Configure AAP for Self-Service Portal
+          ✅ Module 2: User Persona Testing
+          ✅ Module 3: Surveys and Custom Templates
+
+          All modules graded successfully!
+          Check the grading report for detailed results.
+          ================================================================================

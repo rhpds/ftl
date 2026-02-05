@@ -1,0 +1,23 @@
+---
+# ftl_run_log_grade_to_log role metadata
+# Follows AgnosticD v2 standards for role metadata
+
+galaxy_info:
+  author: Red Hat Demo Platform
+  description: Log FTL grading results to report file
+  company: Red Hat
+  license: Apache-2.0
+
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+
+  galaxy_tags:
+    - grading
+    - ftl
+    - labs
+    - logging
+
+dependencies: []

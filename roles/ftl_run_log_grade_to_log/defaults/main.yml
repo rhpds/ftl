@@ -1,0 +1,14 @@
+---
+# ftl_run_log_grade_to_log - Log grading results to report
+# Purpose: Append PASS/FAIL messages to the grading report file
+# Follows AgnosticD v2 standards for role structure
+
+# Working directory where report file is located
+grader_working_dir: /tmp/grading_dir
+
+# Report file name
+grader_student_report_file: grading_report.txt
+
+# Message to log (required - should be set by calling role)
+# Format: "PASS: Task description" or "FAIL: Task description: Error message"
+grader_output_message: ""

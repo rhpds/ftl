@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  author: Red Hat Demo Platform
+  description: Browser automation for UI-based lab solving using Playwright
+  company: Red Hat
+  license: Apache-2.0
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+  galaxy_tags:
+    - solver
+    - ftl
+    - labs
+    - automation
+    - browser
+    - playwright
+    - ui
+dependencies: []

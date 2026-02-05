@@ -1,0 +1,30 @@
+---
+# grader_check_command_output - Execute command and validate output
+# Purpose: Most versatile grader for validating command execution and output
+# Follows AgnosticD v2 standards for role structure
+
+# Command to execute (required)
+command: ""
+
+# Expected return code (default: 0 = success)
+expected_rc: 0
+
+# Expected exact output match (optional)
+# If set, stdout must exactly match this string
+expected_output: ""
+
+# Expected output regex pattern (optional)
+# If set, stdout must match this regex pattern
+expected_output_regex: ""
+
+# Task description for reporting (required)
+task_description_message: ""
+
+# Error message shown to student on failure (optional)
+student_error_message: "Command validation failed"
+
+# Working directory for command execution (optional)
+chdir: ""
+
+# Environment variables for command (optional)
+environment: {}

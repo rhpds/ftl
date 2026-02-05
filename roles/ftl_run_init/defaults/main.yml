@@ -1,0 +1,17 @@
+---
+# ftl_run_init - Initialize FTL grading session
+# Purpose: Create working directory and report file for lab grading
+# Follows AgnosticD v2 standards for role structure
+
+# Working directory for grading reports
+grader_working_dir: /tmp/grading_dir
+
+# Report file name
+grader_student_report_file: grading_report.txt
+
+# Lab environment variables (can be overridden)
+guid: "{{ lookup('env', 'GUID') | default('unknown', true) }}"
+student_name: "{{ lookup('env', 'STUDENT_NAME') | default('student', true) }}"
+
+# AgnosticD integration flag
+agnosticd_user_info_enabled: "{{ agnosticd_integration | default(false) }}"

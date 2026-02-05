@@ -1,0 +1,24 @@
+---
+# grader_check_command_output role metadata
+# Follows AgnosticD v2 standards for role metadata
+
+galaxy_info:
+  author: Red Hat Demo Platform
+  description: Execute command and validate output for FTL lab grading
+  company: Red Hat
+  license: Apache-2.0
+
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+
+  galaxy_tags:
+    - grading
+    - ftl
+    - labs
+    - validation
+    - command
+
+dependencies: []

@@ -1,0 +1,22 @@
+---
+# grader_check_user_exists - Verify user account exists
+# Purpose: Check if a user account exists on the system
+# Follows AgnosticD v2 standards for role structure
+
+# Username to check (required)
+username: ""
+
+# Task description for reporting (required)
+task_description_message: ""
+
+# Error message shown to student on failure (optional)
+student_error_message: "User account does not exist"
+
+# Optional: Verify user is in specific groups (comma-separated)
+check_groups: ""
+
+# Optional: Verify user's shell
+check_shell: ""
+
+# Optional: Verify user's home directory
+check_home: ""

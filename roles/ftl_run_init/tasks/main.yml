@@ -1,0 +1,54 @@
+---
+# ftl_run_init - Initialize FTL grading session
+# This role creates the grading working directory and report file header
+
+# Create the grading working directory
+# This is where all grading reports and temporary files will be stored
+- name: Create grading working directory
+  ansible.builtin.file:
+    path: "{{ grader_working_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ ansible_user | default(omit) }}"
+  delegate_to: localhost
+
+# Remove any previous grading report
+# This ensures each grading run starts fresh without confusion from old results
+- name: Remove previous grading report
+  ansible.builtin.file:
+    path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+    state: absent
+  delegate_to: localhost
+
+# Create report file with header
+# The header provides context about the grading session (lab, student, timestamp)
+- name: Create grading report file with header
+  ansible.builtin.template:
+    src: grader_student_report_file.j2
+    dest: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+    mode: '0644'
+  delegate_to: localhost
+
+# Initialize grading session variables
+# These track the overall grading state across all graders
+- name: Initialize grading session variables
+  ansible.builtin.set_fact:
+    ftl_grading_start_time: "{{ ansible_date_time.iso8601 }}"
+    ftl_grading_session_id: "{{ ansible_date_time.epoch }}"
+  delegate_to: localhost
+
+# Display grading session info
+# Helps students know what's being graded
+- name: Display grading session information
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      FTL Grading Session Started
+      ============================================================
+      Lab ID:    {{ lab_id | default('unknown') }}
+      Student:   {{ student_name }}
+      GUID:      {{ guid }}
+      Session:   {{ ftl_grading_session_id }}
+      Report:    {{ grader_working_dir }}/{{ grader_student_report_file }}
+      ============================================================
+  delegate_to: localhost

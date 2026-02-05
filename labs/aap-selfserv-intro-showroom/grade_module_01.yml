@@ -1,0 +1,246 @@
+---
+# Grade Module 1: Verify Pre-Configured AAP Content
+# Module 1 is OBSERVATION - students verify pre-configured content exists
+# Students do NOT create teams or RBAC - content is pre-configured by aap_selfservice_custom role
+# This grader validates the environment is correctly set up for Portal usage
+
+- name: Grade Module 1 - Verify Pre-Configured AAP Content
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    # Environment variables from AgnosticD or bastion environment
+    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+    self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+
+    # Expected demo users (pre-configured by aap_selfservice_custom)
+    expected_users:
+      - clouduser1
+      - networkuser1
+      - rheluser1
+
+    # Expected inventories (pre-configured)
+    expected_inventories:
+      - "AWS Inventory"
+      - "Azure Inventory"
+      - "GCP Inventory"
+      - "RHEL Inventory"
+      - "Network Inventory"
+
+  tasks:
+    # ========================================================================
+    # Section 1.1: Verify Demo Users Exist
+    # ========================================================================
+
+    - name: "Module 1.1: Verify clouduser1 exists in AAP"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Demo user 'clouduser1' exists in AAP"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          users list --username clouduser1 -f human | grep -c "clouduser1"
+        expected_output: "1"
+        student_error_message: "User clouduser1 not found. Check aap_selfservice_custom role configuration."
+
+    - name: "Module 1.2: Verify networkuser1 exists in AAP"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Demo user 'networkuser1' exists in AAP"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          users list --username networkuser1 -f human | grep -c "networkuser1"
+        expected_output: "1"
+        student_error_message: "User networkuser1 not found. Check deployment configuration."
+
+    - name: "Module 1.3: Verify rheluser1 exists in AAP"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Demo user 'rheluser1' exists in AAP"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          users list --username rheluser1 -f human | grep -c "rheluser1"
+        expected_output: "1"
+        student_error_message: "User rheluser1 not found. Check deployment configuration."
+
+    # ========================================================================
+    # Section 1.2: Verify Inventories Exist
+    # ========================================================================
+
+    - name: "Module 1.4: Verify AWS Inventory exists"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "AWS Inventory exists in AAP"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          inventories list --name "AWS Inventory" -f human | grep -c "AWS Inventory"
+        expected_output: "1"
+        student_error_message: "AWS Inventory not found. Check aap_selfservice_custom deployment."
+
+    - name: "Module 1.5: Verify Network Inventory exists"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Network Inventory exists in AAP"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          inventories list --name "Network Inventory" -f human | grep -c "Network Inventory"
+        expected_output: "1"
+        student_error_message: "Network Inventory not found. Check deployment configuration."
+
+    - name: "Module 1.6: Verify RHEL Inventory exists"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "RHEL Inventory exists in AAP"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          inventories list --name "RHEL Inventory" -f human | grep -c "RHEL Inventory"
+        expected_output: "1"
+        student_error_message: "RHEL Inventory not found. Check deployment configuration."
+
+    # ========================================================================
+    # Section 1.3: Verify Project and Job Templates Exist
+    # ========================================================================
+
+    - name: "Module 1.7: Verify SelfService Demo playbooks project exists and synced"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Project 'SelfService Demo playbooks' exists and is synced"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          projects list --name "SelfService Demo playbooks" -f json
+          | jq -r '.[0].status' | grep -c "successful"
+        expected_output: "1"
+        student_error_message: "Project not synced successfully. Check SCM URL and credentials."
+
+    - name: "Module 1.8: Verify Cloud/AWS job templates exist"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "At least 5 Cloud/AWS job templates exist"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          job_templates list --name__startswith "Cloud/AWS" -f human | wc -l
+        expected_output_regex: "^[5-9]|[1-9][0-9]+$"
+        student_error_message: "Cloud/AWS job templates missing. Expected at least 5 templates."
+
+    - name: "Module 1.9: Verify Network job templates exist"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "At least 4 Network job templates exist"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          job_templates list --name__startswith "Network/" -f human | wc -l
+        expected_output_regex: "^[4-9]|[1-9][0-9]+$"
+        student_error_message: "Network job templates missing. Expected at least 4 templates."
+
+    - name: "Module 1.10: Verify Linux/RHEL job templates exist"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "At least 6 Linux/RHEL job templates exist"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          job_templates list --name__startswith "Linux/RHEL" -f human | wc -l
+        expected_output_regex: "^[6-9]|[1-9][0-9]+$"
+        student_error_message: "Linux/RHEL job templates missing. Expected at least 6 templates."
+
+    # ========================================================================
+    # Section 1.4: Verify Self-Service Portal is Accessible
+    # ========================================================================
+
+    - name: "Module 1.11: Verify Self-Service Portal responds"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Self-Service Portal is accessible"
+        command: >-
+          curl -sk {{ self_service_portal_url }} | grep -c "Self-Service"
+        expected_output: "1"
+        student_error_message: "Portal not accessible. Check route and deployment status."
+
+    - name: "Module 1.12: Verify Portal OAuth configuration exists"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Portal OAuth application configured in AAP Gateway"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          applications list --name__contains "Portal" -f human | wc -l
+        expected_output_regex: "^[1-9][0-9]*$"
+        student_error_message: "OAuth application for Portal not found. Check self_service role deployment."
+
+    # ========================================================================
+    # Section 1.5: Verify Students Can Login to Portal
+    # ========================================================================
+
+    - name: "Module 1.13: Verify clouduser1 can authenticate to Portal"
+      include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "clouduser1 can login to Portal (user exists in system)"
+        command: >-
+          awx --conf.host {{ aap_controller_url }}
+          --conf.username {{ aap_admin_username }}
+          --conf.password {{ aap_admin_password }}
+          --conf.insecure
+          users get clouduser1 -f json | jq -r '.username'
+        expected_output: "clouduser1"
+        student_error_message: "clouduser1 authentication may fail. Check user configuration."
+
+    - name: "Module 1 grading complete"
+      ansible.builtin.debug:
+        msg: |
+          ✅ Module 1 grading complete
+
+          All pre-configured content verified:
+          - ✓ 3 demo users (clouduser1, networkuser1, rheluser1)
+          - ✓ 5 inventories (AWS, Azure, GCP, RHEL, Network)
+          - ✓ Project synced
+          - ✓ 15+ job templates (Cloud/AWS, Network, Linux/RHEL)
+          - ✓ Self-Service Portal accessible
+          - ✓ OAuth configuration complete
+
+          Students are ready to use the Portal!

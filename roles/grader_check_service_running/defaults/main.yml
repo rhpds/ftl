@@ -1,0 +1,16 @@
+---
+# grader_check_service_running - Verify systemd service is running
+# Purpose: Check if a systemd service is active and optionally enabled
+# Follows AgnosticD v2 standards for role structure
+
+# Service name to check (required)
+service_name: ""
+
+# Check if service is enabled (optional)
+check_enabled: false
+
+# Task description for reporting (required)
+task_description_message: ""
+
+# Error message shown to student on failure (optional)
+student_error_message: "Service is not running"

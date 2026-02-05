@@ -1,0 +1,24 @@
+---
+# grader_check_service_running role metadata
+
+galaxy_info:
+  author: Red Hat Demo Platform
+  description: Verify systemd service is running for FTL lab grading
+  company: Red Hat
+  license: Apache-2.0
+
+  platforms:
+    - name: EL
+      versions:
+        - 8
+        - 9
+
+  galaxy_tags:
+    - grading
+    - ftl
+    - labs
+    - validation
+    - service
+    - systemd
+
+dependencies: []

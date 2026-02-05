@@ -1,0 +1,92 @@
+---
+# FTL Global Variables
+# These provide defaults for all FTL grading and solving operations
+# Follows AgnosticD v2 standards for variable organization
+
+# ============================================================
+# Grading Configuration
+# ============================================================
+
+# Working directory for grading reports and temporary files
+# Students can find their reports here after grading
+grader_working_dir: /tmp/grading_dir
+
+# Report file name
+# Main grading report that accumulates all PASS/FAIL results
+grader_student_report_file: grading_report.txt
+
+# Standard report path
+# Symlink to current report for easy student access
+grader_report_path: /tmp/grading_report.txt
+
+# Continue on failure
+# If true, all graders will run even if some fail
+# If false, grading stops at first failure
+continue_on_failure: true
+
+# ============================================================
+# Lab Environment
+# ============================================================
+
+# Lab GUID (usually from environment variable)
+# Identifies the specific lab instance
+guid: "{{ lookup('env', 'GUID') | default('unknown', true) }}"
+
+# Student name (from environment variable)
+# Used in reports and logging
+student_name: "{{ lookup('env', 'STUDENT_NAME') | default('student', true) }}"
+
+# Lab ID (provided via -e lab_id=...)
+# Identifies which lab is being graded/solved
+lab_id: "{{ lab_id | default('unknown') }}"
+
+# ============================================================
+# AgnosticD Integration
+# ============================================================
+
+# Enable AgnosticD userinfo reporting
+# When true, grading results are sent to AgnosticD for catalog visibility
+# Set to true when FTL is used in AgnosticV catalogs
+agnosticd_user_info_enabled: "{{ agnosticd_integration | default(false) }}"
+
+# ============================================================
+# OpenShift Configuration (for OCP-based labs)
+# ============================================================
+
+# OpenShift API URL (from environment or override)
+ocp_api_url: "{{ lookup('env', 'OCP_API_URL') | default('', true) }}"
+
+# OpenShift authentication token (from environment)
+ocp_token: "{{ lookup('env', 'OCP_TOKEN') | default('', true) }}"
+
+# Validate OpenShift certificates
+# Usually false for lab environments with self-signed certs
+validate_ocp_certs: false
+
+# ============================================================
+# SSH/Bastion Configuration (for remote grading)
+# ============================================================
+
+# Bastion host for SSH operations
+# Used when graders need to check remote systems
+bastion_host: "bastion.{{ guid }}.example.com"
+
+# Bastion user
+bastion_user: devops
+
+# SSH timeout (seconds)
+ssh_timeout: 30
+
+# ============================================================
+# Browser Automation Configuration (optional)
+# ============================================================
+
+# Enable browser-based validation
+# Requires Playwright to be installed
+browser_validation_enabled: false
+
+# Browser timeout (milliseconds)
+browser_timeout: 30000
+
+# Headless mode (true for CI/CD, false for debugging)
+browser_headless: true

@@ -1,0 +1,135 @@
+---
+# Solve Module 1: Verify Pre-Configured AAP Content
+# Module 1 requires NO SOLVING - content is pre-configured by aap_selfservice_custom role
+# This solver validates that the pre-configured environment is ready for student use
+
+- name: Solve Module 1 - Validate Pre-Configured Environment
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    # Environment variables from AgnosticD or bastion environment
+    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+    self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+
+  tasks:
+    # ========================================================================
+    # Module 1 Content is Pre-Configured - No Actions Required
+    # ========================================================================
+
+    - name: Module 1 requires no solving
+      ansible.builtin.debug:
+        msg: |
+          ℹ️  Module 1 content is pre-configured by AgnosticV deployment
+
+          The aap_selfservice_custom role automatically creates:
+          - ✓ 3 demo users (clouduser1, networkuser1, rheluser1)
+          - ✓ 5 inventories (AWS, Azure, GCP, RHEL, Network)
+          - ✓ 4 credentials (placeholder values for demo)
+          - ✓ 1 SCM project (ansible-tmm/ssap-lab)
+          - ✓ 15 job templates with surveys
+          - ✓ Self-Service Portal deployment
+          - ✓ OAuth configuration
+
+          Students observe this configuration - no manual creation needed.
+
+          This solver validates the environment is ready.
+
+    # ========================================================================
+    # Validation: Verify Critical Resources Exist
+    # ========================================================================
+
+    - name: Verify clouduser1 exists
+      ansible.builtin.shell: |
+        awx --conf.host {{ aap_controller_url }} \
+          --conf.username {{ aap_admin_username }} \
+          --conf.password {{ aap_admin_password }} \
+          --conf.insecure \
+          users list --username clouduser1 -f json | jq -r '.[0].username'
+      register: r_clouduser1
+      changed_when: false
+      failed_when: r_clouduser1.stdout != "clouduser1"
+
+    - name: Verify networkuser1 exists
+      ansible.builtin.shell: |
+        awx --conf.host {{ aap_controller_url }} \
+          --conf.username {{ aap_admin_username }} \
+          --conf.password {{ aap_admin_password }} \
+          --conf.insecure \
+          users list --username networkuser1 -f json | jq -r '.[0].username'
+      register: r_networkuser1
+      changed_when: false
+      failed_when: r_networkuser1.stdout != "networkuser1"
+
+    - name: Verify rheluser1 exists
+      ansible.builtin.shell: |
+        awx --conf.host {{ aap_controller_url }} \
+          --conf.username {{ aap_admin_username }} \
+          --conf.password {{ aap_admin_password }} \
+          --conf.insecure \
+          users list --username rheluser1 -f json | jq -r '.[0].username'
+      register: r_rheluser1
+      changed_when: false
+      failed_when: r_rheluser1.stdout != "rheluser1"
+
+    - name: Verify job templates exist (Cloud/AWS)
+      ansible.builtin.shell: |
+        awx --conf.host {{ aap_controller_url }} \
+          --conf.username {{ aap_admin_username }} \
+          --conf.password {{ aap_admin_password }} \
+          --conf.insecure \
+          job_templates list --name__startswith "Cloud/AWS" -f human | wc -l
+      register: r_cloud_templates
+      changed_when: false
+      failed_when: r_cloud_templates.stdout | int < 5
+
+    - name: Verify job templates exist (Network)
+      ansible.builtin.shell: |
+        awx --conf.host {{ aap_controller_url }} \
+          --conf.username {{ aap_admin_username }} \
+          --conf.password {{ aap_admin_password }} \
+          --conf.insecure \
+          job_templates list --name__startswith "Network/" -f human | wc -l
+      register: r_network_templates
+      changed_when: false
+      failed_when: r_network_templates.stdout | int < 4
+
+    - name: Verify job templates exist (Linux/RHEL)
+      ansible.builtin.shell: |
+        awx --conf.host {{ aap_controller_url }} \
+          --conf.username {{ aap_admin_username }} \
+          --conf.password {{ aap_admin_password }} \
+          --conf.insecure \
+          job_templates list --name__startswith "Linux/RHEL" -f human | wc -l
+      register: r_rhel_templates
+      changed_when: false
+      failed_when: r_rhel_templates.stdout | int < 6
+
+    - name: Verify Self-Service Portal is accessible
+      ansible.builtin.uri:
+        url: "{{ self_service_portal_url }}"
+        validate_certs: false
+        status_code: 200
+      register: r_portal
+      changed_when: false
+
+    # ========================================================================
+    # Validation Complete - Environment Ready
+    # ========================================================================
+
+    - name: Module 1 environment validation complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ Module 1 environment validation PASSED
+
+          Pre-configured content verified:
+          - ✓ Demo users exist ({{ r_clouduser1.stdout }}, {{ r_networkuser1.stdout }}, {{ r_rheluser1.stdout }})
+          - ✓ Cloud/AWS templates: {{ r_cloud_templates.stdout }}
+          - ✓ Network templates: {{ r_network_templates.stdout }}
+          - ✓ Linux/RHEL templates: {{ r_rhel_templates.stdout }}
+          - ✓ Portal accessible: {{ r_portal.status }}
+
+          Environment is ready for students to use the Portal!

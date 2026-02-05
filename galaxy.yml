@@ -1,0 +1,26 @@
+---
+namespace: rhdp
+name: ftl
+version: 1.0.0
+readme: README.adoc
+authors:
+  - Red Hat Demo Platform
+description: Finish The Labs - Automated grading and solving for hands-on labs
+license:
+  - Apache-2.0
+tags:
+  - grading
+  - labs
+  - validation
+  - solver
+  - automation
+  - showroom
+  - openshift
+  - ansible
+
+dependencies: {}
+
+repository: https://github.com/rhdp/ftl
+documentation: https://github.com/rhdp/ftl/blob/main/README.adoc
+homepage: https://github.com/rhdp/ftl
+issues: https://github.com/rhdp/ftl/issues

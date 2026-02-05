@@ -1,0 +1,64 @@
+= FTL (Finish The Labs) Ansible Collection
+
+An Ansible collection providing reusable grader and solver roles for automated lab validation and completion.
+
+== Overview
+
+FTL is a collection-based approach to lab grading and solving that:
+
+* Provides pre-built grader roles for common validation scenarios
+* Supports solver roles for automated lab completion
+* Integrates with AgnosticV catalogs and AgnosticD userinfo
+* Works across multiple technologies (OpenShift, Ansible, AAP, RHEL, AI, Virtualization)
+
+== Quick Start
+
+=== Installation
+
+[source,bash]
+----
+# Install from Galaxy (when published)
+ansible-galaxy collection install rhdp.ftl
+
+# Or install from local build
+ansible-galaxy collection install rhdp-ftl-1.0.0.tar.gz
+----
+
+=== Usage
+
+Create a lab directory with grader and solver playbooks:
+
+[source,bash]
+----
+# Create lab structure
+./utils/create_new_lab.sh my-lab
+
+# Edit grade_lab.yml to add graders
+# Edit solve_lab.yml to add solvers
+
+# Test locally
+./utils/test_lab.sh my-lab grade_lab
+----
+
+=== Student Usage
+
+Students invoke grading from lab bastion:
+
+[source,bash]
+----
+# Grade lab progress
+grade_lab my-lab
+
+# Solve lab automatically
+solve_lab my-lab
+----
+
+== Documentation
+
+* link:docs/LAB_AUTHOR_GUIDE.adoc[Lab Author Guide] - Creating labs with graders/solvers
+* link:docs/GRADER_REFERENCE.adoc[Grader Reference] - Available grader roles
+* link:docs/DEPLOYMENT_GUIDE.adoc[Deployment Guide] - AgnosticV integration
+
+== License
+
+Apache-2.0

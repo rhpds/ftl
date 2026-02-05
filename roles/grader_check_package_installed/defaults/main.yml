@@ -1,0 +1,13 @@
+---
+# grader_check_package_installed - Verify package is installed
+# Purpose: Check if RPM/DNF package is installed
+# Follows AgnosticD v2 standards for role structure
+
+# Package name to check (required)
+package_name: ""
+
+# Task description for reporting (required)
+task_description_message: ""
+
+# Error message shown to student on failure (optional)
+student_error_message: "Package is not installed"

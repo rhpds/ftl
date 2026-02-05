@@ -1,0 +1,18 @@
+---
+# ftl_run_grade_report_generation - Generate final grading report
+# Purpose: Analyze results, calculate pass/fail, sign with SHA256, integrate with AgnosticD
+# Follows AgnosticD v2 standards for role structure
+
+# Working directory where report file is located
+grader_working_dir: /tmp/grading_dir
+
+# Report file name
+grader_student_report_file: grading_report.txt
+
+# AgnosticD integration
+agnosticd_user_info_enabled: "{{ agnosticd_integration | default(false) }}"
+
+# Lab metadata
+lab_id: "{{ lab_id | default('unknown') }}"
+guid: "{{ lookup('env', 'GUID') | default('unknown', true) }}"
+student_name: "{{ lookup('env', 'STUDENT_NAME') | default('student', true) }}"

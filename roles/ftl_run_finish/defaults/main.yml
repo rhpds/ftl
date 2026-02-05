@@ -1,0 +1,13 @@
+---
+# ftl_run_finish - Display grading report to student
+# Purpose: Show the final grading report and provide next steps
+# Follows AgnosticD v2 standards for role structure
+
+# Working directory where report file is located
+grader_working_dir: /tmp/grading_dir
+
+# Report file name
+grader_student_report_file: grading_report.txt
+
+# Display options
+display_full_report: true

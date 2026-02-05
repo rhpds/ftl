@@ -1,0 +1,33 @@
+---
+# solver_browser_action - Browser automation for UI-based lab solving
+# Purpose: Automate browser interactions for solving UI-based exercises
+# Uses Playwright for browser automation
+
+# Target URL (required)
+url: ""
+
+# Browser action to perform (required)
+# Options: login, click, fill_form, wait_for_text, screenshot, navigate
+action: ""
+
+# Authentication credentials (for login action)
+username: ""
+password: ""
+
+# CSS selector for element interaction (for click, fill_form actions)
+selector: ""
+
+# Text content (for fill_form, wait_for_text actions)
+text: ""
+
+# Screenshot path (optional, for debugging)
+screenshot_path: ""
+
+# Timeout in milliseconds
+timeout: 30000
+
+# Run browser in headless mode
+headless: true
+
+# Wait for navigation after action
+wait_for_navigation: true

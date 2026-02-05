@@ -1,0 +1,23 @@
+---
+# grader_check_container_running - Verify container is running
+# Purpose: Check if a podman or docker container is running
+# Follows AgnosticD v2 standards for role structure
+
+# Container name to check (required)
+container_name: ""
+
+# Task description for reporting (required)
+task_description_message: ""
+
+# Error message shown to student on failure (optional)
+student_error_message: "Container is not running"
+
+# Container runtime: podman or docker (optional, defaults to podman)
+container_runtime: "podman"
+
+# Optional: Check container is running specific image
+check_image: ""
+
+# Optional: Check container has specific status (running, exited, etc.)
+# Default is 'running' - most common use case
+expected_status: "running"

@@ -1,0 +1,25 @@
+---
+# grader_check_file_exists - Verify file or directory exists
+# Purpose: Check file/directory existence and optionally validate permissions
+# Follows AgnosticD v2 standards for role structure
+
+# Path to file or directory to check (required)
+file_path: ""
+
+# Expected file type: file, directory, link, any (optional)
+file_type: "any"
+
+# Check file permissions (optional)
+check_mode_permissions: ""
+
+# Check file owner (optional)
+check_owner: ""
+
+# Check file group (optional)
+check_group: ""
+
+# Task description for reporting (required)
+task_description_message: ""
+
+# Error message shown to student on failure (optional)
+student_error_message: "File or directory not found"

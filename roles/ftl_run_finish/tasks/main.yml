@@ -1,0 +1,65 @@
+---
+# ftl_run_finish - Display grading report
+# This role shows the final grading report to students and provides guidance on next steps
+
+# Read the final report file
+# This contains all grading results, summary, and SHA256 signature
+- name: Read final grading report
+  ansible.builtin.slurp:
+    src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+  register: r_final_report
+  delegate_to: localhost
+
+# Display the complete grading report to the student
+# This provides immediate feedback on lab progress and any issues to fix
+- name: Display grading report to student
+  ansible.builtin.debug:
+    msg: "{{ (r_final_report.content | b64decode).split('\n') }}"
+  when: display_full_report | bool
+  delegate_to: localhost
+
+# Provide guidance on next steps based on results
+# If lab passed, congratulate the student
+# If lab failed, point them to the report for details on what to fix
+- name: Provide next steps guidance
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      {% if ftl_lab_passed | default(true) %}
+      🎉 Congratulations! You have successfully completed this lab.
+      ============================================================
+      {% else %}
+      ⚠️  Lab validation incomplete - {{ ftl_error_count | default('some') }} errors found
+      ============================================================
+
+      Please review the errors above and make the necessary corrections.
+      Then run the grader again to verify your fixes.
+
+      To re-grade: grade_lab {{ lab_id | default('this_lab') }}
+      {% endif %}
+
+      Report location: {{ grader_working_dir }}/{{ grader_student_report_file }}
+      ============================================================
+  delegate_to: localhost
+
+# Copy report to standard location for student access
+# This ensures students can always find their report at a known path
+- name: Copy report to standard location
+  ansible.builtin.copy:
+    src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+    dest: "/tmp/grading_report.txt"
+    mode: '0644'
+    remote_src: true
+  delegate_to: localhost
+  ignore_errors: true
+
+# Archive previous reports for history
+# Useful for tracking student progress over multiple grading attempts
+- name: Archive previous grading reports
+  ansible.builtin.copy:
+    src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+    dest: "{{ grader_working_dir }}/grading_report_{{ ansible_date_time.epoch }}.txt"
+    mode: '0644'
+    remote_src: true
+  delegate_to: localhost
+  ignore_errors: true

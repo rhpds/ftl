@@ -1,0 +1,36 @@
+---
+# solver_browser_action - Execute browser automation for UI-based lab solving
+
+# Validate required parameters
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - url is defined
+      - url | length > 0
+      - action is defined
+      - action in ['login', 'click', 'fill_form', 'wait_for_text', 'screenshot', 'navigate']
+    fail_msg: "Required variables: url and valid action"
+    quiet: true
+  delegate_to: localhost
+
+# Execute browser automation action using custom module
+- name: Execute browser action - {{ action }}
+  browser_automate:
+    url: "{{ url }}"
+    action: "{{ action }}"
+    username: "{{ username | default(omit) }}"
+    password: "{{ password | default(omit) }}"
+    selector: "{{ selector | default(omit) }}"
+    text: "{{ text | default(omit) }}"
+    screenshot_path: "{{ screenshot_path | default(omit) }}"
+    timeout: "{{ timeout }}"
+    headless: "{{ headless }}"
+  register: r_browser_action
+  delegate_to: localhost
+
+# Display result
+- name: Display browser action result
+  ansible.builtin.debug:
+    msg: "{{ r_browser_action.message | default('Action completed') }}"
+  when: r_browser_action is defined
+  delegate_to: localhost

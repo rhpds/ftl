@@ -1,0 +1,166 @@
+---
+# grader_check_container_running - Verify container is running
+# This role checks if a podman or docker container is running and optionally validates image
+
+# Initialize success flag to false
+- name: Initialize success flag
+  ansible.builtin.set_fact:
+    success: false
+  delegate_to: localhost
+
+# Validate required parameters
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - container_name is defined
+      - container_name | length > 0
+      - task_description_message is defined
+      - task_description_message | length > 0
+      - container_runtime in ['podman', 'docker']
+    fail_msg: "Required variables missing or invalid: container_name, task_description_message required; container_runtime must be 'podman' or 'docker'"
+    quiet: true
+  delegate_to: localhost
+
+# Check if container runtime is available
+# Verify the specified container runtime (podman or docker) is installed
+- name: Check if container runtime is available
+  ansible.builtin.command: "which {{ container_runtime }}"
+  register: r_runtime_check
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+
+# Fail early if runtime not found
+- name: Verify runtime is installed
+  when: r_runtime_check.rc != 0
+  ansible.builtin.set_fact:
+    success: false
+    runtime_missing: true
+  delegate_to: localhost
+
+# Get container information using inspect command
+# Using inspect provides detailed container state information
+- name: Get container information
+  when: r_runtime_check.rc == 0
+  ansible.builtin.command: "{{ container_runtime }} inspect {{ container_name }}"
+  register: r_container
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+
+# Parse container information
+# Container exists if inspect command succeeded
+- name: Check if container exists
+  when: r_runtime_check.rc == 0
+  ansible.builtin.set_fact:
+    container_exists: "{{ r_container.rc == 0 }}"
+  delegate_to: localhost
+
+# Extract container state and image from JSON output
+- name: Extract container details
+  when:
+    - r_runtime_check.rc == 0
+    - container_exists | default(false) | bool
+  block:
+    # Parse JSON output from inspect command
+    - name: Parse container JSON
+      ansible.builtin.set_fact:
+        container_info: "{{ r_container.stdout | from_json | first }}"
+      delegate_to: localhost
+
+    # Get container state (running, exited, etc.)
+    - name: Get container state
+      ansible.builtin.set_fact:
+        container_state: "{{ container_info.State.Status | lower }}"
+      delegate_to: localhost
+
+    # Get container image name
+    - name: Get container image
+      ansible.builtin.set_fact:
+        container_image: "{{ container_info.Config.Image }}"
+      delegate_to: localhost
+
+# Check if container is in expected state
+- name: Check container status
+  when:
+    - r_runtime_check.rc == 0
+    - container_exists | default(false) | bool
+  ansible.builtin.set_fact:
+    success: "{{ container_state == expected_status }}"
+  delegate_to: localhost
+
+# Optional: Verify container is running specific image
+- name: Verify container image
+  when:
+    - success | bool
+    - check_image is defined
+    - check_image | length > 0
+  ansible.builtin.set_fact:
+    success: "{{ check_image in container_image }}"
+  delegate_to: localhost
+
+# Create PASS message
+- name: Create Pass message
+  when: success | bool
+  ansible.builtin.set_fact:
+    grader_output_message: "PASS: {{ task_description_message }}"
+  delegate_to: localhost
+
+# Create FAIL message with specific error context
+- name: Create Fail message (runtime missing)
+  when:
+    - not success | bool
+    - runtime_missing | default(false) | bool
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message }}
+      ({{ container_runtime }} not installed)
+  delegate_to: localhost
+
+# Create FAIL message (container not found)
+- name: Create Fail message (container not found)
+  when:
+    - not success | bool
+    - not runtime_missing | default(false) | bool
+    - not container_exists | default(false) | bool
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message }}
+      (container '{{ container_name }}' not found)
+  delegate_to: localhost
+
+# Create FAIL message (wrong state)
+- name: Create Fail message (wrong state)
+  when:
+    - not success | bool
+    - not runtime_missing | default(false) | bool
+    - container_exists | default(false) | bool
+    - container_state is defined
+    - container_state != expected_status
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message }}
+      (container state is '{{ container_state }}', expected '{{ expected_status }}')
+  delegate_to: localhost
+
+# Create FAIL message (wrong image)
+- name: Create Fail message (wrong image)
+  when:
+    - not success | bool
+    - not runtime_missing | default(false) | bool
+    - container_exists | default(false) | bool
+    - container_state is defined
+    - container_state == expected_status
+    - check_image is defined
+    - check_image | length > 0
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message }}
+      (container image is '{{ container_image }}', expected '{{ check_image }}')
+  delegate_to: localhost
+
+# Log the grading result
+- name: Log grading result
+  ansible.builtin.import_role:
+    name: ftl_run_log_grade_to_log
+  delegate_to: localhost

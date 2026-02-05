@@ -1,0 +1,73 @@
+---
+# FTL (Finish The Labs) - Main Entry Point
+# This playbook orchestrates the three-phase grading or solving workflow
+#
+# Usage:
+#   Grade a lab:  ansible-playbook main.yml -e purpose=grade_lab -e lab_id=aap-ocp-lab
+#   Solve a lab:  ansible-playbook main.yml -e purpose=solve_lab -e lab_id=aap-ocp-lab
+#
+# Follows AgnosticD v2 standards for playbook structure
+
+# Phase 1: Initialize grading session (grade_lab only)
+# Creates working directory and report file header
+- name: "Phase 1: Initialize FTL session"
+  hosts: localhost
+  gather_facts: true
+  become: false
+
+  pre_tasks:
+    # Load global variables
+    # These provide defaults for all FTL operations
+    - name: Load global FTL variables
+      ansible.builtin.include_vars:
+        file: vars/global_vars.yml
+
+    # Validate required variables
+    # Ensure critical parameters are provided before proceeding
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - purpose is defined
+          - purpose in ['grade_lab', 'solve_lab']
+          - lab_id is defined
+        fail_msg: |
+          Required variables missing or invalid.
+          Usage: ansible-playbook main.yml -e purpose=grade_lab -e lab_id=aap-ocp-lab
+        quiet: false
+
+  roles:
+    # Initialize grading session (grade_lab only)
+    # Solvers don't generate reports, so skip initialization
+    - role: ftl_run_init
+      when: purpose == "grade_lab"
+
+  tags:
+    - ftl-init
+
+# Phase 2: Execute lab-specific playbook (grade or solve)
+# Import the appropriate playbook from labs/<lab_id>/
+- name: "Phase 2: Execute {{ purpose }} for {{ lab_id }}"
+  ansible.builtin.import_playbook: "./labs/{{ lab_id }}/{{ purpose }}.yml"
+  tags:
+    - ftl-execute
+
+# Phase 3: Finalize grading session (grade_lab only)
+# Generate report, sign with SHA256, display to student
+- name: "Phase 3: Finalize FTL session"
+  hosts: localhost
+  gather_facts: true
+  become: false
+
+  roles:
+    # Generate grading report with summary and signature
+    # Only for grading - solvers make changes and don't need reports
+    - role: ftl_run_grade_report_generation
+      when: purpose == "grade_lab"
+
+    # Display report and next steps to student
+    # Provides immediate feedback on lab progress
+    - role: ftl_run_finish
+      when: purpose == "grade_lab"
+
+  tags:
+    - ftl-finish

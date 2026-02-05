@@ -1,0 +1,33 @@
+---
+# ftl_run_log_grade_to_log - Log grading results
+# This role appends PASS/FAIL messages to the grading report file
+
+# Validate that grader_output_message is provided
+# Each grader role must provide a message before calling this role
+- name: Validate grader_output_message is provided
+  ansible.builtin.assert:
+    that:
+      - grader_output_message is defined
+      - grader_output_message | length > 0
+    fail_msg: "grader_output_message must be provided to log grading results"
+    quiet: true
+  delegate_to: localhost
+
+# Append grading result to report file
+# Format: "PASS: Task description" or "FAIL: Task description: Error message"
+# Using lineinfile ensures the message is added even if the file doesn't exist yet
+- name: Append grading result to report
+  ansible.builtin.lineinfile:
+    path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+    line: "{{ grader_output_message }}"
+    create: true
+    mode: '0644'
+  delegate_to: localhost
+
+# Debug output for verbose mode
+# Helps developers see grading results in real-time during testing
+- name: Display grading result
+  ansible.builtin.debug:
+    msg: "{{ grader_output_message }}"
+    verbosity: 1
+  delegate_to: localhost

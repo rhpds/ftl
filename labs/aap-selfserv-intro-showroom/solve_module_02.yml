@@ -1,0 +1,206 @@
+---
+# Solve Module 2: User Persona Testing
+# This solver executes job templates as different users to complete module 2
+
+- name: Solve Module 2 - User Persona Testing
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    aap_controller_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    self_service_portal_url: "{{ lookup('env', 'SELF_SERVICE_PORTAL_URL') }}"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+    # User personas to test
+    users:
+      - username: "clouduser1"
+        password: "{{ aap_admin_password }}"
+        job_template: "Cloud/AWS Check Region Connectivity"
+        description: "Cloud user executing cloud automation"
+
+      - username: "networkuser1"
+        password: "{{ aap_admin_password }}"
+        job_template: "Network/Check Device Status"
+        description: "Network user executing network automation"
+
+      - username: "rheluser1"
+        password: "{{ aap_admin_password }}"
+        job_template: "Linux/RHEL Package Management"
+        description: "RHEL user executing RHEL automation"
+
+  tasks:
+    # ========================================================================
+    # Execute job template as clouduser1
+    # ========================================================================
+
+    - name: Login to Portal as clouduser1
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "login"
+        username: "clouduser1"
+        password: "{{ aap_admin_password }}"
+
+    - name: Navigate to clouduser1 job templates
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}/catalog"
+        action: "navigate"
+
+    - name: Click Cloud/AWS job template as clouduser1
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}/catalog"
+        action: "click"
+        selector: 'button:has-text("Start"):near(:text("Cloud/AWS Check Region Connectivity"))'
+
+    - name: Launch cloud job template
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "click"
+        selector: 'button:has-text("Next")'
+
+    - name: Confirm cloud job launch
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "click"
+        selector: 'button:has-text("Create")'
+
+    - name: Wait for cloud job to complete
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "wait_for_text"
+        text: "Successful"
+        timeout: 60000
+
+    - name: Display clouduser1 job completion
+      ansible.builtin.debug:
+        msg: "✅ clouduser1 successfully executed Cloud/AWS job template"
+
+    # ========================================================================
+    # Execute job template as networkuser1
+    # ========================================================================
+
+    - name: Login to Portal as networkuser1
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "login"
+        username: "networkuser1"
+        password: "{{ aap_admin_password }}"
+
+    - name: Navigate to networkuser1 job templates
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}/catalog"
+        action: "navigate"
+
+    - name: Click Network job template as networkuser1
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}/catalog"
+        action: "click"
+        selector: 'button:has-text("Start"):near(:text("Network/"))'
+
+    - name: Launch network job template
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "click"
+        selector: 'button:has-text("Next")'
+
+    - name: Confirm network job launch
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "click"
+        selector: 'button:has-text("Create")'
+
+    - name: Wait for network job to complete
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "wait_for_text"
+        text: "Successful"
+        timeout: 60000
+
+    - name: Display networkuser1 job completion
+      ansible.builtin.debug:
+        msg: "✅ networkuser1 successfully executed Network job template"
+
+    # ========================================================================
+    # Execute job template as rheluser1
+    # ========================================================================
+
+    - name: Login to Portal as rheluser1
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "login"
+        username: "rheluser1"
+        password: "{{ aap_admin_password }}"
+
+    - name: Navigate to rheluser1 job templates
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}/catalog"
+        action: "navigate"
+
+    - name: Click RHEL job template as rheluser1
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}/catalog"
+        action: "click"
+        selector: 'button:has-text("Start"):near(:text("Linux/RHEL"))'
+
+    - name: Launch RHEL job template
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "click"
+        selector: 'button:has-text("Next")'
+
+    - name: Confirm RHEL job launch
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "click"
+        selector: 'button:has-text("Create")'
+
+    - name: Wait for RHEL job to complete
+      include_role:
+        name: solver_browser_action
+      vars:
+        url: "{{ self_service_portal_url }}"
+        action: "wait_for_text"
+        text: "Successful"
+        timeout: 60000
+
+    - name: Display rheluser1 job completion
+      ansible.builtin.debug:
+        msg: "✅ rheluser1 successfully executed RHEL job template"
+
+    - name: Module 2 solver complete
+      ansible.builtin.debug:
+        msg: "✅ Module 2 solver complete - All user personas tested job execution"
