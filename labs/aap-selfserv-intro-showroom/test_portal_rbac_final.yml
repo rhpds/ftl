@@ -54,19 +54,35 @@
             except Exception as e:
                 print(f"  ❌ Login failed: {e}")
 
-            # Step 2: Navigate to RBAC page
+            # Step 2: Navigate to RBAC page via UI clicks
             print("\nStep 2: Navigating to RBAC page...")
-            page.goto(f"{portal_url}/rbac", timeout=60000)
-            page.wait_for_load_state('networkidle')
 
-            # Wait for RBAC content to load (look for "All roles" heading)
+            # Wait for Templates page to fully load
             try:
-                page.wait_for_selector('text=All roles', timeout=15000)
-                print("  ✅ RBAC page loaded")
+                page.wait_for_selector('text=Templates', timeout=10000)
+                print("  ✅ Templates page loaded")
             except:
-                print("  ⚠️  'All roles' text not found, continuing anyway")
+                print("  ⚠️  Templates page not loaded, continuing anyway")
 
-            page.wait_for_timeout(3000)  # Additional wait for table to populate
+            page.wait_for_timeout(2000)
+
+            # Click Administration in sidebar
+            try:
+                page.click('text=Administration', timeout=10000)
+                print("  ✅ Clicked Administration")
+                page.wait_for_timeout(2000)
+            except Exception as e:
+                print(f"  ❌ Failed to click Administration: {e}")
+
+            # Click RBAC
+            try:
+                page.click('text=RBAC', timeout=10000)
+                print("  ✅ Clicked RBAC")
+                page.wait_for_load_state('networkidle')
+                page.wait_for_timeout(3000)
+            except Exception as e:
+                print(f"  ❌ Failed to click RBAC: {e}")
+
             print(f"  URL: {page.url}")
 
             # Step 3: Get page content and search for policies
