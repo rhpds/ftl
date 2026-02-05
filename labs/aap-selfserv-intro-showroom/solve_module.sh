@@ -101,7 +101,7 @@ echo ""
 
 START_TIME=$(date +%s)
 
-ansible-playbook -i localhost, "solve_module_${MODULE_NUM}.yml" \
+ansible-playbook -i inventory "solve_module_${MODULE_NUM}.yml" \
     -e "aap_controller_url=${AAP_CONTROLLER_URL}" \
     -e "aap_admin_password=${AAP_ADMIN_PASSWORD}" \
     -e "self_service_portal_url=${SELF_SERVICE_PORTAL_URL}" \

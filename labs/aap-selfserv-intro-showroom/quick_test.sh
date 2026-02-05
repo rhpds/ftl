@@ -73,13 +73,13 @@ START_TIME=$(date +%s)
 
 if [[ -z "${MODULE_NUM}" ]]; then
     # Grade all modules
-    ansible-playbook -i localhost, grade_lab.yml \
+    ansible-playbook -i inventory grade_lab.yml \
         -e "aap_controller_url=${AAP_CONTROLLER_URL}" \
         -e "aap_admin_password=${AAP_ADMIN_PASSWORD}" \
         -e "self_service_portal_url=${SELF_SERVICE_PORTAL_URL}"
 else
     # Grade specific module
-    ansible-playbook -i localhost, "grade_module_${MODULE_NUM}.yml" \
+    ansible-playbook -i inventory "grade_module_${MODULE_NUM}.yml" \
         -e "aap_controller_url=${AAP_CONTROLLER_URL}" \
         -e "aap_admin_password=${AAP_ADMIN_PASSWORD}" \
         -e "self_service_portal_url=${SELF_SERVICE_PORTAL_URL}"
