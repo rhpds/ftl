@@ -69,7 +69,7 @@
   when: agnosticd_user_info_enabled | default(false) | bool
   block:
     - name: Send grading status to AgnosticD userinfo
-      community.general.agnosticd_user_info:
+      rhdp.ftl.agnosticd_user_info:
         msg: |
           {{ '✓ Lab Passed' if lab_passed else '✗ Lab Failed (' + r_error_count.stdout + ' errors)' }}
           Full report: {{ grader_working_dir }}/{{ grader_student_report_file }}
@@ -80,8 +80,6 @@
           grade_lab_id: "{{ lab_id }}"
           grade_lab_guid: "{{ guid }}"
           grade_lab_student: "{{ student_name }}"
-      ignore_errors: true
-      failed_when: false
 
 # Set grading result facts for downstream use
 # Other playbooks or roles can check these facts to determine grading outcome
