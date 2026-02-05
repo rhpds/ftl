@@ -75,8 +75,10 @@ try:
             page.wait_for_timeout(2000)
 
             # Step 2: Add groups
-            page.locator('text=Select users and groups').first.click()
-            page.wait_for_timeout(2000)
+            page.wait_for_selector('text=Add users and groups', timeout=10000)
+            page.wait_for_timeout(1000)
+            page.locator('input[role="combobox"]').first.click()
+            page.wait_for_timeout(3000)
 
             # Wait for dropdown options to load
             page.wait_for_selector('text=cloud-team', timeout=10000)
@@ -146,7 +148,7 @@ try:
         print("  Refreshing RBAC page to sync latest teams from AAP...")
         page.reload()
         page.wait_for_load_state('networkidle')
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(5000)  # Longer wait after reload for Portal to sync
         print("  ✅ Page refreshed\n")
 
         page_text = page.inner_text('body')
@@ -167,7 +169,15 @@ try:
             page.get_by_role('button', name='Next').click()
             page.wait_for_timeout(2000)
 
-            page.locator('text=Select users and groups').first.click()
+            # Click the input field to open dropdown
+            # Wait for the page to be fully rendered after clicking Next
+            print("  Opening users and groups dropdown...")
+            page.wait_for_selector('text=Add users and groups', timeout=10000)
+            page.wait_for_timeout(1000)
+
+            # Click the actual input/combobox field
+            # Look for an input within the "Select users and groups" labeled section
+            page.locator('input[role="combobox"]').first.click()
             page.wait_for_timeout(3000)
 
             # Wait for dropdown to open and load teams
