@@ -48,7 +48,11 @@
             # Step 3: Try AAP login
             print("Step 3: Attempting AAP login...")
             try:
-                page.fill("#username", username, timeout=5000)
+                # Wait longer for OAuth redirect and login page to load
+                print("  Waiting for username field (up to 30 seconds)...")
+                page.wait_for_selector("#username", timeout=30000)
+                print("  Found username field, filling credentials...")
+                page.fill("#username", username)
                 page.fill("#password", password)
                 page.screenshot(path='/tmp/portal_step3_filled.png')
                 page.click("button[type='submit']")
