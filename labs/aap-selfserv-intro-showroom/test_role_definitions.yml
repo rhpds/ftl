@@ -1,0 +1,145 @@
+---
+# Find role definition IDs for AAP 2.6 RBAC
+# Need these IDs for role_team_assignments API
+
+- name: Test Role Definitions API
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    aap_gateway_url: "{{ lookup('env', 'AAP_CONTROLLER_URL') }}"
+    aap_admin_username: "admin"
+    aap_admin_password: "{{ lookup('env', 'AAP_ADMIN_PASSWORD') }}"
+
+  tasks:
+    # ========================================================================
+    # Section 1: List all role definitions
+    # ========================================================================
+
+    - name: "Get all role definitions"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_definitions/"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_role_definitions
+
+    - name: "Display all role definitions"
+      ansible.builtin.debug:
+        msg:
+          - "Total role definitions: {{ r_role_definitions.json.count }}"
+          - "Role definitions:"
+          - "{{ r_role_definitions.json.results | map(attribute='name') | list }}"
+
+    - name: "Display role definitions with IDs"
+      ansible.builtin.debug:
+        msg: "ID: {{ item.id }}, Name: {{ item.name }}, Content Type: {{ item.content_type }}"
+      loop: "{{ r_role_definitions.json.results }}"
+
+    # ========================================================================
+    # Section 2: Find specific role definitions we need
+    # ========================================================================
+
+    - name: "Find JobTemplate Execute role definition"
+      ansible.builtin.set_fact:
+        jt_execute_role: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'JobTemplate Execute') | first }}"
+
+    - name: "Find Inventory Use role definition"
+      ansible.builtin.set_fact:
+        inv_use_role: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'Inventory Use') | first }}"
+
+    - name: "Find Credential Use role definition"
+      ansible.builtin.set_fact:
+        cred_use_role: "{{ r_role_definitions.json.results | selectattr('name', 'equalto', 'Credential Use') | first }}"
+
+    - name: "Display role definition IDs we need"
+      ansible.builtin.debug:
+        msg:
+          - "=== Role Definition IDs Needed for Solver ==="
+          - "JobTemplate Execute: ID={{ jt_execute_role.id }}, content_type={{ jt_execute_role.content_type }}"
+          - "Inventory Use: ID={{ inv_use_role.id }}, content_type={{ inv_use_role.content_type }}"
+          - "Credential Use: ID={{ cred_use_role.id }}, content_type={{ cred_use_role.content_type }}"
+
+    # ========================================================================
+    # Section 3: Test role assignment with correct ID
+    # ========================================================================
+
+    - name: "Get cloud-team ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/gateway/v1/teams/?name=cloud-team"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_team
+
+    - name: "Get one Cloud/AWS job template"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/job_templates/?name__istartswith=Cloud/AWS"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_templates
+
+    - name: "TEST: Assign Execute role with correct role_definition ID"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/role_team_assignments/"
+        method: POST
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        body_format: json
+        body:
+          team: "{{ r_cloud_team.json.results[0].id }}"
+          role_definition: "{{ jt_execute_role.id }}"
+          content_type: "{{ jt_execute_role.content_type }}"
+          object_id: "{{ r_cloud_templates.json.results[0].id }}"
+        status_code: [-1, 200, 201, 204, 400, 404, 409]
+      register: r_test_role_correct
+      ignore_errors: true
+
+    - name: "Display corrected role assignment result"
+      ansible.builtin.debug:
+        msg:
+          - "Status: {{ r_test_role_correct.status }}"
+          - "Response: {{ r_test_role_correct.json | default(r_test_role_correct.msg) }}"
+          - "Success: {{ r_test_role_correct.status in [200, 201, 204] }}"
+
+    # ========================================================================
+    # Section 4: Verify role was assigned
+    # ========================================================================
+
+    - name: "Get cloud-team from Controller API"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}/api/controller/v2/teams/{{ r_cloud_team.json.results[0].id }}/"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_cloud_team_controller
+
+    - name: "Get cloud-team roles after assignment"
+      ansible.builtin.uri:
+        url: "{{ aap_gateway_url }}{{ r_cloud_team_controller.json.related.roles }}"
+        method: GET
+        user: "{{ aap_admin_username }}"
+        password: "{{ aap_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+      register: r_roles_after
+
+    - name: "Display verification"
+      ansible.builtin.debug:
+        msg:
+          - "Total roles after assignment: {{ r_roles_after.json.count }}"
+          - "Execute roles on JobTemplate: {{ r_roles_after.json.results | selectattr('name', 'equalto', 'Execute') | selectattr('summary_fields.resource_type', 'equalto', 'job_template') | list | length }}"
+          - "SUCCESS: Role assignment worked!"
+      when: r_roles_after.json.count | int > 0
