@@ -1,0 +1,53 @@
+---
+# grader_check_ocp_deployment - Validate Deployment Exists and is Ready
+#
+# Purpose: Check if a deployment exists with expected number of ready replicas
+#
+# Required Variables:
+#   task_description_message: Human-readable description
+#   deployment_name: Name of the deployment
+#   deployment_namespace: Namespace where deployment should exist
+#
+# Optional Variables:
+#   expected_replicas: Expected number of ready replicas (default: check existence only)
+#   student_error_message: Custom error message
+#
+# Example:
+#   - include_role:
+#       name: grader_check_ocp_deployment
+#     vars:
+#       task_description_message: "Registry deployment is ready"
+#       deployment_name: "mcp-registry"
+#       deployment_namespace: "mcp-registry"
+#       expected_replicas: 1
+
+- name: "Validate required parameters"
+  ansible.builtin.assert:
+    that:
+      - task_description_message is defined
+      - deployment_name is defined
+      - deployment_namespace is defined
+    fail_msg: "Missing required parameters for grader_check_ocp_deployment"
+    quiet: true
+
+- name: "Check deployment (with replica validation)"
+  when: expected_replicas is defined
+  ansible.builtin.include_role:
+    name: grader_check_ocp_resource
+  vars:
+    resource_kind: "Deployment"
+    resource_name: "{{ deployment_name }}"
+    resource_namespace: "{{ deployment_namespace }}"
+    resource_state: "{{ expected_replicas | int }}"
+    resource_state_path: "status.readyReplicas"
+    student_error_message: "{{ student_error_message | default('Deployment ' + deployment_name + ' not ready (expected ' + (expected_replicas | string) + ' replicas)') }}"
+
+- name: "Check deployment exists (no replica validation)"
+  when: expected_replicas is not defined
+  ansible.builtin.include_role:
+    name: grader_check_ocp_resource
+  vars:
+    resource_kind: "Deployment"
+    resource_name: "{{ deployment_name }}"
+    resource_namespace: "{{ deployment_namespace }}"
+    student_error_message: "{{ student_error_message | default('Deployment ' + deployment_name + ' not found in namespace ' + deployment_namespace) }}"

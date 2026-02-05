@@ -1,0 +1,40 @@
+---
+# grader_check_ocp_pod_running - Validate Pod is Running
+#
+# Purpose: Convenience wrapper for checking if a pod exists and is in Running state
+#
+# Required Variables:
+#   task_description_message: Human-readable description
+#   pod_name: Name of the pod (supports regex)
+#   pod_namespace: Namespace where pod should exist
+#
+# Optional Variables:
+#   student_error_message: Custom error message
+#
+# Example:
+#   - include_role:
+#       name: grader_check_ocp_pod_running
+#     vars:
+#       task_description_message: "MCP Server pod is running"
+#       pod_name: "mcp-server-.*"
+#       pod_namespace: "mcp-demo"
+
+- name: "Validate required parameters"
+  ansible.builtin.assert:
+    that:
+      - task_description_message is defined
+      - pod_name is defined
+      - pod_namespace is defined
+    fail_msg: "Missing required parameters for grader_check_ocp_pod_running"
+    quiet: true
+
+- name: "Check if pod is running"
+  ansible.builtin.include_role:
+    name: grader_check_ocp_resource
+  vars:
+    resource_kind: "Pod"
+    resource_name: "{{ pod_name }}"
+    resource_namespace: "{{ pod_namespace }}"
+    resource_state: "Running"
+    resource_state_path: "status.phase"
+    student_error_message: "{{ student_error_message | default('Pod ' + pod_name + ' not found or not running in namespace ' + pod_namespace) }}"

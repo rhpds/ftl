@@ -1,0 +1,52 @@
+---
+# grader_check_ocp_route_exists - Validate OpenShift Route Exists
+#
+# Purpose: Check if an OpenShift route exists
+#
+# Required Variables:
+#   task_description_message: Human-readable description
+#   route_name: Name of the route
+#   route_namespace: Namespace where route should exist
+#
+# Optional Variables:
+#   expected_host: Expected route host (optional validation)
+#   student_error_message: Custom error message
+#
+# Example:
+#   - include_role:
+#       name: grader_check_ocp_route_exists
+#     vars:
+#       task_description_message: "LibreChat route exists"
+#       route_name: "librechat"
+#       route_namespace: "mcp-demo"
+
+- name: "Validate required parameters"
+  ansible.builtin.assert:
+    that:
+      - task_description_message is defined
+      - route_name is defined
+      - route_namespace is defined
+    fail_msg: "Missing required parameters for grader_check_ocp_route_exists"
+    quiet: true
+
+- name: "Check if route exists (with host validation)"
+  when: expected_host is defined
+  ansible.builtin.include_role:
+    name: grader_check_ocp_resource
+  vars:
+    resource_kind: "Route"
+    resource_name: "{{ route_name }}"
+    resource_namespace: "{{ route_namespace }}"
+    resource_state: "{{ expected_host }}"
+    resource_state_path: "spec.host"
+    student_error_message: "{{ student_error_message | default('Route ' + route_name + ' host does not match ' + expected_host) }}"
+
+- name: "Check if route exists (no host validation)"
+  when: expected_host is not defined
+  ansible.builtin.include_role:
+    name: grader_check_ocp_resource
+  vars:
+    resource_kind: "Route"
+    resource_name: "{{ route_name }}"
+    resource_namespace: "{{ route_namespace }}"
+    student_error_message: "{{ student_error_message | default('Route ' + route_name + ' not found in namespace ' + route_namespace) }}"

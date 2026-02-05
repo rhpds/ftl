@@ -1,0 +1,116 @@
+---
+# grader_check_ocp_resource - Generic OpenShift/Kubernetes Resource Validation
+#
+# Purpose: Check if an OpenShift/Kubernetes resource exists and optionally validate its state
+#
+# Required Variables:
+#   task_description_message: Human-readable description for the grading report
+#   resource_kind: Kubernetes resource kind (e.g., Pod, Deployment, Service, Route)
+#   resource_name: Name of the resource to check
+#   resource_namespace: Namespace where the resource should exist
+#
+# Optional Variables:
+#   resource_state: Expected state field value (e.g., phase: Running for Pods)
+#   resource_state_path: JSONPath to the state field (e.g., status.phase)
+#   student_error_message: Custom error message for students (default: generic message)
+#
+# Example Usage:
+#   - include_role:
+#       name: grader_check_ocp_resource
+#     vars:
+#       task_description_message: "MCP Server pod is running"
+#       resource_kind: "Pod"
+#       resource_name: "mcp-server-.*"  # Regex supported
+#       resource_namespace: "mcp-demo"
+#       resource_state: "Running"
+#       resource_state_path: "status.phase"
+#       student_error_message: "MCP Server pod not found or not running"
+
+- name: "Initialize grader variables"
+  ansible.builtin.set_fact:
+    success: false
+    grader_output_message: ""
+
+- name: "Validate required parameters"
+  ansible.builtin.assert:
+    that:
+      - task_description_message is defined
+      - resource_kind is defined
+      - resource_name is defined
+      - resource_namespace is defined
+    fail_msg: "Missing required parameters for grader_check_ocp_resource"
+    quiet: true
+
+- name: "Check if {{ resource_kind }} '{{ resource_name }}' exists in namespace '{{ resource_namespace }}'"
+  kubernetes.core.k8s_info:
+    kind: "{{ resource_kind }}"
+    namespace: "{{ resource_namespace }}"
+    name: "{{ resource_name if '*' not in resource_name and '.' not in resource_name else omit }}"
+  register: r_resource
+  ignore_errors: true
+
+- name: "Filter resources by name pattern (if regex used)"
+  ansible.builtin.set_fact:
+    filtered_resources: "{{ r_resource.resources | selectattr('metadata.name', 'match', resource_name) | list }}"
+  when:
+    - r_resource is succeeded
+    - "'*' in resource_name or '.' in resource_name"
+
+- name: "Use all resources if no pattern matching needed"
+  ansible.builtin.set_fact:
+    filtered_resources: "{{ r_resource.resources }}"
+  when:
+    - r_resource is succeeded
+    - "'*' not in resource_name and '.' not in resource_name"
+
+- name: "Check if any resources found"
+  ansible.builtin.set_fact:
+    resource_exists: "{{ (filtered_resources | default([]) | length > 0) if r_resource is succeeded else false }}"
+
+- name: "Validate resource state if specified"
+  when:
+    - resource_exists | bool
+    - resource_state is defined
+    - resource_state_path is defined
+  block:
+    - name: "Extract state from first matching resource"
+      ansible.builtin.set_fact:
+        actual_state: "{{ filtered_resources[0] | json_query(resource_state_path) }}"
+
+    - name: "Compare actual vs expected state"
+      ansible.builtin.set_fact:
+        state_matches: "{{ actual_state == resource_state }}"
+
+    - name: "Set success based on state match"
+      ansible.builtin.set_fact:
+        success: "{{ state_matches | bool }}"
+
+- name: "Set success if no state validation required"
+  ansible.builtin.set_fact:
+    success: "{{ resource_exists | bool }}"
+  when:
+    - resource_state is not defined or resource_state_path is not defined
+
+- name: "Create PASS message"
+  when: success | bool
+  ansible.builtin.set_fact:
+    grader_output_message: "PASS: {{ task_description_message }}"
+
+- name: "Create FAIL message (resource not found)"
+  when:
+    - not success | bool
+    - not resource_exists | bool
+  ansible.builtin.set_fact:
+    grader_output_message: "FAIL: {{ task_description_message }}: {{ student_error_message | default('Resource ' + resource_kind + '/' + resource_name + ' not found in namespace ' + resource_namespace) }}"
+
+- name: "Create FAIL message (state mismatch)"
+  when:
+    - not success | bool
+    - resource_exists | bool
+    - resource_state is defined
+  ansible.builtin.set_fact:
+    grader_output_message: "FAIL: {{ task_description_message }}: {{ student_error_message | default('Resource exists but state is ' + (actual_state | string) + ', expected ' + resource_state) }}"
+
+- name: "Log grading result"
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log
