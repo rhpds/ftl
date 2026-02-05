@@ -84,10 +84,11 @@ try:
             page.wait_for_selector('text=cloud-team', timeout=10000)
             page.wait_for_timeout(500)
 
-            page.locator('text=cloud-team').locator('..').locator('input[type="checkbox"]').first.check()
+            # Click team names directly to select them (clicking toggles checkbox)
+            page.locator('text=cloud-team').first.click()
             page.wait_for_timeout(500)
 
-            page.locator('text=network-team').locator('..').locator('input[type="checkbox"]').first.check()
+            page.locator('text=network-team').first.click()
             page.wait_for_timeout(500)
 
             page.locator('body').click()
@@ -206,7 +207,8 @@ try:
                 print("  ⚠️  Error finding rhel-team: " + str(e))
                 raise
 
-            page.locator('text=rhel-team').locator('..').locator('input[type="checkbox"]').first.check()
+            # Click directly on rhel-team text to select it (clicking label toggles checkbox)
+            page.locator('text=rhel-team').first.click()
             page.wait_for_timeout(500)
 
             page.locator('body').click()
