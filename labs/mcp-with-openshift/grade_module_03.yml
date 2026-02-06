@@ -8,7 +8,7 @@
   become: false
   vars:
     lab_id: "MCP Lab - Module 3: MCP Server Administration"
-    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
+    module_number: "03"    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
   roles:
     - ftl_run_init
 

@@ -133,7 +133,13 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Grading Report${NC}"
 echo -e "${GREEN}========================================${NC}"
 
-REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}.txt"
+# Determine report filename based on whether grading a specific module
+if [ -n "${MODULE_NUM}" ]; then
+    REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}_module_$(printf "%02d" ${MODULE_NUM}).txt"
+else
+    REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}.txt"
+fi
+
 if [ -f "${REPORT_FILE}" ]; then
     cat "${REPORT_FILE}"
 

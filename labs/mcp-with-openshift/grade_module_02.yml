@@ -8,7 +8,7 @@
   become: false
   vars:
     lab_id: "MCP Lab - Module 2: Sovereign SRE Agent Demo"
-    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
+    module_number: "02"    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
   roles:
     - ftl_run_init
 
