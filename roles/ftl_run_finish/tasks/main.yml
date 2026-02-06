@@ -41,13 +41,11 @@
 
 # Copy report to standard location for student access
 # This ensures students can always find their report at a known path
+# Using shell cp to avoid permission issues with Ansible copy
 - name: Copy report to standard location
-  ansible.builtin.copy:
-    src: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
-    dest: "/tmp/grading_report.txt"
-    mode: '0644'
-    remote_src: true
-  ignore_errors: true
+  ansible.builtin.shell: |
+    cp -f "{{ grader_working_dir }}/{{ grader_student_report_file }}" "{{ grader_report_path }}" || true
+  changed_when: false
 
 # Archive previous reports for history
 # Useful for tracking student progress over multiple grading attempts
