@@ -21,7 +21,6 @@
     ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
     gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.apps.cluster.example.com') }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('changeme') }}"
-    librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat') }}"
 
   tasks:
     # Set variables from environment
@@ -37,6 +36,7 @@
       ansible.builtin.set_fact:
         mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
         mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+        librechat_namespace: "librechat-{{ base_namespace_prefix }}"
 
     # =========================================================================
     # Checkpoint 1.1: OpenShift access validated
@@ -89,14 +89,42 @@
     # =========================================================================
     # Checkpoint 1.5: LibreChat accessible
     # =========================================================================
-    - name: "1.5: Verify LibreChat route exists"
+    - name: "1.5a: Verify LibreChat pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "LibreChat pod is running"
+        pod_name: "librechat-.*"
+        pod_namespace: "{{ librechat_namespace }}"
+        student_error_message: |
+          LibreChat pod not found or not running in namespace {{ librechat_namespace }}.
+          This should be pre-deployed by the lab environment.
+          Check pods: oc get pods -n {{ librechat_namespace }}
+
+    - name: "1.5b: Verify LibreChat route exists"
       ansible.builtin.include_role:
         name: grader_check_ocp_route_exists
       vars:
-        task_description_message: "LibreChat route is accessible"
+        task_description_message: "LibreChat route exists"
         route_name: "librechat"
         route_namespace: "{{ librechat_namespace }}"
-        student_error_message: "LibreChat route not found in namespace {{ librechat_namespace }}. This should be pre-deployed by the lab environment. Check routes: oc get routes -n {{ librechat_namespace }}"
+        student_error_message: |
+          LibreChat route not found in namespace {{ librechat_namespace }}.
+          Check routes: oc get routes -n {{ librechat_namespace }}
+
+    - name: "1.5c: Verify LibreChat UI is responding"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "LibreChat UI is accessible via HTTP"
+        command: >
+          curl -s -k -o /dev/null -w '%{http_code}'
+          https://librechat-{{ librechat_namespace }}.{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}
+        expected_output: "200"
+        student_error_message: |
+          LibreChat is not responding to HTTP requests.
+          The pod is running but the application may not be healthy.
+          Check logs: oc logs -n {{ librechat_namespace }} deployment/librechat
 
 - name: Finalize FTL Grading Session - Module 1
   hosts: localhost
