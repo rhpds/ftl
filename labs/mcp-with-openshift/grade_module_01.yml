@@ -20,11 +20,30 @@
   become: false
 
   vars:
-    ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
-    gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.apps.cluster.example.com') }}"
-    gitea_password: "{{ lookup('env', 'PASSWORD') | default('changeme') }}"
+    openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('', true) }}"
+    gitea_password: "{{ lookup('env', 'PASSWORD') | default('', true) }}"
 
   tasks:
+    # Validate required environment variables
+    - name: Validate required environment variables
+      ansible.builtin.fail:
+        msg: |
+          ERROR: Required environment variable not set: {{ item.name }}
+
+          Please set the following environment variables before running the grader:
+
+          export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-kg5jj.dynamic.redhatworkshops.io"
+          export PASSWORD="<your_password_from_agv_user_data>"
+          export LAB_USER="user1"
+
+          See labs/mcp-with-openshift/README.md for details.
+      when: item.value == ''
+      loop:
+        - { name: 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN', value: "{{ openshift_cluster_ingress_domain }}" }
+        - { name: 'PASSWORD', value: "{{ gitea_password }}" }
+      loop_control:
+        label: "{{ item.name }}"
+
     # Set variables from environment
     - name: Set base namespace prefix
       ansible.builtin.set_fact:
@@ -39,6 +58,10 @@
         mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
         mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
         librechat_namespace: "librechat-{{ base_namespace_prefix }}"
+
+    - name: Set Gitea URL
+      ansible.builtin.set_fact:
+        gitea_url: "https://gitea-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}"
 
     # =========================================================================
     # Checkpoint 1.1: OpenShift access validated
