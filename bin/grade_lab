@@ -132,15 +132,24 @@ echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Grading Report${NC}"
 echo -e "${GREEN}========================================${NC}"
-cat /tmp/grading_dir/grading_report.txt
 
-# Check if passed
-if grep -q "SUCCESS 0 Errors" /tmp/grading_dir/grading_report.txt; then
-    echo ""
-    echo -e "${GREEN}✓ Lab grading PASSED!${NC}"
-    exit 0
+REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}.txt"
+if [ -f "${REPORT_FILE}" ]; then
+    cat "${REPORT_FILE}"
+
+    # Check if passed
+    if grep -q "SUCCESS 0 Errors" "${REPORT_FILE}"; then
+        echo ""
+        echo -e "${GREEN}✓ Lab grading PASSED!${NC}"
+        echo -e "${GREEN}Report: ${REPORT_FILE}${NC}"
+        exit 0
+    else
+        echo ""
+        echo -e "${YELLOW}✗ Lab grading FAILED - see report above${NC}"
+        echo -e "${YELLOW}Report: ${REPORT_FILE}${NC}"
+        exit 1
+    fi
 else
-    echo ""
-    echo -e "${YELLOW}✗ Lab grading FAILED - see report above${NC}"
+    echo -e "${RED}Error: Report file not found: ${REPORT_FILE}${NC}"
     exit 1
 fi

@@ -130,5 +130,9 @@ fi
 echo ""
 echo -e "${GREEN}✓ Lab solving completed!${NC}"
 echo ""
-echo -e "${YELLOW}Run 'grade_lab ${LAB_NAME} ${LAB_USER}' to verify the solution${NC}"
+if [ -n "${MODULE_NUM}" ]; then
+    echo -e "${YELLOW}Run 'grade_lab ${LAB_NAME} ${LAB_USER} ${MODULE_NUM}' to verify the solution${NC}"
+else
+    echo -e "${YELLOW}Run 'grade_lab ${LAB_NAME} ${LAB_USER}' to verify the solution${NC}"
+fi
 exit 0

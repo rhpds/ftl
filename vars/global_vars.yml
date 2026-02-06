@@ -11,13 +11,13 @@
 # Students can find their reports here after grading
 grader_working_dir: /tmp/grading_dir
 
-# Report file name
+# Report file name (includes user to support multi-user grading)
 # Main grading report that accumulates all PASS/FAIL results
-grader_student_report_file: grading_report.txt
+grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
 
-# Standard report path
+# Standard report path (includes user for multi-user support)
 # Symlink to current report for easy student access
-grader_report_path: /tmp/grading_report.txt
+grader_report_path: "/tmp/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
 
 # Continue on failure
 # If true, all graders will run even if some fail

@@ -3,6 +3,26 @@
 # This role analyzes grading results, calculates pass/fail status, signs the report,
 # and optionally integrates with AgnosticD userinfo for catalog deployments
 
+# Ensure grading directory exists
+- name: Ensure grading directory exists
+  ansible.builtin.file:
+    path: "{{ grader_working_dir }}"
+    state: directory
+    mode: '0755'
+
+# Ensure report file exists before reading
+- name: Check if report file exists
+  ansible.builtin.stat:
+    path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+  register: r_report_file
+
+# Create empty report if it doesn't exist
+- name: Create report file if missing
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+  when: not r_report_file.stat.exists
+
 # Read the current report file content
 # We need to analyze it to determine if the lab passed or failed
 - name: Read grading report file
