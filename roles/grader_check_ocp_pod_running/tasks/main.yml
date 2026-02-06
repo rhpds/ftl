@@ -28,6 +28,16 @@
     fail_msg: "Missing required parameters for grader_check_ocp_pod_running"
     quiet: true
 
+- name: "Set default error message if not provided"
+  when: student_error_message is not defined
+  ansible.builtin.set_fact:
+    _pod_error_message: "Pod {{ pod_name }} not found or not running in namespace {{ pod_namespace }}"
+
+- name: "Use provided error message"
+  when: student_error_message is defined
+  ansible.builtin.set_fact:
+    _pod_error_message: "{{ student_error_message }}"
+
 - name: "Check if pod is running"
   ansible.builtin.include_role:
     name: grader_check_ocp_resource
@@ -37,4 +47,4 @@
     resource_namespace: "{{ pod_namespace }}"
     resource_state: "Running"
     resource_state_path: "status.phase"
-    student_error_message: "{{ student_error_message | default('Pod ' + pod_name + ' not found or not running in namespace ' + pod_namespace) }}"
+    student_error_message: "{{ _pod_error_message }}"

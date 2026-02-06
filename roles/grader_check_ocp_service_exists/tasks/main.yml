@@ -1,23 +1,5 @@
 ---
 # grader_check_ocp_service_exists - Validate Service Exists
-#
-# Purpose: Check if a Kubernetes service exists
-#
-# Required Variables:
-#   task_description_message: Human-readable description
-#   service_name: Name of the service
-#   service_namespace: Namespace where service should exist
-#
-# Optional Variables:
-#   student_error_message: Custom error message
-#
-# Example:
-#   - include_role:
-#       name: grader_check_ocp_service_exists
-#     vars:
-#       task_description_message: "MCP Server service exists"
-#       service_name: "mcp-openshift-proxy"
-#       service_namespace: "mcp-demo"
 
 - name: "Validate required parameters"
   ansible.builtin.assert:
@@ -28,6 +10,16 @@
     fail_msg: "Missing required parameters for grader_check_ocp_service_exists"
     quiet: true
 
+- name: "Set default error message if not provided"
+  when: student_error_message is not defined
+  ansible.builtin.set_fact:
+    _service_error_message: "Service {{ service_name }} not found in namespace {{ service_namespace }}"
+
+- name: "Use provided error message"
+  when: student_error_message is defined
+  ansible.builtin.set_fact:
+    _service_error_message: "{{ student_error_message }}"
+
 - name: "Check if service exists"
   ansible.builtin.include_role:
     name: grader_check_ocp_resource
@@ -35,4 +27,4 @@
     resource_kind: "Service"
     resource_name: "{{ service_name }}"
     resource_namespace: "{{ service_namespace }}"
-    student_error_message: "{{ student_error_message | default('Service ' + service_name + ' not found in namespace ' + service_namespace) }}"
+    student_error_message: "{{ _service_error_message }}"
