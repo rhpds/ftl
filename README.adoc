@@ -46,12 +46,95 @@ Students invoke grading from lab bastion:
 
 [source,bash]
 ----
+# Set required environment variables (from AgnosticV user data)
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="<from_user_data>"
+export PASSWORD="<from_user_data>"
+export LAB_USER="<your_username>"
+
 # Grade lab progress
-grade_lab my-lab
+grade_lab <lab-name>
 
 # Solve lab automatically
-solve_lab my-lab
+solve_lab <lab-name>
 ----
+
+== Environment Variables
+
+FTL graders and solvers require certain environment variables to be set. These are typically provided in AgnosticV user data when labs are deployed.
+
+=== Required Variables
+
+[cols="1,2,1"]
+|===
+| Variable | Description | Example
+
+| `OPENSHIFT_CLUSTER_INGRESS_DOMAIN`
+| OpenShift cluster ingress domain
+| `apps.cluster-kg5jj.dynamic.redhatworkshops.io`
+
+| `PASSWORD`
+| User password for service authentication (Gitea, etc.)
+| From AgnosticV `password` or `gitea_password` field
+
+| `LAB_USER`
+| Lab username for multi-user environments
+| `user1`, `user2`, etc.
+|===
+
+=== Optional Variables
+
+[cols="1,2,1"]
+|===
+| Variable | Description | Default
+
+| `GUID`
+| Lab GUID identifier
+| Auto-detected from hostname
+
+| `STUDENT_NAME`
+| Student name for reports
+| Defaults to `LAB_USER`
+|===
+
+=== Setting Environment Variables
+
+When using FTL from a lab bastion, set these before running graders/solvers:
+
+[source,bash]
+----
+# Set from AgnosticV user data
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
+export PASSWORD="<password_from_user_data>"
+export LAB_USER="user1"
+export GUID="xxxxx"
+
+# Now run grader for your lab
+grade_lab <lab-name>
+----
+
+TIP: Values for these variables are provided in AgnosticV user data when labs are provisioned. Look for fields like `openshift_cluster_ingress_domain`, `password`, `gitea_password`, etc.
+
+=== Multi-User Grading
+
+When grading as system:admin for multiple users:
+
+[source,bash]
+----
+# Set cluster-wide variables once
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
+
+# Grade user1
+export LAB_USER="user1"
+export PASSWORD="<user1_password_from_agv>"
+grade_lab <lab-name> user1
+
+# Grade user2
+export LAB_USER="user2"
+export PASSWORD="<user2_password_from_agv>"
+grade_lab <lab-name> user2
+----
+
+NOTE: Each user's password is found in their AgnosticV user data. Common fields include `password`, `gitea_password`, `console_password`, etc.
 
 == Documentation
 
