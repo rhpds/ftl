@@ -1,20 +1,6 @@
 #!/usr/bin/python
-# 
 # Copyright: (c) 2020, Johnathan Kupferer <jkupfere@redhat.com>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
-#
-# This plugin is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# Ansible is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
@@ -23,22 +9,13 @@ import json
 import yaml
 import os
 
-# Force yaml string representation for safe dump
 yaml.SafeDumper.yaml_representers[None] = lambda self, data: \
-    yaml.representer.SafeRepresenter.represent_str(
-        self,
-        str(data),
-    )
+    yaml.representer.SafeRepresenter.represent_str(self, str(data))
 
-from ansible.errors import AnsibleError, AnsibleUndefinedVariable
-from ansible.module_utils.six import string_types
-from ansible.module_utils._text import to_text
 from ansible.plugins.action import ActionBase
 try:
-    # ansible-core 2.19+: needed when templating code-authored strings
     from ansible.template import trust_as_template
 except Exception:
-    # 2.18 and earlier: no-op
     trust_as_template = lambda x: x
 
 class ActionModule(ActionBase):
@@ -55,7 +32,7 @@ class ActionModule(ActionBase):
 
         result = super(ActionModule, self).run(tmp, task_vars)
         result['_ansible_verbose_always'] = True
-        del tmp # tmp no longer has any effect
+        del tmp
 
         msg = self._task.args.get('msg')
         body = self._task.args.get('body')
@@ -71,17 +48,13 @@ class ActionModule(ActionBase):
             if user:
                 result['msg'] = msg
             else:
-                # Output msg in result, prepend "user.info: " to support parsing from log
                 if isinstance(msg, list):
                     result['msg'] = ['user.info: ' + m for m in msg]
                 else:
                     result['msg'] = 'user.info: ' + msg
-                    # Force display of result like debug
 
         if not user and body != None:
-            # Output msg in result, prepend "user.body: " to support parsing from log
             result['msg'] = 'user.body: ' + body
-            # Force display of result like debug
 
         if data:
             result['data'] = data
@@ -97,14 +70,9 @@ class ActionModule(ActionBase):
             _action_expr = '{{ ACTION | default(hostvars.localhost.ACTION) | default("provision", true) }}'
             action = self._templar.template(trust_as_template(_action_expr))
 
-            # Use default(..., true) so empty strings/falsey values are treated as unset.
-            _out_expr = '{{ output_dir \
-                           | default(hostvars.localhost.output_dir, true) \
-                           | default(playbook_dir, true) \
-                           | default(".", true) }}'
+            _out_expr = '{{ output_dir | default(hostvars.localhost.output_dir, true) | default(playbook_dir, true) | default(".", true) }}'
             output_dir = self._templar.template(trust_as_template(_out_expr))
 
-            # Attempt to make output_dir if not exists
             try:
                 os.makedirs(output_dir)
             except OSError:
