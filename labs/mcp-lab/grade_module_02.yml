@@ -85,10 +85,10 @@
     # =========================================================================
     # Checkpoint 2.3: Pipeline failure diagnosed
     # =========================================================================
-    - name: "2.3: Check for pipeline runs"
-      ansible.builtin.command: >
-        oc get pipelineruns -n {{ agent_namespace }}
-        -o jsonpath='{.items[?(@.spec.params[?(@.name=="GIT_REVISION")].value=="broken")].status.conditions[0].status}'
+    - name: "2.3: Check for failed pipeline runs with broken branch"
+      ansible.builtin.shell: |
+        oc get pipelineruns -n {{ agent_namespace }} -o json | \
+        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .status.conditions[0].status'
       register: r_pipeline_run
       changed_when: false
       ignore_errors: true

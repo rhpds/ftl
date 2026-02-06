@@ -27,4 +27,4 @@ student_error_message: "Command validation failed"
 chdir: ""
 
 # Environment variables for command (optional)
-environment: {}
+command_environment: {}
