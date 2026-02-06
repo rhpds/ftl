@@ -46,13 +46,9 @@
         name: grader_check_command_output
       vars:
         task_description_message: "OpenShift access validated - can list pods"
-        command: "oc get pods -A --no-headers | wc -l"
+        command: "oc get pods -n {{ mcp_openshift_namespace }} --no-headers | wc -l"
         expected_output_regex: "^[1-9][0-9]*$"  # At least 1 pod exists
-        student_error_message: |
-          Unable to access OpenShift. Verify:
-          - OPENSHIFT_API_URL environment variable is set
-          - oc CLI is logged in: oc login {{ ocp_api_url }}
-          - You have permissions to list pods
+        student_error_message: "Unable to access OpenShift. Verify: oc CLI is logged in and you have access to namespace {{ mcp_openshift_namespace }}"
 
     # =========================================================================
     # Checkpoint 1.2: MCP OpenShift Server pod is running
@@ -62,7 +58,7 @@
         name: grader_check_ocp_pod_running
       vars:
         task_description_message: "MCP OpenShift Server pod is running"
-        pod_name: "mcp-openshift-server-.*"  # Regex to match deployment pod
+        pod_name: "openshift-.*"  # Regex to match deployment pod
         pod_namespace: "{{ mcp_openshift_namespace }}"
         student_error_message: "MCP OpenShift Server pod not found or not running in namespace {{ mcp_openshift_namespace }}. This should be pre-deployed by the lab environment. Check pod status: oc get pods -n {{ mcp_openshift_namespace }}"
 
@@ -74,7 +70,7 @@
         name: grader_check_ocp_pod_running
       vars:
         task_description_message: "MCP Gitea Server pod is running"
-        pod_name: "mcp-gitea-server-.*"  # Regex to match deployment pod
+        pod_name: "gitea-.*"  # Regex to match deployment pod
         pod_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: "MCP Gitea Server pod not found or not running in namespace {{ mcp_gitea_namespace }}. This should be pre-deployed by the lab environment. Check pod status: oc get pods -n {{ mcp_gitea_namespace }}"
 
