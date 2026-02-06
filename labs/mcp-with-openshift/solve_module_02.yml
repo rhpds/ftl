@@ -117,11 +117,16 @@
         password: "{{ lookup('env', 'PASSWORD') }}"
         force_basic_auth: yes
         validate_certs: false
+        return_content: yes
         status_code: 200
       register: r_issues
-      until: r_issues.json | length > 0
+      until:
+        - r_issues is succeeded
+        - r_issues.json is defined
+        - r_issues.json | length > 0
       retries: 6
       delay: 10
+      ignore_errors: true
 
     - name: Display solver completion
       ansible.builtin.debug:
