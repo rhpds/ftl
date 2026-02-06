@@ -32,6 +32,12 @@
     - name: Set gitea user
       ansible.builtin.set_fact:
         gitea_user: "{{ base_namespace_prefix }}"
+
+    - name: Set namespace variables
+      ansible.builtin.set_fact:
+        mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
+        mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+
     # =========================================================================
     # Checkpoint 1.1: OpenShift access validated
     # =========================================================================
