@@ -43,6 +43,7 @@
 
 - name: "Check if {{ resource_kind }} '{{ resource_name }}' exists in namespace '{{ resource_namespace }}'"
   kubernetes.core.k8s_info:
+    api_version: "{{ resource_api_version | default(omit) }}"
     kind: "{{ resource_kind }}"
     namespace: "{{ resource_namespace }}"
     name: "{{ resource_name if '*' not in resource_name and '.' not in resource_name else omit }}"

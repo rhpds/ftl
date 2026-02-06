@@ -33,12 +33,10 @@
       vars:
         task_description_message: "MCPToolConfig 'openshift-tool-filter' created"
         resource_kind: "MCPToolConfig"
+        resource_api_version: "toolhive.stacklok.dev/v1alpha1"
         resource_name: "openshift-tool-filter"
         resource_namespace: "{{ mcp_openshift_namespace }}"
-        student_error_message: |
-          MCPToolConfig 'openshift-tool-filter' not found in {{ mcp_openshift_namespace }}.
-          Create the tool filter configuration to restrict OpenShift MCP server tools.
-          See lab instructions for creating MCPToolConfig.
+        student_error_message: "MCPToolConfig 'openshift-tool-filter' not found in {{ mcp_openshift_namespace }}. Create the tool filter configuration to restrict OpenShift MCP server tools. See lab instructions for creating MCPToolConfig."
 
     # =========================================================================
     # Checkpoint 3.2: Telemetry enabled on OpenShift MCP Server
