@@ -3,7 +3,7 @@
 # Source: https://github.com/rhpds/lb1726-mcp-showroom
 
 lab:
-  id: mcp-lab
+  id: mcp-with-openshift
   name: "Model Context Protocol (MCP) Enterprise Integration"
   description: "Hands-on experience with MCP in enterprise Kubernetes environments"
   version: "1.0"

@@ -1,0 +1,110 @@
+#!/bin/bash
+# FTL Grade Lab Wrapper
+# Usage: grade_lab <lab-name> [module-number]
+# Example: grade_lab mcp-lab 1
+#          grade_lab mcp-lab     (grades all modules)
+
+set -e
+
+# Configuration
+FTL_REPO="https://github.com/rhpds/ftl.git"
+FTL_DIR="${HOME}/ftl"
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Parse arguments
+LAB_NAME="${1}"
+MODULE_NUM="${2}"
+
+if [ -z "${LAB_NAME}" ]; then
+    echo -e "${RED}Error: Lab name required${NC}"
+    echo "Usage: grade_lab <lab-name> [module-number]"
+    echo ""
+    echo "Examples:"
+    echo "  grade_lab mcp-lab 1        # Grade module 1 only"
+    echo "  grade_lab mcp-lab          # Grade all modules"
+    echo ""
+    echo "Available labs:"
+    ls -1 "${FTL_DIR}/labs" 2>/dev/null || echo "  (FTL not installed yet)"
+    exit 1
+fi
+
+# Setup/update FTL repository
+if [ ! -d "${FTL_DIR}" ]; then
+    echo -e "${BLUE}Installing FTL...${NC}"
+    git clone "${FTL_REPO}" "${FTL_DIR}"
+else
+    echo -e "${BLUE}Updating FTL...${NC}"
+    cd "${FTL_DIR}"
+    git pull --quiet || true
+fi
+
+cd "${FTL_DIR}"
+
+# Check if lab exists
+if [ ! -d "labs/${LAB_NAME}" ]; then
+    echo -e "${RED}Error: Lab '${LAB_NAME}' not found${NC}"
+    echo "Available labs:"
+    ls -1 labs/
+    exit 1
+fi
+
+# Set environment variables
+export LAB_USER="${LAB_USER:-${USER}}"
+export GUID="${GUID:-$(hostname | cut -d'-' -f2)}"
+
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}FTL Lab Grader${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo -e "Lab:      ${BLUE}${LAB_NAME}${NC}"
+echo -e "User:     ${BLUE}${LAB_USER}${NC}"
+echo -e "GUID:     ${BLUE}${GUID}${NC}"
+
+# Determine which playbook to run
+if [ -n "${MODULE_NUM}" ]; then
+    # Grade specific module
+    MODULE_FILE="labs/${LAB_NAME}/grade_module_$(printf "%02d" ${MODULE_NUM}).yml"
+
+    if [ ! -f "${MODULE_FILE}" ]; then
+        echo -e "${RED}Error: Module ${MODULE_NUM} not found${NC}"
+        echo "Available modules:"
+        ls -1 labs/${LAB_NAME}/grade_module_*.yml 2>/dev/null | sed 's/.*grade_module_/  Module /' | sed 's/.yml//'
+        exit 1
+    fi
+
+    echo -e "Module:   ${BLUE}${MODULE_NUM}${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+
+    ansible-playbook "${MODULE_FILE}"
+else
+    # Grade all modules
+    echo -e "Grading:  ${BLUE}All modules${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+
+    ansible-playbook "labs/${LAB_NAME}/grade_lab.yml"
+fi
+
+# Display report
+echo ""
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}Grading Report${NC}"
+echo -e "${GREEN}========================================${NC}"
+cat /tmp/grading_dir/grading_report.txt
+
+# Check if passed
+if grep -q "SUCCESS 0 Errors" /tmp/grading_dir/grading_report.txt; then
+    echo ""
+    echo -e "${GREEN}✓ Lab grading PASSED!${NC}"
+    exit 0
+else
+    echo ""
+    echo -e "${YELLOW}✗ Lab grading FAILED - see report above${NC}"
+    exit 1
+fi
