@@ -10,8 +10,11 @@
   vars:
     base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     agent_namespace: "agent-{{ base_namespace_prefix }}"
-    gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.apps.cluster.example.com') }}"
+    openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
+    mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+    gitea_url: "https://gitea-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}"
     gitea_user: "{{ base_namespace_prefix }}"
+    gitea_password: "{{ lookup('env', 'PASSWORD') | default('changeme') }}"
 
   tasks:
     - name: Display Module 2 solver info
@@ -114,7 +117,7 @@
         url: "{{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues"
         method: GET
         user: "{{ gitea_user }}"
-        password: "{{ lookup('env', 'PASSWORD') }}"
+        password: "{{ gitea_password }}"
         force_basic_auth: yes
         validate_certs: false
         return_content: yes
@@ -137,9 +140,14 @@
 
           ✅ Pipeline run triggered with broken branch
           ✅ Pipeline failed as expected
+          {% if r_issues is defined and r_issues.json is defined and r_issues.json | length > 0 %}
           ✅ Agent created Gitea issue: {{ gitea_url }}/{{ gitea_user }}/mcp/issues/{{ r_issues.json[0].number }}
 
           Issue Title: {{ r_issues.json[0].title }}
+          {% else %}
+          ⏳ Waiting for agent to create Gitea issue (may take a few minutes)
+             Check manually: {{ gitea_url }}/{{ gitea_user }}/mcp/issues
+          {% endif %}
 
           Run the grader to verify all checkpoints pass.
           ================================================================================
