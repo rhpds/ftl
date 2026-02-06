@@ -50,6 +50,11 @@
   register: r_resource
   ignore_errors: true
 
+- name: "Debug: Show k8s_info result"
+  when: lookup('env', 'DEBUG_GRADER') | default('') != ''
+  ansible.builtin.debug:
+    var: r_resource
+
 - name: "Filter resources by name pattern (if regex used)"
   ansible.builtin.set_fact:
     filtered_resources: "{{ r_resource.resources | selectattr('metadata.name', 'match', resource_name) | list }}"
