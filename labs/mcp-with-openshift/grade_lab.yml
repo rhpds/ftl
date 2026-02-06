@@ -2,6 +2,17 @@
 # Grade Lab: Model Context Protocol (MCP) Enterprise Integration
 # Main grading playbook that orchestrates all module graders
 
+- name: Initialize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "MCP Lab - Full Lab"
+    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+  roles:
+    - ftl_run_init
+
 - name: Display Lab Grading Start
   hosts: localhost
   gather_facts: false
@@ -56,6 +67,43 @@
   tags: ['module4', 'registry']
 
 # ============================================================================
+# Consolidate Module Reports
+# ============================================================================
+- name: Consolidate Module Reports
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    grader_working_dir: /tmp/grading_dir
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+    base_user: "{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}"
+
+  tasks:
+    - name: Read all module reports
+      ansible.builtin.shell: |
+        cat {{ grader_working_dir }}/grading_report_{{ base_user }}_module_*.txt 2>/dev/null || echo "No module reports found"
+      register: r_module_reports
+      changed_when: false
+      ignore_errors: true
+
+    - name: Append module results to main report
+      ansible.builtin.lineinfile:
+        path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
+        line: "{{ item }}"
+        create: yes
+      loop: "{{ r_module_reports.stdout_lines | default([]) }}"
+      when: r_module_reports.stdout_lines is defined
+
+- name: Finalize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  vars:
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish
+
+# ============================================================================
 # Final Summary
 # ============================================================================
 - name: Display Lab Grading Complete
@@ -65,6 +113,7 @@
 
   vars:
     lab_name: "Model Context Protocol (MCP) Enterprise Integration"
+    grader_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
 
   tasks:
     - name: Display completion message
@@ -81,5 +130,5 @@
 
           All modules graded successfully!
 
-          Check the grading report at: /tmp/grading_dir/grading_report.txt
+          Check the grading report at: /tmp/grading_dir/{{ grader_report_file }}
           ================================================================================
