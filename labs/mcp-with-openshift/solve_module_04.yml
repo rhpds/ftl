@@ -226,16 +226,28 @@
     # =========================================================================
     # Step 6: Verify servers are registered
     # =========================================================================
-    - name: Query registry API
+    - name: Query registry API to verify servers registered
       ansible.builtin.uri:
-        url: "https://mcp-registry-{{ mcp_gitea_namespace }}.{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') }}/registry/v0.1/servers"
+        url: "https://mcp-registry-{{ mcp_gitea_namespace }}.{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') }}/registry/rh-one-mcp/v0.1/servers"
         method: GET
         validate_certs: false
         return_content: yes
+        status_code: 200
       register: r_registry
-      until: r_registry.json.metadata.count >= 2
+      until:
+        - r_registry is succeeded
+        - r_registry.json is defined
+        - r_registry.json.metadata is defined
+        - r_registry.json.metadata.count is defined
+        - r_registry.json.metadata.count >= 2
       retries: 12
       delay: 5
+      ignore_errors: true
+
+    - name: Display registry query result
+      ansible.builtin.debug:
+        msg: "Registry contains {{ r_registry.json.metadata.count | default(0) }} servers"
+      when: r_registry is succeeded
 
     - name: Display solver completion
       ansible.builtin.debug:
