@@ -10,6 +10,7 @@
     lab_id: "MCP Lab - Module 1: Lab Setup"
     module_number: "01"
     student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
   roles:
     - ftl_run_init
 
@@ -132,6 +133,7 @@
   gather_facts: false
   vars:
     module_number: "01"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
   roles:
     - ftl_run_grade_report_generation
     - ftl_run_finish
