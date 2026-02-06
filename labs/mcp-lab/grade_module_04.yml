@@ -77,7 +77,7 @@
       vars:
         task_description_message: "MCP servers registered in registry (at least 2)"
         command: >
-          curl -s -k https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/v0.1/servers
+          curl -s -k https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/rh-one-mcp/v0.1/servers
           | jq '.metadata.count'
         expected_output_regex: "^[2-9]$|^[1-9][0-9]+$"  # At least 2 servers
         student_error_message: |
@@ -86,7 +86,7 @@
           - ConfigMap with server catalog exists
           - MCPRegistry references the ConfigMap
           - Registry has synced: oc logs -n {{ mcp_gitea_namespace }} <mcp-registry-pod>
-          Query registry: curl https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/v0.1/servers | jq
+          Query registry: curl https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/rh-one-mcp/v0.1/servers | jq
 
 - name: Finalize FTL Grading Session - Module 4
   hosts: localhost

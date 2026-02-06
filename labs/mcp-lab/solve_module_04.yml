@@ -188,12 +188,11 @@
       kubernetes.core.k8s_info:
         kind: Pod
         namespace: "{{ mcp_gitea_namespace }}"
-        label_selectors:
-          - "app=mcp-registry"
+        field_selectors:
+          - status.phase=Running
       register: r_registry_pods
       until:
-        - r_registry_pods.resources | length > 0
-        - r_registry_pods.resources[0].status.phase == "Running"
+        - r_registry_pods.resources | selectattr('metadata.name', 'match', 'mcp-registry-api-.*') | list | length > 0
       retries: 60
       delay: 10
 
