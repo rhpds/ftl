@@ -105,10 +105,12 @@ When using FTL from a lab bastion, set these before running graders/solvers:
 # Set from AgnosticV user data
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
 export PASSWORD="<password_from_user_data>"
-export LAB_USER="user1"
-export GUID="xxxxx"
 
-# Now run grader for your lab
+# Now run grader (LAB_USER is set automatically from command argument)
+grade_lab <lab-name> user1
+
+# Or if LAB_USER env var is already set, you can omit the user argument
+export LAB_USER="user1"
 grade_lab <lab-name>
 ----
 
@@ -123,18 +125,16 @@ When grading as system:admin for multiple users:
 # Set cluster-wide variables once
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
 
-# Grade user1
-export LAB_USER="user1"
+# Grade user1 (LAB_USER is set automatically from argument)
 export PASSWORD="<user1_password_from_agv>"
 grade_lab <lab-name> user1
 
-# Grade user2
-export LAB_USER="user2"
+# Grade user2 (update PASSWORD for each user)
 export PASSWORD="<user2_password_from_agv>"
 grade_lab <lab-name> user2
 ----
 
-NOTE: Each user's password is found in their AgnosticV user data. Common fields include `password`, `gitea_password`, `console_password`, etc.
+IMPORTANT: Each user has their own password in AgnosticV user data. The PASSWORD must match the user you're grading. Common password fields: `password`, `gitea_password`, `console_password`.
 
 == Documentation
 

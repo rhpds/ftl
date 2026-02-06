@@ -42,22 +42,19 @@ These values are provided in the AgnosticV user data when the lab is deployed:
 When grading as system:admin for multiple users:
 
 ```bash
-# Example: Grade user2
-export LAB_USER="user2"
+# Set cluster-wide settings once
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-kg5jj.dynamic.redhatworkshops.io"
+
+# Grade user2 (LAB_USER is set automatically from the user2 argument)
 export PASSWORD="NTEzMjI5OD"  # Get from user2's AgnosticV user data
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-kg5jj.dynamic.redhatworkshops.io"
-
 grade_lab mcp-with-openshift user2
+
+# Grade user3 (update PASSWORD for each user)
+export PASSWORD="<user3_password>"  # Get from user3's AgnosticV user data
+grade_lab mcp-with-openshift user3
 ```
 
-Or pass user inline (LAB_USER is still needed for PASSWORD context):
-
-```bash
-export PASSWORD="NTEzMjI5OD"
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-kg5jj.dynamic.redhatworkshops.io"
-
-grade_lab mcp-with-openshift user2
-```
+**IMPORTANT**: Each user has a unique password in their AgnosticV user data. Make sure PASSWORD matches the user you're grading.
 
 ## Usage
 
