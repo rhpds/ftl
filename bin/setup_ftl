@@ -42,6 +42,14 @@ else
     echo "jmespath already installed, skipping..."
 fi
 
+# Check and install kubernetes Python library (required by kubernetes.core collection)
+if ! python3 -c "import kubernetes" &> /dev/null; then
+    echo "Installing kubernetes Python library..."
+    pip install --quiet kubernetes
+else
+    echo "kubernetes Python library already installed, skipping..."
+fi
+
 # Install Ansible if not already installed
 if ! command -v ansible-playbook &> /dev/null; then
     echo "Installing Ansible..."
