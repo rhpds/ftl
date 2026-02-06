@@ -61,7 +61,7 @@
 
     - name: Set Gitea URL
       ansible.builtin.set_fact:
-        gitea_url: "https://gitea-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}"
+        gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
 
     # =========================================================================
     # Checkpoint 1.1: OpenShift access validated

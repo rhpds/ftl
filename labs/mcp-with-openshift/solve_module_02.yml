@@ -12,7 +12,7 @@
     agent_namespace: "agent-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('', true) }}"
     mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
-    gitea_url: "https://gitea-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}"
+    gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
     gitea_user: "{{ base_namespace_prefix }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('', true) }}"
 
