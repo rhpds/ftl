@@ -91,6 +91,8 @@
 - name: Finalize FTL Grading Session - Module 4
   hosts: localhost
   gather_facts: false
+  vars:
+    module_number: "04"
   roles:
     - ftl_run_grade_report_generation
     - ftl_run_finish

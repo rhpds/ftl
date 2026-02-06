@@ -130,6 +130,8 @@
 - name: Finalize FTL Grading Session - Module 1
   hosts: localhost
   gather_facts: false
+  vars:
+    module_number: "01"
   roles:
     - ftl_run_grade_report_generation
     - ftl_run_finish
