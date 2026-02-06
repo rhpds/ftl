@@ -18,14 +18,20 @@
   become: false
 
   vars:
-    base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
     gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.apps.cluster.example.com') }}"
-    gitea_user: "{{ base_namespace_prefix }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('changeme') }}"
     librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat') }}"
 
   tasks:
+    # Set variables from environment
+    - name: Set base namespace prefix
+      ansible.builtin.set_fact:
+        base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
+
+    - name: Set gitea user
+      ansible.builtin.set_fact:
+        gitea_user: "{{ base_namespace_prefix }}"
     # =========================================================================
     # Checkpoint 1.1: OpenShift access validated
     # =========================================================================
@@ -51,11 +57,8 @@
       vars:
         task_description_message: "MCP OpenShift Server pod is running"
         pod_name: "mcp-openshift-server-.*"  # Regex to match deployment pod
-        pod_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
-        student_error_message: |
-          MCP OpenShift Server pod not found or not running in namespace mcp-openshift-{{ base_namespace_prefix }}.
-          This should be pre-deployed by the lab environment.
-          Check pod status: oc get pods -n mcp-openshift-{{ base_namespace_prefix }}
+        pod_namespace: "{{ mcp_openshift_namespace }}"
+        student_error_message: "MCP OpenShift Server pod not found or not running in namespace {{ mcp_openshift_namespace }}. This should be pre-deployed by the lab environment. Check pod status: oc get pods -n {{ mcp_openshift_namespace }}"
 
     # =========================================================================
     # Checkpoint 1.3: MCP Gitea Server pod is running
@@ -66,11 +69,8 @@
       vars:
         task_description_message: "MCP Gitea Server pod is running"
         pod_name: "mcp-gitea-server-.*"  # Regex to match deployment pod
-        pod_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
-        student_error_message: |
-          MCP Gitea Server pod not found or not running in namespace mcp-gitea-{{ base_namespace_prefix }}.
-          This should be pre-deployed by the lab environment.
-          Check pod status: oc get pods -n mcp-gitea-{{ base_namespace_prefix }}
+        pod_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "MCP Gitea Server pod not found or not running in namespace {{ mcp_gitea_namespace }}. This should be pre-deployed by the lab environment. Check pod status: oc get pods -n {{ mcp_gitea_namespace }}"
 
     # =========================================================================
     # Checkpoint 1.4: Gitea repository accessible
@@ -80,18 +80,9 @@
         name: grader_check_command_output
       vars:
         task_description_message: "Gitea repository 'mcp' accessible for user {{ gitea_user }}"
-        command: >
-          curl -s -u {{ gitea_user }}:{{ gitea_password }}
-          {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp
-          | jq -r '.name'
+        command: "curl -s -u {{ gitea_user }}:{{ gitea_password }} {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'"
         expected_output: "mcp"
-        student_error_message: |
-          Gitea repository '{{ gitea_user }}/mcp' not found.
-          This should be pre-deployed by the lab environment.
-          Verify:
-          - Gitea is accessible at {{ gitea_url }}
-          - Log in to Gitea with user {{ gitea_user }}
-          - Repository 'mcp' exists under your user
+        student_error_message: "Gitea repository '{{ gitea_user }}/mcp' not found. This should be pre-deployed by the lab environment. Check: {{ gitea_url }}/{{ gitea_user }}/mcp"
 
     # =========================================================================
     # Checkpoint 1.5: LibreChat accessible
@@ -103,10 +94,7 @@
         task_description_message: "LibreChat route is accessible"
         route_name: "librechat"
         route_namespace: "{{ librechat_namespace }}"
-        student_error_message: |
-          LibreChat route not found in namespace {{ librechat_namespace }}.
-          This should be pre-deployed by the lab environment.
-          Check routes: oc get routes -n {{ librechat_namespace }}
+        student_error_message: "LibreChat route not found in namespace {{ librechat_namespace }}. This should be pre-deployed by the lab environment. Check routes: oc get routes -n {{ librechat_namespace }}"
 
 - name: Finalize FTL Grading Session - Module 1
   hosts: localhost
