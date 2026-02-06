@@ -8,7 +8,7 @@
   become: false
   vars:
     lab_id: "MCP Lab - Module 1: Lab Setup"
-    student_name: "{{ lookup('env', 'USER') | default('student') }}"
+    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
   roles:
     - ftl_run_init
 
@@ -18,7 +18,7 @@
   become: false
 
   vars:
-    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
     gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.apps.cluster.example.com') }}"
     gitea_user: "{{ base_namespace_prefix }}"

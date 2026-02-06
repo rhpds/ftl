@@ -8,7 +8,7 @@
   become: false
   vars:
     lab_id: "MCP Lab - Module 3: MCP Server Administration"
-    student_name: "{{ lookup('env', 'USER') | default('student') }}"
+    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
   roles:
     - ftl_run_init
 
@@ -18,7 +18,7 @@
   become: false
 
   vars:
-    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
     mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"

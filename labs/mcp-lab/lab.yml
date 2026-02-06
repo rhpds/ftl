@@ -14,7 +14,7 @@ lab:
 environment:
   type: "openshift"
   ocp_api_url: "{{ lookup('env', 'OPENSHIFT_API_URL') | default('https://api.cluster.example.com:6443') }}"
-  base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+  base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
 
   # Environment variables expected
   required_vars:

@@ -8,7 +8,7 @@
   become: false
 
   vars:
-    base_namespace_prefix: "{{ lookup('env', 'USER') | default('user1') }}"
+    base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
     mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
 
