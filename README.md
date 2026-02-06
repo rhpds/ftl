@@ -18,7 +18,7 @@ FTL (Finish The Labs) provides automated validation (grading) and completion (so
 
 ## Quick Start
 
-### On Bastion (as system:admin)
+### Dedicated Cluster (single user per cluster)
 
 ```bash
 # Clone FTL
@@ -28,14 +28,34 @@ git clone https://github.com/rhpds/ftl.git ~/ftl
 echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
-# Set which student to grade
-export LAB_USER=user1
-
 # Grade the lab
 grade_lab mcp-with-openshift
 
 # Or solve (auto-complete) the lab
 solve_lab mcp-with-openshift
+```
+
+### Multi-User Environment (shared cluster)
+
+```bash
+# On bastion as system:admin
+
+# Clone FTL
+git clone https://github.com/rhpds/ftl.git ~/ftl
+export PATH="$HOME/ftl/bin:$PATH"
+
+# Grade all modules for user2
+grade_lab mcp-with-openshift user2
+
+# Grade module 1 for user3
+grade_lab mcp-with-openshift user3 1
+
+# Solve all modules for user4
+solve_lab mcp-with-openshift user4
+
+# Or use environment variable
+export LAB_USER=user1
+grade_lab mcp-with-openshift
 ```
 
 ## Current Labs
@@ -123,25 +143,53 @@ ftl/
 
 ## Usage Examples
 
-### Grade Individual Modules
+### Dedicated Cluster Environment
+
+When each student has their own cluster:
 
 ```bash
+# Grade all modules
+grade_lab mcp-with-openshift
+
 # Grade specific modules
 grade_lab mcp-with-openshift 1  # Module 1 only
 grade_lab mcp-with-openshift 2  # Module 2 only
-grade_lab mcp-with-openshift 3  # Module 3 only
-grade_lab mcp-with-openshift 4  # Module 4 only
-```
 
-### Solve Individual Modules
+# Solve all modules
+solve_lab mcp-with-openshift
 
-```bash
-# Auto-complete specific modules
-solve_lab mcp-with-openshift 1
-solve_lab mcp-with-openshift 2
+# Solve specific modules
 solve_lab mcp-with-openshift 3
 solve_lab mcp-with-openshift 4
 ```
+
+### Multi-User Environment
+
+When grading/solving for specific users in a shared cluster:
+
+```bash
+# Grade all modules for user2
+grade_lab mcp-with-openshift user2
+
+# Grade module 1 for user3
+grade_lab mcp-with-openshift user3 1
+
+# Solve all modules for user4
+solve_lab mcp-with-openshift user4
+
+# Solve module 2 for user5
+solve_lab mcp-with-openshift user5 2
+```
+
+**Command Format:**
+```bash
+grade_lab <lab-name> [user] [module-number]
+solve_lab <lab-name> [user] [module-number]
+```
+
+**Smart Parsing:**
+- 2nd arg is a number → module number (uses `$LAB_USER` or `$USER`)
+- 2nd arg is not a number → username (3rd arg is module number)
 
 ### Manual Execution
 

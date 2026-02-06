@@ -18,31 +18,52 @@ sudo chmod +x /usr/local/bin/grade_lab /usr/local/bin/solve_lab
 
 ## Usage
 
-### Grade Lab
+### For Dedicated Cluster Environment
 
-Grade all modules:
+When each student has their own cluster, use without user argument:
+
 ```bash
+# Grade all modules
 grade_lab mcp-with-openshift
-```
 
-Grade specific module:
-```bash
-grade_lab mcp-with-openshift 1    # Grade module 1 only
-grade_lab mcp-with-openshift 2    # Grade module 2 only
-```
+# Grade specific module
+grade_lab mcp-with-openshift 1
 
-### Solve Lab
-
-Solve all modules (auto-complete lab):
-```bash
+# Solve all modules
 solve_lab mcp-with-openshift
+
+# Solve specific module
+solve_lab mcp-with-openshift 1
 ```
 
-Solve specific module:
+### For Multi-User Environment
+
+When grading/solving for specific users in a shared cluster:
+
 ```bash
-solve_lab mcp-with-openshift 1    # Solve module 1 only
-solve_lab mcp-with-openshift 2    # Solve module 2 only
+# Grade all modules for user2
+grade_lab mcp-with-openshift user2
+
+# Grade module 1 for user3
+grade_lab mcp-with-openshift user3 1
+
+# Solve all modules for user2
+solve_lab mcp-with-openshift user2
+
+# Solve module 2 for user4
+solve_lab mcp-with-openshift user4 2
 ```
+
+### Command Syntax
+
+```bash
+grade_lab <lab-name> [user] [module-number]
+solve_lab <lab-name> [user] [module-number]
+```
+
+**Smart argument parsing:**
+- If 2nd argument is a **number**, it's treated as module number (uses `$LAB_USER`)
+- If 2nd argument is **not a number**, it's treated as username (module from 3rd arg)
 
 ## Environment Variables
 

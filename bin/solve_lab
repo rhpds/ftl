@@ -1,8 +1,11 @@
 #!/bin/bash
 # FTL Solve Lab Wrapper
-# Usage: solve_lab <lab-name> [module-number]
-# Example: solve_lab mcp-lab 1
-#          solve_lab mcp-lab     (solves all modules)
+# Usage: solve_lab <lab-name> [user] [module-number]
+# Examples:
+#   solve_lab mcp-with-openshift              # Solve all modules for $LAB_USER
+#   solve_lab mcp-with-openshift 1            # Solve module 1 for $LAB_USER
+#   solve_lab mcp-with-openshift user2        # Solve all modules for user2
+#   solve_lab mcp-with-openshift user2 1      # Solve module 1 for user2
 
 set -e
 
@@ -19,15 +22,31 @@ NC='\033[0m' # No Color
 
 # Parse arguments
 LAB_NAME="${1}"
-MODULE_NUM="${2}"
+ARG2="${2}"
+ARG3="${3}"
+
+# Smart argument parsing
+# If ARG2 is a number, it's a module number (user from env)
+# If ARG2 is not a number, it's a user (module from ARG3)
+if [[ "${ARG2}" =~ ^[0-9]+$ ]]; then
+    # ARG2 is a number, so it's a module number
+    MODULE_NUM="${ARG2}"
+    USER_OVERRIDE=""
+else
+    # ARG2 is not a number, so it's a user
+    USER_OVERRIDE="${ARG2}"
+    MODULE_NUM="${ARG3}"
+fi
 
 if [ -z "${LAB_NAME}" ]; then
     echo -e "${RED}Error: Lab name required${NC}"
-    echo "Usage: solve_lab <lab-name> [module-number]"
+    echo "Usage: solve_lab <lab-name> [user] [module-number]"
     echo ""
     echo "Examples:"
-    echo "  solve_lab mcp-lab 1        # Solve module 1 only"
-    echo "  solve_lab mcp-lab          # Solve all modules"
+    echo "  solve_lab mcp-with-openshift              # Solve all modules for \$LAB_USER"
+    echo "  solve_lab mcp-with-openshift 1            # Solve module 1 for \$LAB_USER"
+    echo "  solve_lab mcp-with-openshift user2        # Solve all modules for user2"
+    echo "  solve_lab mcp-with-openshift user2 1      # Solve module 1 for user2"
     echo ""
     echo "Available labs:"
     ls -1 "${FTL_DIR}/labs" 2>/dev/null || echo "  (FTL not installed yet)"
@@ -54,8 +73,14 @@ if [ ! -d "labs/${LAB_NAME}" ]; then
     exit 1
 fi
 
-# Set environment variables
-export LAB_USER="${LAB_USER:-${USER}}"
+# Set LAB_USER (priority: command arg > LAB_USER env > USER env)
+if [ -n "${USER_OVERRIDE}" ]; then
+    export LAB_USER="${USER_OVERRIDE}"
+elif [ -z "${LAB_USER}" ]; then
+    export LAB_USER="${USER}"
+fi
+
+# Set GUID from hostname if not set
 export GUID="${GUID:-$(hostname | cut -d'-' -f2)}"
 
 echo -e "${GREEN}========================================${NC}"
@@ -94,5 +119,5 @@ fi
 echo ""
 echo -e "${GREEN}✓ Lab solving completed!${NC}"
 echo ""
-echo -e "${YELLOW}Run 'grade_lab ${LAB_NAME}' to verify the solution${NC}"
+echo -e "${YELLOW}Run 'grade_lab ${LAB_NAME} ${LAB_USER}' to verify the solution${NC}"
 exit 0
