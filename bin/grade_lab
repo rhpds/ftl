@@ -65,6 +65,17 @@ fi
 
 cd "${FTL_DIR}"
 
+# Setup virtual environment and dependencies if needed
+if [ ! -d ".venv" ]; then
+    echo -e "${BLUE}Setting up Python environment (first time only)...${NC}"
+    bash bin/setup_ftl
+fi
+
+# Activate virtual environment
+if [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate
+fi
+
 # Check if lab exists
 if [ ! -d "labs/${LAB_NAME}" ]; then
     echo -e "${RED}Error: Lab '${LAB_NAME}' not found${NC}"

@@ -1,0 +1,54 @@
+#!/bin/bash
+# FTL Setup Script
+# Installs dependencies and prepares environment
+
+set -e
+
+FTL_DIR="${HOME}/ftl"
+
+echo "=========================================="
+echo "FTL Setup"
+echo "=========================================="
+
+cd "${FTL_DIR}"
+
+# Check if Python 3 is available
+if ! command -v python3 &> /dev/null; then
+    echo "Error: python3 not found. Please install Python 3."
+    exit 1
+fi
+
+# Create virtual environment if it doesn't exist
+if [ ! -d ".venv" ]; then
+    echo "Creating Python virtual environment..."
+    python3 -m venv .venv
+fi
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Upgrade pip
+echo "Upgrading pip..."
+pip install --quiet --upgrade pip
+
+# Install Python dependencies
+echo "Installing Python dependencies..."
+pip install --quiet jmespath
+
+# Install Ansible if not already installed
+if ! command -v ansible-playbook &> /dev/null; then
+    echo "Installing Ansible..."
+    pip install --quiet ansible
+fi
+
+# Install required Ansible collections
+echo "Installing Ansible collections..."
+ansible-galaxy collection install kubernetes.core --force-with-deps
+
+echo ""
+echo "✓ FTL setup complete!"
+echo ""
+echo "To use FTL, either:"
+echo "  1. Add to PATH: export PATH=\"\$HOME/ftl/bin:\$PATH\""
+echo "  2. Or activate venv: source ~/ftl/.venv/bin/activate"
+echo ""
