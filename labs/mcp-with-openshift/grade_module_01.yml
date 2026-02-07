@@ -22,6 +22,7 @@
   vars:
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('', true) }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('', true) }}"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
 
   tasks:
     # Validate required environment variables

@@ -26,6 +26,7 @@
     gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
     gitea_user: "{{ base_namespace_prefix }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('changeme') }}"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
 
   tasks:
     # =========================================================================

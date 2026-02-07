@@ -23,6 +23,7 @@
     base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_04.txt"
 
   tasks:
     # =========================================================================
