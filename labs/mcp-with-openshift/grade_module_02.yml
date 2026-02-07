@@ -67,6 +67,8 @@
     - name: "2.2: Evaluate MCP connection success"
       ansible.builtin.set_fact:
         mcp_connected: "{{
+          r_agent_logs is not skipped and
+          r_agent_logs.rc is defined and
           r_agent_logs.rc == 0 and
           '✅ openshift: connected' in r_agent_logs.stdout and
           '✅ gitea: connected' in r_agent_logs.stdout and
@@ -99,7 +101,9 @@
     - name: "2.3: Evaluate pipeline failure"
       ansible.builtin.set_fact:
         pipeline_failed: "{{
+          r_pipeline_run.rc is defined and
           r_pipeline_run.rc == 0 and
+          r_pipeline_run.stdout is defined and
           'False' in r_pipeline_run.stdout
         }}"
 
