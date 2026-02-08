@@ -1,6 +1,6 @@
 ---
 # Grade Module 4: MCP Registry
-# Validates PostgreSQL deployment, registry deployment, and server registration
+# Validates PostgreSQL deployment, server catalog configuration, registry deployment, and server registration
 
 - name: Initialize FTL Grading Session - Module 4
   hosts: localhost
@@ -27,67 +27,148 @@
 
   tasks:
     # =========================================================================
-    # Checkpoint 4.1: PostgreSQL database deployed
+    # Exercise 4.1: PostgreSQL Database Backend - Cluster CR Created
     # =========================================================================
-    - name: "4.1: Verify PostgreSQL cluster is running"
+    - name: "Exercise 4.1: Verify PostgreSQL Cluster resource exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 4.1: PostgreSQL Cluster 'mcp-registry-db' created (CNPG)"
+        resource_kind: "Cluster"
+        resource_api_version: "postgresql.cnpg.io/v1"
+        resource_name: "mcp-registry-db"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "PostgreSQL Cluster 'mcp-registry-db' not found in {{ mcp_gitea_namespace }}. Deploy PostgreSQL using CloudNativePG Cluster resource. See workshop for configuration."
+
+    # =========================================================================
+    # Exercise 4.2: PostgreSQL Pod Running
+    # =========================================================================
+    - name: "Exercise 4.2: Verify PostgreSQL database pod is running"
       ansible.builtin.include_role:
         name: grader_check_ocp_pod_running
       vars:
-        task_description_message: "PostgreSQL database pod is running"
-        pod_name: "mcp-registry-db-.*"  # CNPG creates pods with this pattern
+        task_description_message: "Exercise 4.2: PostgreSQL database pod is running"
+        pod_name: "mcp-registry-db-.*"
         pod_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           PostgreSQL database pod not found or not running in {{ mcp_gitea_namespace }}.
-          Deploy PostgreSQL using CNPG Cluster resource.
-          Check pod status: oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry-db
+          Verify CNPG Cluster created (Exercise 4.1) and check pod status:
+          oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry-db
 
     # =========================================================================
-    # Checkpoint 4.2: MCP Registry deployed
+    # Exercise 4.3: Server Catalog ConfigMap Created
     # =========================================================================
-    - name: "4.2: Verify MCP Registry pod is running"
+    - name: "Exercise 4.3: Verify server catalog ConfigMap exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 4.3: Server catalog ConfigMap 'mcp-servers-catalog' created"
+        resource_kind: "ConfigMap"
+        resource_api_version: "v1"
+        resource_name: "mcp-servers-catalog"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          Server catalog ConfigMap 'mcp-servers-catalog' not found in {{ mcp_gitea_namespace }}.
+          Create ConfigMap with servers.yaml defining available MCP servers.
+          Check: oc get configmap -n {{ mcp_gitea_namespace }} mcp-servers-catalog
+
+    # =========================================================================
+    # Exercise 4.4: Registry Secrets Created
+    # =========================================================================
+    - name: "Exercise 4.4: Verify registry database secret exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 4.4: Registry database secret created"
+        resource_kind: "Secret"
+        resource_api_version: "v1"
+        resource_name: "mcp-registry-db-app"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          Database secret 'mcp-registry-db-app' not found in {{ mcp_gitea_namespace }}.
+          This should be created automatically by CNPG.
+          Check: oc get secrets -n {{ mcp_gitea_namespace }} | grep mcp-registry-db
+
+    # =========================================================================
+    # Exercise 4.5: MCPRegistry CR Created
+    # =========================================================================
+    - name: "Exercise 4.5: Verify MCPRegistry resource exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 4.5: MCPRegistry 'mcp-registry' resource created"
+        resource_kind: "MCPRegistry"
+        resource_api_version: "toolhive.stacklok.dev/v1alpha1"
+        resource_name: "mcp-registry"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "MCPRegistry 'mcp-registry' not found in {{ mcp_gitea_namespace }}. Deploy MCP Registry using MCPRegistry custom resource. See workshop for configuration."
+
+    # =========================================================================
+    # Exercise 4.6: Registry Pod Running
+    # =========================================================================
+    - name: "Exercise 4.6: Verify MCP Registry pod is running"
       ansible.builtin.include_role:
         name: grader_check_ocp_pod_running
       vars:
-        task_description_message: "MCP Registry pod is running"
-        pod_name: "mcp-registry-.*"  # Matches registry pods
+        task_description_message: "Exercise 4.6: MCP Registry pod is running"
+        pod_name: "mcp-registry-.*"
         pod_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           MCP Registry pod not found or not running in {{ mcp_gitea_namespace }}.
-          Deploy MCP Registry using MCPRegistry resource.
-          Check pod status: oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry
+          Verify MCPRegistry resource created (Exercise 4.5) and check pod status:
+          oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry
 
     # =========================================================================
-    # Checkpoint 4.3: Registry service accessible
+    # Exercise 4.7: Registry Route Exists
     # =========================================================================
-    - name: "4.3: Verify MCP Registry service exists"
+    - name: "Exercise 4.7: Verify MCP Registry route exists"
       ansible.builtin.include_role:
-        name: grader_check_ocp_service_exists
+        name: grader_check_ocp_route_exists
       vars:
-        task_description_message: "MCP Registry service 'mcp-registry-api' exists"
-        service_name: "mcp-registry-api"
-        service_namespace: "{{ mcp_gitea_namespace }}"
+        task_description_message: "Exercise 4.7: MCP Registry route exists (API accessible)"
+        route_name: "mcp-registry"
+        route_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
-          MCP Registry service 'mcp-registry-api' not found in {{ mcp_gitea_namespace }}.
-          This should be created automatically when MCPRegistry is deployed.
-          Check services: oc get svc -n {{ mcp_gitea_namespace }} | grep mcp-registry
+          MCP Registry route not found in {{ mcp_gitea_namespace }}.
+          ToolHive should automatically create a route for the MCPRegistry.
+          Check routes: oc get routes -n {{ mcp_gitea_namespace }} | grep mcp-registry
 
     # =========================================================================
-    # Checkpoint 4.4: MCP servers registered
+    # Exercise 4.8: Registry API Accessible
     # =========================================================================
-    - name: "4.4: Verify MCP servers are registered in registry"
+    - name: "Exercise 4.8: Verify registry API is responding"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        task_description_message: "MCP servers registered in registry (at least 2)"
+        task_description_message: "Exercise 4.8: MCP Registry API accessible and responding"
+        command: >
+          curl -s -k -o /dev/null -w '%{http_code}'
+          https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/health
+        expected_output: "200"
+        student_error_message: |
+          MCP Registry API not responding.
+          Verify:
+          - Registry pod is running (Exercise 4.6)
+          - Route exists (Exercise 4.7)
+          - Check logs: oc logs -n {{ mcp_gitea_namespace }} <mcp-registry-pod>
+
+    # =========================================================================
+    # Exercise 4.9: MCP Servers Registered in Registry
+    # =========================================================================
+    - name: "Exercise 4.9: Verify MCP servers are registered in registry"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Exercise 4.9: MCP servers registered in registry (at least 2 servers)"
         command: >
           curl -s -k https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/rh-one-mcp/v0.1/servers
           | jq '.metadata.count'
-        expected_output_regex: "^[2-9]$|^[1-9][0-9]+$"  # At least 2 servers
+        expected_output_regex: "^[2-9]$|^[1-9][0-9]+$"
         student_error_message: |
           Registry does not contain expected number of servers (need at least 2).
           Verify:
-          - ConfigMap with server catalog exists
-          - MCPRegistry references the ConfigMap
+          - ConfigMap with server catalog exists (Exercise 4.3)
+          - MCPRegistry references the ConfigMap (Exercise 4.5)
           - Registry has synced: oc logs -n {{ mcp_gitea_namespace }} <mcp-registry-pod>
           Query registry: curl https://mcp-registry-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/registry/rh-one-mcp/v0.1/servers | jq
 

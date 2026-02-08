@@ -1,6 +1,6 @@
 ---
 # Grade Module 2: Sovereign SRE Agent Demo
-# Validates agent deployment, MCP connections, pipeline failure, and issue creation
+# Validates agent deployment, MCP connections, pipeline failure scenario, and automated issue creation
 
 - name: Initialize FTL Grading Session - Module 2
   hosts: localhost
@@ -22,6 +22,7 @@
   vars:
     base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     agent_namespace: "agent-{{ base_namespace_prefix }}"
+    librechat_namespace: "librechat-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
     gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
     gitea_user: "{{ base_namespace_prefix }}"
@@ -30,14 +31,14 @@
 
   tasks:
     # =========================================================================
-    # Checkpoint 2.1: Agent pod deployed and running
+    # Exercise 2.1: Agent Infrastructure - Agent Pod Running
     # =========================================================================
-    - name: "2.1: Verify agent pod is deployed and running"
+    - name: "Exercise 2.1: Verify agent pod is deployed and running"
       ansible.builtin.include_role:
         name: grader_check_ocp_pod_running
       vars:
-        task_description_message: "Agent pod is running in namespace {{ agent_namespace }}"
-        pod_name: "agent-.*"  # Matches agent deployment pods
+        task_description_message: "Exercise 2.1: Agent pod is running in namespace {{ agent_namespace }}"
+        pod_name: "agent-.*"
         pod_namespace: "{{ agent_namespace }}"
         student_error_message: |
           Agent pod not found or not running in namespace {{ agent_namespace }}.
@@ -45,9 +46,9 @@
           Check pod status: oc get pods -n {{ agent_namespace }}
 
     # =========================================================================
-    # Checkpoint 2.2: Agent connected to MCP servers
+    # Exercise 2.2: Agent Connected to MCP Servers
     # =========================================================================
-    - name: "2.2: Get agent pod name"
+    - name: "Exercise 2.2: Get agent pod name"
       kubernetes.core.k8s_info:
         kind: Pod
         namespace: "{{ agent_namespace }}"
@@ -55,7 +56,7 @@
           - "app=agent"
       register: r_agent_pods
 
-    - name: "2.2: Get agent pod logs"
+    - name: "Exercise 2.2: Get agent pod logs"
       when: r_agent_pods.resources | length > 0
       ansible.builtin.command: >
         oc logs -n {{ agent_namespace }}
@@ -65,81 +66,201 @@
       changed_when: false
       ignore_errors: true
 
-    - name: "2.2: Evaluate MCP connection success"
+    - name: "Exercise 2.2: Evaluate MCP connection success"
       ansible.builtin.set_fact:
         mcp_connected: "{{
           r_agent_logs is not skipped and
           r_agent_logs.rc is defined and
           r_agent_logs.rc == 0 and
           '✅ openshift: connected' in r_agent_logs.stdout and
-          '✅ gitea: connected' in r_agent_logs.stdout and
-          '✅ Startup complete - 129 tools available' in r_agent_logs.stdout
+          '✅ gitea: connected' in r_agent_logs.stdout
         }}"
 
-    - name: "2.2: Create result message"
+    - name: "Exercise 2.2: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
-          'PASS: Agent connected to MCP servers (23 OpenShift + 106 Gitea = 129 tools)'
+          'PASS: Exercise 2.2: Agent connected to both MCP servers (OpenShift + Gitea)'
           if mcp_connected
-          else 'FAIL: Agent connected to MCP servers: Agent logs do not show successful MCP connections. Check agent pod logs: oc logs -n ' + agent_namespace + ' <agent-pod-name>'
+          else 'FAIL: Exercise 2.2: Agent connected to MCP servers: Agent logs do not show successful MCP connections. Check agent pod logs: oc logs -n ' + agent_namespace + ' <agent-pod-name>'
         }}"
 
-    - name: "2.2: Log result"
+    - name: "Exercise 2.2: Log result"
       ansible.builtin.include_role:
         name: ftl_run_log_grade_to_log
 
     # =========================================================================
-    # Checkpoint 2.3: Pipeline failure diagnosed
+    # Exercise 2.3: Pipeline Infrastructure Exists
     # =========================================================================
-    - name: "2.3: Check for failed pipeline runs with broken branch"
+    - name: "Exercise 2.3: Verify build-agent pipeline exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 2.3: Pipeline 'build-agent' exists in namespace {{ agent_namespace }}"
+        resource_api_version: "tekton.dev/v1"
+        resource_kind: "Pipeline"
+        resource_name: "build-agent"
+        resource_namespace: "{{ agent_namespace }}"
+        student_error_message: |
+          Pipeline 'build-agent' not found in namespace {{ agent_namespace }}.
+          This should be pre-deployed by the lab environment.
+          Check pipelines: oc get pipelines -n {{ agent_namespace }}
+
+    # =========================================================================
+    # Exercise 2.4: Pipeline Run Triggered with Broken Branch
+    # =========================================================================
+    - name: "Exercise 2.4: Check for pipeline run with broken branch"
       ansible.builtin.shell: |
         oc get pipelineruns -n {{ agent_namespace }} -o json | \
-        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .status.conditions[0].status'
-      register: r_pipeline_run
+        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .metadata.name' | head -1
+      register: r_broken_pipeline_check
       changed_when: false
       ignore_errors: true
 
-    - name: "2.3: Evaluate pipeline failure"
+    - name: "Exercise 2.4: Evaluate pipeline run existence"
       ansible.builtin.set_fact:
-        pipeline_failed: "{{
-          r_pipeline_run.rc is defined and
-          r_pipeline_run.rc == 0 and
-          r_pipeline_run.stdout is defined and
-          'False' in r_pipeline_run.stdout
+        pipeline_run_exists: "{{
+          r_broken_pipeline_check.rc == 0 and
+          r_broken_pipeline_check.stdout | length > 0
         }}"
 
-    - name: "2.3: Create result message"
+    - name: "Exercise 2.4: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
-          'PASS: Pipeline run with broken branch executed and failed'
-          if pipeline_failed
-          else 'FAIL: Pipeline failure diagnosed: No failed pipeline run found with GIT_REVISION=broken. Trigger the pipeline: oc get pipelines -n ' + agent_namespace + ' and start build-agent with GIT_REVISION=broken'
+          'PASS: Exercise 2.4: Pipeline run triggered with GIT_REVISION=broken'
+          if pipeline_run_exists
+          else 'FAIL: Exercise 2.4: Pipeline run with broken branch: No pipeline run found with GIT_REVISION=broken. Start the build-agent pipeline with GIT_REVISION=broken parameter.'
         }}"
 
-    - name: "2.3: Log result"
+    - name: "Exercise 2.4: Log result"
       ansible.builtin.include_role:
         name: ftl_run_log_grade_to_log
 
     # =========================================================================
-    # Checkpoint 2.4: Gitea issue created by agent
+    # Exercise 2.5: Pipeline Run Failed (Expected Outcome)
     # =========================================================================
-    - name: "2.4: Query Gitea for issues"
+    - name: "Exercise 2.5: Check pipeline run failure status"
+      ansible.builtin.shell: |
+        oc get pipelineruns -n {{ agent_namespace }} -o json | \
+        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .status.conditions[0].status' | head -1
+      register: r_pipeline_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: "Exercise 2.5: Evaluate pipeline failure"
+      ansible.builtin.set_fact:
+        pipeline_failed: "{{
+          r_pipeline_status.rc == 0 and
+          'False' in r_pipeline_status.stdout
+        }}"
+
+    - name: "Exercise 2.5: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 2.5: Pipeline run failed as expected (requirements.txt missing)'
+          if pipeline_failed
+          else 'FAIL: Exercise 2.5: Pipeline run failed: Pipeline did not fail or has not completed. The broken branch should cause the build to fail.'
+        }}"
+
+    - name: "Exercise 2.5: Log result"
+      ansible.builtin.include_role:
+        name: ftl_run_log_grade_to_log
+
+    # =========================================================================
+    # Exercise 2.6: Trigger-Agent Finally Task Executed
+    # =========================================================================
+    - name: "Exercise 2.6: Check for trigger-agent task execution"
+      ansible.builtin.shell: |
+        oc get pipelineruns -n {{ agent_namespace }} -o json | \
+        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .status.taskRuns // .status.childReferences | to_entries[] | select(.value.pipelineTaskName? == "trigger-agent" or .value.displayName? == "trigger-agent") | .value.pipelineTaskName? // .value.displayName?' | head -1
+      register: r_trigger_agent_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: "Exercise 2.6: Evaluate trigger-agent execution"
+      ansible.builtin.set_fact:
+        trigger_agent_executed: "{{
+          r_trigger_agent_check.rc == 0 and
+          'trigger-agent' in r_trigger_agent_check.stdout
+        }}"
+
+    - name: "Exercise 2.6: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 2.6: Trigger-agent finally task executed in pipeline'
+          if trigger_agent_executed
+          else 'FAIL: Exercise 2.6: Trigger-agent task: Finally task did not execute. Check pipeline definition has trigger-agent in finally section.'
+        }}"
+
+    - name: "Exercise 2.6: Log result"
+      ansible.builtin.include_role:
+        name: ftl_run_log_grade_to_log
+
+    # =========================================================================
+    # Exercise 2.7: Agent Investigated Failure
+    # =========================================================================
+    - name: "Exercise 2.7: Check agent logs for failure investigation"
+      when: r_agent_logs is not skipped
+      ansible.builtin.set_fact:
+        agent_investigated: "{{
+          'Received failure report' in r_agent_logs.stdout or
+          'pods_log' in r_agent_logs.stdout or
+          'Iteration' in r_agent_logs.stdout
+        }}"
+
+    - name: "Exercise 2.7: Set default if logs skipped"
+      when: r_agent_logs is skipped
+      ansible.builtin.set_fact:
+        agent_investigated: false
+
+    - name: "Exercise 2.7: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 2.7: Agent investigated pipeline failure (logs show analysis)'
+          if agent_investigated
+          else 'FAIL: Exercise 2.7: Agent investigation: Agent logs do not show failure investigation. Check agent pod logs for failure report handling.'
+        }}"
+
+    - name: "Exercise 2.7: Log result"
+      ansible.builtin.include_role:
+        name: ftl_run_log_grade_to_log
+
+    # =========================================================================
+    # Exercise 2.8: Gitea Issue Created by Agent
+    # =========================================================================
+    - name: "Exercise 2.8: Query Gitea for issues"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        task_description_message: "Gitea issue created by agent"
+        task_description_message: "Exercise 2.8: Gitea issue created by agent after pipeline failure"
         command: >
           curl -s -u {{ gitea_user }}:{{ gitea_password }}
           {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues
           | jq '. | length'
-        expected_output_regex: "^[1-9][0-9]*$"  # At least 1 issue exists
+        expected_output_regex: "^[1-9][0-9]*$"
         student_error_message: |
           No issues found in Gitea repository {{ gitea_user }}/mcp.
           The agent should create an issue when the pipeline fails.
           Verify:
-          - Pipeline run has failed (checkpoint 2.3)
-          - Agent pod logs show issue creation
+          - Pipeline run has failed (Exercise 2.5)
+          - Agent pod logs show issue creation (Exercise 2.7)
           - Check Gitea: {{ gitea_url }}/{{ gitea_user }}/mcp/issues
+
+    # =========================================================================
+    # Exercise 2.9: LibreChat Can Query Infrastructure
+    # =========================================================================
+    - name: "Exercise 2.9: Verify LibreChat UI accessible for querying"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Exercise 2.9: LibreChat accessible for infrastructure queries"
+        command: >
+          curl -s -k -o /dev/null -w '%{http_code}'
+          https://librechat-{{ librechat_namespace }}.{{ openshift_cluster_ingress_domain }}
+        expected_output: "200"
+        student_error_message: |
+          LibreChat not accessible for querying infrastructure.
+          Verify LibreChat is running and accessible.
+          Check route: oc get route -n {{ librechat_namespace }}
 
 - name: Finalize FTL Grading Session - Module 2
   hosts: localhost

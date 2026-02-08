@@ -1,6 +1,6 @@
 ---
 # Grade Module 3: MCP Server Administration
-# Validates tool filtering, telemetry, and additional MCP server deployments
+# Validates tool filtering, telemetry, observability, and deployment of additional MCP servers
 
 - name: Initialize FTL Grading Session - Module 3
   hosts: localhost
@@ -23,89 +23,206 @@
     base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1') }}"
     mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
     mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
+    librechat_namespace: "librechat-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_03.txt"
 
   tasks:
     # =========================================================================
-    # Checkpoint 3.1: MCPToolConfig created for tool filtering
+    # Exercise 3.1: Tool Filtering - MCPToolConfig Created
     # =========================================================================
-    - name: "3.1: Verify MCPToolConfig resource exists"
+    - name: "Exercise 3.1: Verify MCPToolConfig resource exists"
       ansible.builtin.include_role:
         name: grader_check_ocp_resource
       vars:
-        task_description_message: "MCPToolConfig 'openshift-tool-filter' created"
+        task_description_message: "Exercise 3.1: MCPToolConfig 'openshift-tool-filter' created"
         resource_kind: "MCPToolConfig"
         resource_api_version: "toolhive.stacklok.dev/v1alpha1"
         resource_name: "openshift-tool-filter"
         resource_namespace: "{{ mcp_openshift_namespace }}"
-        student_error_message: "MCPToolConfig 'openshift-tool-filter' not found in {{ mcp_openshift_namespace }}. Create the tool filter configuration to restrict OpenShift MCP server tools. See lab instructions for creating MCPToolConfig."
+        student_error_message: "MCPToolConfig 'openshift-tool-filter' not found in {{ mcp_openshift_namespace }}. Create the tool filter configuration to restrict OpenShift MCP server tools. See workshop for creating MCPToolConfig."
 
     # =========================================================================
-    # Checkpoint 3.2: Telemetry enabled on OpenShift MCP Server
+    # Exercise 3.2: Tool Filter Applied (Destructive Tools Blocked)
     # =========================================================================
-    - name: "3.2: Check if metrics endpoint is accessible"
+    - name: "Exercise 3.2: Verify MCPToolConfig has allowlist defined"
+      kubernetes.core.k8s_info:
+        api_version: "toolhive.stacklok.dev/v1alpha1"
+        kind: MCPToolConfig
+        name: "openshift-tool-filter"
+        namespace: "{{ mcp_openshift_namespace }}"
+      register: r_tool_config
+
+    - name: "Exercise 3.2: Evaluate tool filter configuration"
+      ansible.builtin.set_fact:
+        tool_filter_configured: "{{
+          r_tool_config.resources | length > 0 and
+          r_tool_config.resources[0].spec.toolFilter is defined and
+          r_tool_config.resources[0].spec.toolFilter.allowlist is defined and
+          r_tool_config.resources[0].spec.toolFilter.allowlist | length > 0
+        }}"
+
+    - name: "Exercise 3.2: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 3.2: Tool filter allowlist configured (least-privilege access)'
+          if tool_filter_configured
+          else 'FAIL: Exercise 3.2: Tool filter applied: MCPToolConfig exists but allowlist not configured. Add spec.toolFilter.allowlist to restrict tools.'
+        }}"
+
+    - name: "Exercise 3.2: Log result"
       ansible.builtin.include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Telemetry enabled - metrics endpoint accessible"
-        command: >
-          curl -s -k https://mcp-openshift-{{ mcp_openshift_namespace }}.{{ openshift_cluster_ingress_domain }}/metrics
-          | grep -c toolhive_mcp
-        expected_output_regex: "^[1-9][0-9]*$"  # At least 1 metric with toolhive_mcp
-        student_error_message: |
-          Metrics endpoint not accessible or not returning ToolHive metrics.
-          Enable telemetry in the MCPServer resource:
-          spec:
-            telemetry:
-              prometheus:
-                enabled: true
+        name: ftl_run_log_grade_to_log
 
     # =========================================================================
-    # Checkpoint 3.3: ServiceMonitor created
+    # Exercise 3.3: Prometheus Metrics Enabled
     # =========================================================================
-    - name: "3.3: Verify ServiceMonitor resource exists"
+    - name: "Exercise 3.3: Verify MCPServer has telemetry enabled"
+      kubernetes.core.k8s_info:
+        api_version: "toolhive.stacklok.dev/v1alpha1"
+        kind: MCPServer
+        namespace: "{{ mcp_openshift_namespace }}"
+      register: r_mcp_servers
+
+    - name: "Exercise 3.3: Check for telemetry configuration"
+      ansible.builtin.set_fact:
+        telemetry_enabled: "{{
+          r_mcp_servers.resources | length > 0 and
+          r_mcp_servers.resources | selectattr('spec.telemetry.prometheus.enabled', 'defined') |
+          selectattr('spec.telemetry.prometheus.enabled', 'equalto', true) | list | length > 0
+        }}"
+
+    - name: "Exercise 3.3: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 3.3: Prometheus telemetry enabled on MCPServer'
+          if telemetry_enabled
+          else 'FAIL: Exercise 3.3: Prometheus metrics enabled: MCPServer exists but telemetry not enabled. Add spec.telemetry.prometheus.enabled: true to MCPServer.'
+        }}"
+
+    - name: "Exercise 3.3: Log result"
+      ansible.builtin.include_role:
+        name: ftl_run_log_grade_to_log
+
+    # =========================================================================
+    # Exercise 3.4: ServiceMonitor Created
+    # =========================================================================
+    - name: "Exercise 3.4: Verify ServiceMonitor resource exists"
       ansible.builtin.include_role:
         name: grader_check_ocp_resource
       vars:
-        task_description_message: "ServiceMonitor 'mcp-openshift' created"
+        task_description_message: "Exercise 3.4: ServiceMonitor 'mcp-openshift' created"
         resource_kind: "ServiceMonitor"
         resource_name: "mcp-openshift"
         resource_namespace: "{{ mcp_openshift_namespace }}"
         student_error_message: |
           ServiceMonitor 'mcp-openshift' not found in {{ mcp_openshift_namespace }}.
           Create ServiceMonitor to enable Prometheus metrics collection.
-          See lab instructions for ServiceMonitor configuration.
+          See workshop for ServiceMonitor configuration.
 
     # =========================================================================
-    # Checkpoint 3.4: Fetch MCP Server deployed
+    # Exercise 3.5: Metrics Endpoint Accessible
     # =========================================================================
-    - name: "3.4: Verify Fetch MCP Server pod is running"
+    - name: "Exercise 3.5: Check if metrics endpoint is accessible"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Exercise 3.5: Metrics endpoint accessible and exposing ToolHive metrics"
+        command: >
+          curl -s -k https://mcp-openshift-{{ mcp_openshift_namespace }}.{{ openshift_cluster_ingress_domain }}/metrics
+          | grep -c toolhive_mcp
+        expected_output_regex: "^[1-9][0-9]*$"
+        student_error_message: |
+          Metrics endpoint not accessible or not returning ToolHive metrics.
+          Verify telemetry is enabled (Exercise 3.3) and metrics route exists.
+
+    # =========================================================================
+    # Exercise 3.6: Fetch MCP Server - MCPServer CR Created
+    # =========================================================================
+    - name: "Exercise 3.6: Verify Fetch MCPServer resource exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 3.6: Fetch MCPServer resource created"
+        resource_kind: "MCPServer"
+        resource_api_version: "toolhive.stacklok.dev/v1alpha1"
+        resource_name: "fetch"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "Fetch MCPServer resource not found in {{ mcp_gitea_namespace }}. Deploy the Fetch MCP server using MCPServer custom resource. See workshop for configuration."
+
+    # =========================================================================
+    # Exercise 3.7: Fetch Server Pod Running
+    # =========================================================================
+    - name: "Exercise 3.7: Verify Fetch MCP Server pod is running"
       ansible.builtin.include_role:
         name: grader_check_ocp_pod_running
       vars:
-        task_description_message: "Fetch MCP Server pod is running"
-        pod_name: "fetch-.*"  # Matches fetch server pods
+        task_description_message: "Exercise 3.7: Fetch MCP Server pod is running"
+        pod_name: "fetch-.*"
         pod_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           Fetch MCP Server pod not found or not running in {{ mcp_gitea_namespace }}.
-          Deploy the Fetch MCP server using MCPServer resource.
-          Check pod status: oc get pods -n {{ mcp_gitea_namespace }} | grep fetch
+          Verify MCPServer resource created (Exercise 3.6) and check pod status:
+          oc get pods -n {{ mcp_gitea_namespace }} | grep fetch
 
     # =========================================================================
-    # Checkpoint 3.5: Yardstick MCP Server deployed
+    # Exercise 3.8: Fetch Server Accessible in LibreChat
     # =========================================================================
-    - name: "3.5: Verify Yardstick MCP Server pod is running"
+    - name: "Exercise 3.8: Verify Fetch server route exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_route_exists
+      vars:
+        task_description_message: "Exercise 3.8: Fetch MCP Server route exists (accessible to LibreChat)"
+        route_name: "fetch"
+        route_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          Fetch server route not found in {{ mcp_gitea_namespace }}.
+          ToolHive should automatically create a route for the MCPServer.
+          Check routes: oc get routes -n {{ mcp_gitea_namespace }}
+
+    # =========================================================================
+    # Exercise 3.9: Yardstick MCP Server - MCPServer CR Created
+    # =========================================================================
+    - name: "Exercise 3.9: Verify Yardstick MCPServer resource exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 3.9: Yardstick MCPServer resource created"
+        resource_kind: "MCPServer"
+        resource_api_version: "toolhive.stacklok.dev/v1alpha1"
+        resource_name: "yardstick"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "Yardstick MCPServer resource not found in {{ mcp_gitea_namespace }}. Deploy the Yardstick MCP server using MCPServer custom resource. See workshop for stdio transport configuration."
+
+    # =========================================================================
+    # Exercise 3.10: Yardstick Server Pod Running
+    # =========================================================================
+    - name: "Exercise 3.10: Verify Yardstick MCP Server pod is running"
       ansible.builtin.include_role:
         name: grader_check_ocp_pod_running
       vars:
-        task_description_message: "Yardstick MCP Server pod is running"
-        pod_name: "yardstick-.*"  # Matches yardstick server pods
+        task_description_message: "Exercise 3.10: Yardstick MCP Server pod is running"
+        pod_name: "yardstick-.*"
         pod_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           Yardstick MCP Server pod not found or not running in {{ mcp_gitea_namespace }}.
-          Deploy the Yardstick MCP server using MCPServer resource.
-          Check pod status: oc get pods -n {{ mcp_gitea_namespace }} | grep yardstick
+          Verify MCPServer resource created (Exercise 3.9) and check pod status:
+          oc get pods -n {{ mcp_gitea_namespace }} | grep yardstick
+
+    # =========================================================================
+    # Exercise 3.11: Yardstick Server Accessible in LibreChat
+    # =========================================================================
+    - name: "Exercise 3.11: Verify Yardstick server route exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_route_exists
+      vars:
+        task_description_message: "Exercise 3.11: Yardstick MCP Server route exists (accessible to LibreChat)"
+        route_name: "yardstick"
+        route_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: |
+          Yardstick server route not found in {{ mcp_gitea_namespace }}.
+          ToolHive should automatically create a route for the MCPServer.
+          Check routes: oc get routes -n {{ mcp_gitea_namespace }}
 
 - name: Finalize FTL Grading Session - Module 3
   hosts: localhost
