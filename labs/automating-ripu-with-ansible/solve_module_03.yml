@@ -79,7 +79,7 @@
     # =========================================================================
     - name: Get rollback job template ID
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ 'AUTO / 03 Rollback' | urlencode }}"
+        url: "{{ aap_hostname }}/api/controller/v2/job_templates/?name={{ 'AUTO / 03 Rollback' | urlencode }}"
         method: GET
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"
@@ -90,7 +90,7 @@
 
     - name: Launch rollback job for specified node
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/v2/job_templates/{{ r_rollback_template.json.results[0].id }}/launch/"
+        url: "{{ aap_hostname }}/api/controller/v2/job_templates/{{ r_rollback_template.json.results[0].id }}/launch/"
         method: POST
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"
@@ -107,7 +107,7 @@
 
     - name: Wait for rollback job to complete
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/v2/jobs/{{ r_rollback_launch.json.id }}/"
+        url: "{{ aap_hostname }}/api/controller/v2/jobs/{{ r_rollback_launch.json.id }}/"
         method: GET
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"

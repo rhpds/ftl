@@ -25,7 +25,7 @@
 # Get job template ID
 - name: Get job template details
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ job_template_name | urlencode }}"
+    url: "{{ aap_hostname }}/api/controller/v2/job_templates/?name={{ job_template_name | urlencode }}"
     method: GET
     user: "{{ aap_username }}"
     password: "{{ aap_password }}"
@@ -46,7 +46,7 @@
 # Get recent jobs for this template
 - name: Get recent jobs for template
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/job_templates/{{ job_template_id }}/jobs/?order_by=-finished&page_size={{ check_last_n_jobs | default(5) }}"
+    url: "{{ aap_hostname }}/api/controller/v2/job_templates/{{ job_template_id }}/jobs/?order_by=-finished&page_size={{ check_last_n_jobs | default(5) }}"
     method: GET
     user: "{{ aap_username }}"
     password: "{{ aap_password }}"

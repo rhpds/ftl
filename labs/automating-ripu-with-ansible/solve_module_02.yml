@@ -69,7 +69,7 @@
     # =========================================================================
     - name: Get upgrade workflow template ID
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/v2/workflow_job_templates/?name={{ 'AUTO / 02 Upgrade' | urlencode }}"
+        url: "{{ aap_hostname }}/api/controller/v2/workflow_job_templates/?name={{ 'AUTO / 02 Upgrade' | urlencode }}"
         method: GET
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"
@@ -80,7 +80,7 @@
 
     - name: Launch upgrade workflow for ALL_rhel
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/v2/workflow_job_templates/{{ r_upgrade_template.json.results[0].id }}/launch/"
+        url: "{{ aap_hostname }}/api/controller/v2/workflow_job_templates/{{ r_upgrade_template.json.results[0].id }}/launch/"
         method: POST
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"
@@ -109,7 +109,7 @@
 
     - name: Wait for upgrade workflow to complete
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/v2/workflow_jobs/{{ r_upgrade_launch.json.id }}/"
+        url: "{{ aap_hostname }}/api/controller/v2/workflow_jobs/{{ r_upgrade_launch.json.id }}/"
         method: GET
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"

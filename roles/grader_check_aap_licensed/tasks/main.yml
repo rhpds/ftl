@@ -23,7 +23,7 @@
 # Get license/subscription info
 - name: Get AAP subscription info
   ansible.builtin.uri:
-    url: "{{ aap_hostname }}/api/v2/config/"
+    url: "{{ aap_hostname }}/api/controller/v2/config/"
     method: GET
     user: "{{ aap_username }}"
     password: "{{ aap_password }}"
