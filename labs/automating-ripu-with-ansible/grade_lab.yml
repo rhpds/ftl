@@ -22,7 +22,7 @@
   vars:
     lab_id: "automating-ripu-with-ansible"
     module_number: "Full Lab"
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
   roles:
     - ftl_run_init
 
@@ -31,7 +31,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
 
   tasks:
     # =========================================================================
@@ -47,8 +47,8 @@
 
     - name: Append Module 1 report to full lab report
       ansible.builtin.shell: |
-        if [ -f "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_01.txt" ]; then
-          cat "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_01.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+        if [ -f "{{ ftl_report_dir }}/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt" ]; then
+          cat "{{ ftl_report_dir }}/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
           echo "" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
         fi
       changed_when: false
@@ -66,8 +66,8 @@
 
     - name: Append Module 2 report to full lab report
       ansible.builtin.shell: |
-        if [ -f "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt" ]; then
-          cat "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+        if [ -f "{{ ftl_report_dir }}/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt" ]; then
+          cat "{{ ftl_report_dir }}/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
           echo "" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
         fi
       changed_when: false
@@ -85,8 +85,8 @@
 
     - name: Append Module 3 report to full lab report
       ansible.builtin.shell: |
-        if [ -f "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt" ]; then
-          cat "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+        if [ -f "{{ ftl_report_dir }}/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_03.txt" ]; then
+          cat "{{ ftl_report_dir }}/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_03.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
           echo "" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
         fi
       changed_when: false
@@ -97,7 +97,7 @@
   gather_facts: false
   vars:
     module_number: "Full Lab"
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
   roles:
     - ftl_run_grade_report_generation
     - ftl_run_finish

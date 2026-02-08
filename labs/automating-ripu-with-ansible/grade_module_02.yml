@@ -22,7 +22,7 @@
   vars:
     lab_id: "automating-ripu-with-ansible"
     module_number: "02"
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
   roles:
     - ftl_run_init
 
@@ -31,7 +31,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
     aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
     aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
     aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
@@ -83,7 +83,7 @@
   gather_facts: true
   become: false
   vars:
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
 
   tasks:
     # =========================================================================
@@ -176,7 +176,7 @@
   gather_facts: false
   vars:
     module_number: "02"
-    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
   roles:
     - ftl_run_grade_report_generation
     - ftl_run_finish
