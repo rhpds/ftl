@@ -79,10 +79,10 @@
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
-        job_template_name: "Ansible Leapp Lab Initialization"
+        job_template_name: "Ansible Leapp Lab initailization"
         task_description_message: "Exercise 1.1: Lab initialization job completed"
         require_job_execution: true
-        student_error_message: "Lab initialization not run. Launch 'Ansible Leapp Lab Initialization' job template."
+        student_error_message: "Lab initialization not run. Launch 'Ansible Leapp Lab initailization' job template."
 
     # =========================================================================
     # Exercise 1.2: Run Pre-upgrade Jobs

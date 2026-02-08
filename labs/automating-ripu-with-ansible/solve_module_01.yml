@@ -105,7 +105,7 @@
     # =========================================================================
     - name: Get lab initialization job template ID
       ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/controller/v2/job_templates/?name={{ 'Ansible Leapp Lab Initialization' | urlencode }}"
+        url: "{{ aap_hostname }}/api/controller/v2/job_templates/?name={{ 'Ansible Leapp Lab initailization' | urlencode }}"
         method: GET
         user: "{{ aap_username }}"
         password: "{{ aap_password }}"
