@@ -181,8 +181,8 @@
         validate_certs: "{{ aap_validate_certs }}"
         body_format: json
         body:
-          extra_vars: {}
-          survey: "ALL_rhel"
+          extra_vars:
+            rhel_inventory_group: "ALL_rhel"
         status_code: [201, 202]
       register: r_analysis_launch
       when: r_analysis_template.json.count > 0
@@ -241,8 +241,8 @@
         validate_certs: "{{ aap_validate_certs }}"
         body_format: json
         body:
-          extra_vars: {}
-          survey: "ALL_rhel"
+          extra_vars:
+            rhel_inventory_group: "ALL_rhel"
         status_code: [201, 202]
       register: r_petapp_launch
       when: r_petapp_template.json.count | default(0) > 0
