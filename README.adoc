@@ -49,13 +49,12 @@ Students invoke grading from lab bastion:
 # Set required environment variables (from AgnosticV user data)
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="<from_user_data>"
 export PASSWORD="<from_user_data>"
-export LAB_USER="<your_username>"
 
-# Grade lab progress
-grade_lab <lab-name>
+# Grade lab progress (pass username as argument)
+grade_lab <lab-name> user1
 
 # Solve lab automatically
-solve_lab <lab-name>
+solve_lab <lab-name> user1
 ----
 
 == Environment Variables
@@ -75,11 +74,9 @@ FTL graders and solvers require certain environment variables to be set. These a
 | `PASSWORD`
 | User password for service authentication (Gitea, etc.)
 | From AgnosticV `password` or `gitea_password` field
-
-| `LAB_USER`
-| Lab username for multi-user environments
-| `user1`, `user2`, etc.
 |===
+
+NOTE: `LAB_USER` is automatically set from the username argument (e.g., `grade_lab <lab-name> user1`). No need to export it manually.
 
 === Optional Variables
 
@@ -106,12 +103,8 @@ When using FTL from a lab bastion, set these before running graders/solvers:
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
 export PASSWORD="<password_from_user_data>"
 
-# Now run grader (LAB_USER is set automatically from command argument)
+# Run grader (username argument sets LAB_USER automatically)
 grade_lab <lab-name> user1
-
-# Or if LAB_USER env var is already set, you can omit the user argument
-export LAB_USER="user1"
-grade_lab <lab-name>
 ----
 
 TIP: Values for these variables are provided in AgnosticV user data when labs are provisioned. Look for fields like `openshift_cluster_ingress_domain`, `password`, `gitea_password`, etc.

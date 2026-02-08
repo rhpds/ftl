@@ -1,0 +1,115 @@
+---
+# grader_check_aap_job_completed - Check if AAP job template executed successfully
+# This role validates that a job template exists and has been executed successfully
+
+# Initialize success flag to false
+- name: Initialize success flag
+  ansible.builtin.set_fact:
+    success: false
+
+# Validate required parameters
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - aap_hostname is defined
+      - aap_hostname | length > 0
+      - aap_username is defined
+      - aap_password is defined
+      - job_template_name is defined
+      - job_template_name | length > 0
+      - task_description_message is defined
+      - task_description_message | length > 0
+    fail_msg: "Required variables missing: aap_hostname, aap_username, aap_password, job_template_name, and task_description_message are required"
+    quiet: true
+
+# Get job template ID
+- name: Get job template details
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ job_template_name | urlencode }}"
+    method: GET
+    user: "{{ aap_username }}"
+    password: "{{ aap_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_validate_certs | default(false) }}"
+    status_code: 200
+  register: r_job_template
+  failed_when: false
+  changed_when: false
+
+# Check if job template exists
+- name: Set job template found flag
+  ansible.builtin.set_fact:
+    job_template_found: "{{ r_job_template.json.count | default(0) | int > 0 }}"
+    job_template_id: "{{ r_job_template.json.results[0].id | default('') }}"
+  when: r_job_template.status == 200
+
+# Get recent jobs for this template
+- name: Get recent jobs for template
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/v2/job_templates/{{ job_template_id }}/jobs/?order_by=-finished&page_size={{ check_last_n_jobs | default(5) }}"
+    method: GET
+    user: "{{ aap_username }}"
+    password: "{{ aap_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_validate_certs | default(false) }}"
+    status_code: 200
+  register: r_jobs
+  failed_when: false
+  changed_when: false
+  when:
+    - job_template_found | default(false) | bool
+    - require_job_execution | default(true) | bool
+
+# Check for successful job
+- name: Check for successful job execution
+  when:
+    - job_template_found | default(false) | bool
+    - require_job_execution | default(true) | bool
+    - r_jobs.json.count | default(0) | int > 0
+  ansible.builtin.set_fact:
+    successful_job_found: "{{ r_jobs.json.results | selectattr('status', 'equalto', 'successful') | list | length > 0 }}"
+    latest_job_status: "{{ r_jobs.json.results[0].status | default('unknown') }}"
+
+# Evaluate success - job template exists only
+- name: Evaluate success (template exists only)
+  when: not (require_job_execution | default(true) | bool)
+  ansible.builtin.set_fact:
+    success: "{{ job_template_found | default(false) | bool }}"
+
+# Evaluate success - template exists and has successful job
+- name: Evaluate success (template + successful job)
+  when: require_job_execution | default(true) | bool
+  ansible.builtin.set_fact:
+    success: "{{ job_template_found | default(false) | bool and successful_job_found | default(false) | bool }}"
+
+# Create PASS message
+- name: Create Pass message
+  when: success | bool
+  ansible.builtin.set_fact:
+    grader_output_message: "PASS: {{ task_description_message }}"
+
+# Create FAIL message - template not found
+- name: Create Fail message (template not found)
+  when:
+    - not success | bool
+    - not (job_template_found | default(false) | bool)
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message | default('Job template not found') }}
+      (template '{{ job_template_name }}' not found in AAP)
+
+# Create FAIL message - no successful job
+- name: Create Fail message (no successful job)
+  when:
+    - not success | bool
+    - job_template_found | default(false) | bool
+    - require_job_execution | default(true) | bool
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message | default('No successful job execution found') }}
+      (template exists but latest job status: {{ latest_job_status | default('no jobs found') }})
+
+# Log the grading result
+- name: Log grading result
+  ansible.builtin.import_role:
+    name: ftl_run_log_grade_to_log

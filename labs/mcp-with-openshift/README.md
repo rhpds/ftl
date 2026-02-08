@@ -18,13 +18,16 @@ The grader and solver require these environment variables to be set:
 # OpenShift cluster ingress domain
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-kg5jj.dynamic.redhatworkshops.io"
 
-# Lab user to grade/solve (when running as system:admin)
-export LAB_USER="user1"
-
 # User password (from AgnosticV user data)
 export PASSWORD="NTEzMjI5OD"
+```
 
-# GUID (optional, auto-detected from hostname if not set)
+**Note:** `LAB_USER` is automatically set from the username argument (e.g., `grade_lab mcp-with-openshift user1`). No need to export it manually.
+
+### Optional Variables
+
+```bash
+# GUID (auto-detected from hostname if not set)
 export GUID="kg5jj"
 ```
 
@@ -34,8 +37,7 @@ These values are provided in the AgnosticV user data when the lab is deployed:
 
 - **OPENSHIFT_CLUSTER_INGRESS_DOMAIN**: From `openshift_cluster_ingress_domain` in user data
 - **PASSWORD**: From `password` or `gitea_password` in user data
-- **LAB_USER**: The username (user1, user2, user3, etc.)
-- **GUID**: Extracted from cluster domain or hostname
+- **GUID**: Extracted from cluster domain or hostname (optional)
 
 ### Setting Up for Multi-User Grading
 

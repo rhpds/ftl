@@ -1,0 +1,141 @@
+---
+# =============================================================================
+# FTL Grader: Automating RIPU with Ansible - Module 3 (Rollback)
+# =============================================================================
+#
+# This playbook validates the RHEL upgrade rollback phase
+#
+# NOTE: As of current workshop version, snapshots are not deployed in the
+# lab environment, so rollback functionality is disabled. This grader is
+# provided for completeness and future use when snapshots are available.
+#
+# Required environment variables:
+#   - AAP_HOSTNAME: AAP controller URL
+#   - AAP_USERNAME: AAP username (default: lab-user)
+#   - AAP_PASSWORD: AAP password
+#   - SSH_PASSWORD: Password for SSH access to nodes
+#
+# Usage:
+#   ansible-playbook grade_module_03.yml
+#
+# =============================================================================
+
+# Play 1: Initialize grading session
+- name: Initialize FTL Grading Session - Module 3
+  hosts: localhost
+  gather_facts: false
+  vars:
+    lab_id: "automating-ripu-with-ansible"
+    module_number: "03"
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt"
+  roles:
+    - ftl_run_init
+
+# Play 2: Grade Module 3 - Rollback
+- name: Grade Module 3 - Rollback
+  hosts: localhost
+  gather_facts: false
+  vars:
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt"
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
+    aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
+    aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
+    aap_validate_certs: false
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'AAP_HOSTNAME') | length > 0
+          - lookup('env', 'AAP_PASSWORD') | length > 0
+        fail_msg: |
+          Required environment variables not set:
+          - AAP_HOSTNAME: AAP controller URL
+          - AAP_PASSWORD: AAP password
+
+    # =========================================================================
+    # Checkpoint 3.1: Rollback Job Template Exists
+    # =========================================================================
+    - name: Check rollback job template exists
+      ansible.builtin.include_role:
+        name: grader_check_aap_job_completed
+      vars:
+        job_template_name: "AUTO / 03 Rollback"
+        task_description_message: "Rollback job template configured"
+        require_job_execution: false
+        student_error_message: "Rollback job template not found. Verify CaC job completed successfully."
+
+    # =========================================================================
+    # Checkpoint 3.2: Rollback Job Executed (Optional - if snapshots available)
+    # =========================================================================
+    - name: Check rollback job completed
+      ansible.builtin.include_role:
+        name: grader_check_aap_job_completed
+      vars:
+        job_template_name: "AUTO / 03 Rollback"
+        task_description_message: "Rollback job executed successfully (if snapshots available)"
+        require_job_execution: true
+        check_last_n_jobs: 10
+        student_error_message: "Rollback job not run. Note: Snapshots are currently disabled in this lab environment."
+
+# Play 3: Validate RHEL Versions Reverted (if rollback executed)
+- name: Validate RHEL versions reverted on nodes
+  hosts: nodes
+  gather_facts: true
+  become: false
+  vars:
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt"
+
+  tasks:
+    # =========================================================================
+    # Checkpoint 3.3: Node1 (RHEL 8→7 rollback)
+    # =========================================================================
+    - name: Check node1 rolled back to RHEL 7
+      when: inventory_hostname == 'node1'
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "cat /etc/redhat-release"
+        expected_output_regex: "Red Hat Enterprise Linux.*release 7"
+        task_description_message: "node1 rolled back from RHEL 8 to RHEL 7"
+        student_error_message: "node1 not rolled back. Verify rollback job completed and snapshots are available."
+
+    # =========================================================================
+    # Checkpoint 3.4: Node2 (RHEL 9→8 rollback)
+    # =========================================================================
+    - name: Check node2 rolled back to RHEL 8
+      when: inventory_hostname == 'node2'
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "cat /etc/redhat-release"
+        expected_output_regex: "Red Hat Enterprise Linux.*release 8"
+        task_description_message: "node2 rolled back from RHEL 9 to RHEL 8"
+        student_error_message: "node2 not rolled back. Verify rollback job completed and snapshots are available."
+
+    # =========================================================================
+    # Checkpoint 3.5: Node3 (RHEL 10→9 rollback)
+    # =========================================================================
+    - name: Check node3 rolled back to RHEL 9
+      when: inventory_hostname == 'node3'
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "cat /etc/redhat-release"
+        expected_output_regex: "Red Hat Enterprise Linux.*release 9"
+        task_description_message: "node3 rolled back from RHEL 10 to RHEL 9"
+        student_error_message: "node3 not rolled back. Verify rollback job completed and snapshots are available."
+
+# Play 4: Generate final report
+- name: Finalize FTL Grading Session - Module 3
+  hosts: localhost
+  gather_facts: false
+  vars:
+    module_number: "03"
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish

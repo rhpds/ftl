@@ -1,0 +1,89 @@
+---
+# grader_check_aap_licensed - Check if AAP controller is licensed
+# This role validates that AAP controller has a valid license installed
+
+# Initialize success flag to false
+- name: Initialize success flag
+  ansible.builtin.set_fact:
+    success: false
+
+# Validate required parameters
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - aap_hostname is defined
+      - aap_hostname | length > 0
+      - aap_username is defined
+      - aap_password is defined
+      - task_description_message is defined
+      - task_description_message | length > 0
+    fail_msg: "Required variables missing: aap_hostname, aap_username, aap_password, and task_description_message are required"
+    quiet: true
+
+# Get license/subscription info
+- name: Get AAP subscription info
+  ansible.builtin.uri:
+    url: "{{ aap_hostname }}/api/v2/config/"
+    method: GET
+    user: "{{ aap_username }}"
+    password: "{{ aap_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ aap_validate_certs | default(false) }}"
+    status_code: 200
+  register: r_aap_config
+  failed_when: false
+  changed_when: false
+
+# Evaluate success - check if license is valid
+# Valid license means license_info.valid_key is true or subscription_name is set
+- name: Evaluate success
+  when: r_aap_config.status == 200
+  ansible.builtin.set_fact:
+    license_valid: >-
+      {{
+        (r_aap_config.json.license_info.valid_key | default(false) | bool) or
+        (r_aap_config.json.subscription_name | default('') | length > 0)
+      }}
+    success: >-
+      {{
+        (r_aap_config.json.license_info.valid_key | default(false) | bool) or
+        (r_aap_config.json.subscription_name | default('') | length > 0)
+      }}
+
+# Handle API connection failure
+- name: Set failure for API error
+  when: r_aap_config.status != 200
+  ansible.builtin.set_fact:
+    success: false
+    api_error: "Unable to connect to AAP API (HTTP {{ r_aap_config.status | default('unknown') }})"
+
+# Create PASS message
+- name: Create Pass message
+  when: success | bool
+  ansible.builtin.set_fact:
+    grader_output_message: "PASS: {{ task_description_message }}"
+
+# Create FAIL message - no license
+- name: Create Fail message (no license)
+  when:
+    - not success | bool
+    - r_aap_config.status == 200
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message | default('AAP controller does not have a valid license') }}
+      (license_info.valid_key={{ r_aap_config.json.license_info.valid_key | default(false) }}, subscription_name={{ r_aap_config.json.subscription_name | default('not set') }})
+
+# Create FAIL message - API error
+- name: Create Fail message (API error)
+  when:
+    - not success | bool
+    - r_aap_config.status != 200
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message | default('Unable to connect to AAP API') }}
+      ({{ api_error | default('connection failed') }})
+
+# Log the grading result
+- name: Log grading result
+  ansible.builtin.import_role:
+    name: ftl_run_log_grade_to_log

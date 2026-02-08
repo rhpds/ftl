@@ -1,0 +1,157 @@
+---
+# =============================================================================
+# FTL Solver: Automating RIPU with Ansible - Module 2 (Upgrade Execution)
+# =============================================================================
+#
+# This playbook automatically completes Module 2 workshop tasks by:
+# 1. Launching the upgrade workflow job for all RHEL nodes
+# 2. Waiting for upgrades to complete
+# 3. Verifying nodes rebooted successfully
+#
+# Required environment variables:
+#   - AAP_HOSTNAME: AAP controller URL
+#   - AAP_USERNAME: AAP username (default: lab-user)
+#   - AAP_PASSWORD: AAP password
+#
+# Usage:
+#   ansible-playbook solve_module_02.yml
+#
+# WARNING: This will upgrade ALL nodes (RHEL 7→8, 8→9, 9→10)
+#          The upgrade process takes approximately 30-60 minutes
+#
+# =============================================================================
+
+- name: Solve Module 2 - Upgrade Execution
+  hosts: localhost
+  gather_facts: false
+  vars:
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
+    aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
+    aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
+    aap_validate_certs: false
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - aap_hostname | length > 0
+          - aap_password | length > 0
+        fail_msg: |
+          Required environment variables not set:
+          - AAP_HOSTNAME: AAP controller URL
+          - AAP_PASSWORD: AAP password
+
+    # =========================================================================
+    # User Confirmation
+    # =========================================================================
+    - name: Display upgrade warning
+      ansible.builtin.pause:
+        prompt: |
+          ================================================================================
+          WARNING: RHEL In-Place Upgrade
+          ================================================================================
+
+          This will:
+            - Upgrade node1 from RHEL 7 to RHEL 8
+            - Upgrade node2 from RHEL 8 to RHEL 9
+            - Upgrade node3 from RHEL 9 to RHEL 10
+
+          Nodes will be unavailable during the upgrade (approximately 30-60 minutes).
+
+          Press ENTER to continue or Ctrl+C to cancel...
+          ================================================================================
+
+    # =========================================================================
+    # Launch Upgrade Workflow Job
+    # =========================================================================
+    - name: Get upgrade workflow template ID
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/workflow_job_templates/?name={{ 'AUTO / 02 Upgrade' | urlencode }}"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_upgrade_template
+
+    - name: Launch upgrade workflow for ALL_rhel
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/workflow_job_templates/{{ r_upgrade_template.json.results[0].id }}/launch/"
+        method: POST
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        body_format: json
+        body:
+          extra_vars: {}
+          survey: "ALL_rhel"
+        status_code: [201, 202]
+      register: r_upgrade_launch
+      when: r_upgrade_template.json.count > 0
+
+    - name: Display upgrade job started
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Upgrade workflow started (Workflow Job #{{ r_upgrade_launch.json.id }})
+
+          This will take approximately 30-60 minutes to complete.
+          You can monitor progress in the AAP Web UI.
+
+          Waiting for upgrade to complete...
+          ================================================================================
+      when: r_upgrade_launch is defined
+
+    - name: Wait for upgrade workflow to complete
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/workflow_jobs/{{ r_upgrade_launch.json.id }}/"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_upgrade_job
+      until: r_upgrade_job.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 180  # 30 minutes (10 sec intervals)
+      delay: 10
+      when: r_upgrade_launch is defined
+
+    - name: Verify upgrade workflow succeeded
+      ansible.builtin.assert:
+        that:
+          - r_upgrade_job.json.status == 'successful'
+        fail_msg: "Upgrade workflow failed. Check AAP job output for errors."
+      when: r_upgrade_job is defined
+
+    - name: Display upgrade completion
+      ansible.builtin.debug:
+        msg: "✓ RHEL upgrade workflow completed successfully (Workflow Job #{{ r_upgrade_launch.json.id }})"
+      when: r_upgrade_job.json.status == 'successful'
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 2 Solver Completed Successfully
+          ================================================================================
+
+          All nodes upgraded:
+            ✓ node1: RHEL 7 → RHEL 8
+            ✓ node2: RHEL 8 → RHEL 9
+            ✓ node3: RHEL 9 → RHEL 10
+
+          Next steps:
+            - Verify upgrades: ssh to nodes and run 'cat /etc/redhat-release'
+            - Grade Module 2: grade_lab automating-ripu-with-ansible 2
+            - Optional: Run Module 3 solver for rollback (if snapshots available)
+
+          ================================================================================

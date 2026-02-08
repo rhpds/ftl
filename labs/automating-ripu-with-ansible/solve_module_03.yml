@@ -1,0 +1,148 @@
+---
+# =============================================================================
+# FTL Solver: Automating RIPU with Ansible - Module 3 (Rollback)
+# =============================================================================
+#
+# This playbook automatically completes Module 3 workshop tasks by:
+# 1. Launching the rollback job for specified node(s)
+# 2. Waiting for rollback to complete
+# 3. Verifying nodes reverted to original RHEL version
+#
+# NOTE: As of current workshop version, snapshots are not deployed in the
+# lab environment, so rollback functionality is disabled. This solver is
+# provided for completeness and future use when snapshots are available.
+#
+# Required environment variables:
+#   - AAP_HOSTNAME: AAP controller URL
+#   - AAP_USERNAME: AAP username (default: lab-user)
+#   - AAP_PASSWORD: AAP password
+#   - ROLLBACK_NODE: Node to rollback (e.g., node1, node2, node3)
+#
+# Usage:
+#   export ROLLBACK_NODE=node1
+#   ansible-playbook solve_module_03.yml
+#
+# =============================================================================
+
+- name: Solve Module 3 - Rollback
+  hosts: localhost
+  gather_facts: false
+  vars:
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
+    aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
+    aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
+    rollback_node: "{{ lookup('env', 'ROLLBACK_NODE') }}"
+    aap_validate_certs: false
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - aap_hostname | length > 0
+          - aap_password | length > 0
+          - rollback_node | length > 0
+        fail_msg: |
+          Required environment variables not set:
+          - AAP_HOSTNAME: AAP controller URL
+          - AAP_PASSWORD: AAP password
+          - ROLLBACK_NODE: Node to rollback (node1, node2, or node3)
+
+          Example:
+            export AAP_HOSTNAME="https://controller-guid.example.com"
+            export AAP_PASSWORD="your_password"
+            export ROLLBACK_NODE="node1"
+
+    # =========================================================================
+    # Snapshot Availability Warning
+    # =========================================================================
+    - name: Display snapshot warning
+      ansible.builtin.pause:
+        prompt: |
+          ================================================================================
+          WARNING: Snapshot-based Rollback
+          ================================================================================
+
+          This solver will attempt to rollback {{ rollback_node }} using snapshots.
+
+          IMPORTANT: Snapshots are currently NOT deployed in the lab environment,
+          so this operation is expected to fail. This solver is provided for
+          completeness when snapshots become available.
+
+          Press ENTER to continue anyway, or Ctrl+C to cancel...
+          ================================================================================
+
+    # =========================================================================
+    # Launch Rollback Job
+    # =========================================================================
+    - name: Get rollback job template ID
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ 'AUTO / 03 Rollback' | urlencode }}"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_rollback_template
+
+    - name: Launch rollback job for specified node
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/{{ r_rollback_template.json.results[0].id }}/launch/"
+        method: POST
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        body_format: json
+        body:
+          limit: "{{ rollback_node }}"
+          extra_vars: {}
+          survey: "ALL_rhel"
+        status_code: [201, 202]
+      register: r_rollback_launch
+      when: r_rollback_template.json.count > 0
+
+    - name: Wait for rollback job to complete
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/jobs/{{ r_rollback_launch.json.id }}/"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_rollback_job
+      until: r_rollback_job.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 60
+      delay: 10
+      when: r_rollback_launch is defined
+
+    - name: Display rollback result
+      ansible.builtin.debug:
+        msg: "Rollback job completed with status: {{ r_rollback_job.json.status }}"
+      when: r_rollback_job is defined
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 3 Solver Completed
+          ================================================================================
+
+          Rollback job status: {{ r_rollback_job.json.status | default('not launched') }}
+
+          Note: If rollback failed, this is expected because snapshots are not
+          currently available in the lab environment.
+
+          Next steps:
+            - Grade Module 3: grade_lab automating-ripu-with-ansible 3
+            - Or grade full lab: grade_lab automating-ripu-with-ansible
+
+          ================================================================================
+      when: r_rollback_job is defined

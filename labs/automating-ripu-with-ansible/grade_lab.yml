@@ -1,0 +1,103 @@
+---
+# =============================================================================
+# FTL Grader: Automating RIPU with Ansible - Full Lab
+# =============================================================================
+#
+# This playbook runs all module graders and generates a consolidated report
+#
+# Required environment variables:
+#   - AAP_HOSTNAME: AAP controller URL
+#   - AAP_USERNAME: AAP username (default: lab-user)
+#   - AAP_PASSWORD: AAP password
+#
+# Usage:
+#   ansible-playbook grade_lab.yml
+#
+# =============================================================================
+
+# Play 1: Initialize grading session for full lab
+- name: Initialize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  vars:
+    lab_id: "automating-ripu-with-ansible"
+    module_number: "Full Lab"
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}.txt"
+  roles:
+    - ftl_run_init
+
+# Play 2: Grade all modules
+- name: Grade Full Lab - All Modules
+  hosts: localhost
+  gather_facts: false
+  vars:
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}.txt"
+
+  tasks:
+    # =========================================================================
+    # Module 1: Pre-upgrade Analysis
+    # =========================================================================
+    - name: Grade Module 1 - Pre-upgrade Analysis
+      ansible.builtin.command:
+        cmd: ansible-playbook -i localhost, grade_module_01.yml
+        chdir: "{{ playbook_dir }}"
+      register: r_module_01
+      changed_when: false
+      failed_when: false
+
+    - name: Append Module 1 report to full lab report
+      ansible.builtin.shell: |
+        if [ -f "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_01.txt" ]; then
+          cat "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_01.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+          echo "" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+        fi
+      changed_when: false
+
+    # =========================================================================
+    # Module 2: Upgrade Execution
+    # =========================================================================
+    - name: Grade Module 2 - Upgrade Execution
+      ansible.builtin.command:
+        cmd: ansible-playbook -i localhost, grade_module_02.yml
+        chdir: "{{ playbook_dir }}"
+      register: r_module_02
+      changed_when: false
+      failed_when: false
+
+    - name: Append Module 2 report to full lab report
+      ansible.builtin.shell: |
+        if [ -f "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt" ]; then
+          cat "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+          echo "" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+        fi
+      changed_when: false
+
+    # =========================================================================
+    # Module 3: Rollback (Optional - depends on snapshot availability)
+    # =========================================================================
+    - name: Grade Module 3 - Rollback
+      ansible.builtin.command:
+        cmd: ansible-playbook -i localhost, grade_module_03.yml
+        chdir: "{{ playbook_dir }}"
+      register: r_module_03
+      changed_when: false
+      failed_when: false
+
+    - name: Append Module 3 report to full lab report
+      ansible.builtin.shell: |
+        if [ -f "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt" ]; then
+          cat "{{ ftl_report_dir }}/grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_03.txt" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+          echo "" >> "{{ ftl_report_dir }}/{{ grader_student_report_file }}"
+        fi
+      changed_when: false
+
+# Play 3: Generate final consolidated report
+- name: Finalize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  vars:
+    module_number: "Full Lab"
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish

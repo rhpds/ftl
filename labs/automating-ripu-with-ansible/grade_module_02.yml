@@ -1,0 +1,141 @@
+---
+# =============================================================================
+# FTL Grader: Automating RIPU with Ansible - Module 2 (Upgrade Execution)
+# =============================================================================
+#
+# This playbook validates the RHEL in-place upgrade execution phase
+#
+# Required environment variables:
+#   - AAP_HOSTNAME: AAP controller URL
+#   - AAP_USERNAME: AAP username (default: lab-user)
+#   - AAP_PASSWORD: AAP password
+#   - SSH_PASSWORD: Password for SSH access to nodes (usually same as AAP_PASSWORD)
+#
+# Usage:
+#   ansible-playbook grade_module_02.yml
+#
+# =============================================================================
+
+# Play 1: Initialize grading session
+- name: Initialize FTL Grading Session - Module 2
+  hosts: localhost
+  gather_facts: false
+  vars:
+    lab_id: "automating-ripu-with-ansible"
+    module_number: "02"
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+  roles:
+    - ftl_run_init
+
+# Play 2: Grade Module 2 - Upgrade Execution
+- name: Grade Module 2 - Upgrade Execution
+  hosts: localhost
+  gather_facts: false
+  vars:
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
+    aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
+    aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
+    aap_validate_certs: false
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'AAP_HOSTNAME') | length > 0
+          - lookup('env', 'AAP_PASSWORD') | length > 0
+        fail_msg: |
+          Required environment variables not set:
+          - AAP_HOSTNAME: AAP controller URL
+          - AAP_PASSWORD: AAP password
+
+          Set them with:
+            export AAP_HOSTNAME="https://controller-guid.example.com"
+            export AAP_PASSWORD="your_password"
+
+    # =========================================================================
+    # Checkpoint 2.1: Upgrade Job Template Exists
+    # =========================================================================
+    - name: Check upgrade job template exists
+      ansible.builtin.include_role:
+        name: grader_check_aap_job_completed
+      vars:
+        job_template_name: "AUTO / 02 Upgrade"
+        task_description_message: "Upgrade job template configured"
+        require_job_execution: false
+        student_error_message: "Upgrade job template not found. Verify CaC job completed successfully."
+
+    # =========================================================================
+    # Checkpoint 2.2: Upgrade Job Executed Successfully
+    # =========================================================================
+    - name: Check upgrade workflow job completed
+      ansible.builtin.include_role:
+        name: grader_check_aap_job_completed
+      vars:
+        job_template_name: "AUTO / 02 Upgrade"
+        task_description_message: "Upgrade workflow job executed successfully"
+        require_job_execution: true
+        check_last_n_jobs: 10
+        student_error_message: "Upgrade job not run or failed. Launch the 'AUTO / 02 Upgrade' workflow template."
+
+# Play 3: Validate RHEL Versions on Nodes
+- name: Validate RHEL versions on upgraded nodes
+  hosts: nodes
+  gather_facts: true
+  become: false
+  vars:
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+
+  tasks:
+    # =========================================================================
+    # Checkpoint 2.3: Node1 (RHEL 7→8)
+    # =========================================================================
+    - name: Check node1 upgraded to RHEL 8
+      when: inventory_hostname == 'node1'
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "cat /etc/redhat-release"
+        expected_output_regex: "Red Hat Enterprise Linux.*release 8"
+        task_description_message: "node1 upgraded from RHEL 7 to RHEL 8"
+        student_error_message: "node1 not upgraded. Verify upgrade job completed and check for errors."
+
+    # =========================================================================
+    # Checkpoint 2.4: Node2 (RHEL 8→9)
+    # =========================================================================
+    - name: Check node2 upgraded to RHEL 9
+      when: inventory_hostname == 'node2'
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "cat /etc/redhat-release"
+        expected_output_regex: "Red Hat Enterprise Linux.*release 9"
+        task_description_message: "node2 upgraded from RHEL 8 to RHEL 9"
+        student_error_message: "node2 not upgraded. Verify upgrade job completed and check for errors."
+
+    # =========================================================================
+    # Checkpoint 2.5: Node3 (RHEL 9→10)
+    # =========================================================================
+    - name: Check node3 upgraded to RHEL 10
+      when: inventory_hostname == 'node3'
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "cat /etc/redhat-release"
+        expected_output_regex: "Red Hat Enterprise Linux.*release 10"
+        task_description_message: "node3 upgraded from RHEL 9 to RHEL 10"
+        student_error_message: "node3 not upgraded. Verify upgrade job completed and check for errors."
+
+# Play 4: Generate final report
+- name: Finalize FTL Grading Session - Module 2
+  hosts: localhost
+  gather_facts: false
+  vars:
+    module_number: "02"
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_02.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish

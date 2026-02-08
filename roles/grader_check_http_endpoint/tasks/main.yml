@@ -1,0 +1,56 @@
+---
+# grader_check_http_endpoint - Check if HTTP endpoint is accessible
+# This role validates that an HTTP/HTTPS endpoint returns expected status code
+
+# Initialize success flag to false
+- name: Initialize success flag
+  ansible.builtin.set_fact:
+    success: false
+
+# Validate required parameters
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - url is defined
+      - url | length > 0
+      - task_description_message is defined
+      - task_description_message | length > 0
+    fail_msg: "Required variables missing: url and task_description_message are required"
+    quiet: true
+
+# Check HTTP endpoint
+- name: Check HTTP endpoint
+  ansible.builtin.uri:
+    url: "{{ url }}"
+    method: "{{ http_method | default('GET') }}"
+    status_code: "{{ expected_status_code | default(200) }}"
+    validate_certs: "{{ validate_certs | default(false) }}"
+    timeout: "{{ timeout | default(10) }}"
+    follow_redirects: "{{ follow_redirects | default('safe') }}"
+  register: r_http_check
+  failed_when: false
+  changed_when: false
+
+# Evaluate success based on status code
+- name: Evaluate success
+  ansible.builtin.set_fact:
+    success: "{{ r_http_check.status == (expected_status_code | default(200)) }}"
+
+# Create PASS message
+- name: Create Pass message
+  when: success | bool
+  ansible.builtin.set_fact:
+    grader_output_message: "PASS: {{ task_description_message }}"
+
+# Create FAIL message
+- name: Create Fail message
+  when: not success | bool
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message | default('HTTP endpoint not accessible or returned unexpected status') }}
+      (expected status={{ expected_status_code | default(200) }}, got status={{ r_http_check.status | default('unreachable') }})
+
+# Log the grading result
+- name: Log grading result
+  ansible.builtin.import_role:
+    name: ftl_run_log_grade_to_log

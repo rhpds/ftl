@@ -1,0 +1,235 @@
+---
+# =============================================================================
+# FTL Solver: Automating RIPU with Ansible - Module 1 (Pre-upgrade Analysis)
+# =============================================================================
+#
+# This playbook automatically completes Module 1 workshop tasks by:
+# 1. Launching the CaC job to configure AAP
+# 2. Launching the lab initialization job
+# 3. Running the pre-upgrade analysis job
+#
+# Required environment variables:
+#   - AAP_HOSTNAME: AAP controller URL
+#   - AAP_USERNAME: AAP username (default: lab-user)
+#   - AAP_PASSWORD: AAP password
+#
+# Usage:
+#   ansible-playbook solve_module_01.yml
+#
+# =============================================================================
+
+- name: Solve Module 1 - Pre-upgrade Analysis
+  hosts: localhost
+  gather_facts: false
+  vars:
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
+    aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
+    aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
+    aap_validate_certs: false
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - aap_hostname | length > 0
+          - aap_password | length > 0
+        fail_msg: |
+          Required environment variables not set:
+          - AAP_HOSTNAME: AAP controller URL
+          - AAP_PASSWORD: AAP password
+
+          Set them with:
+            export AAP_HOSTNAME="https://controller-guid.example.com"
+            export AAP_PASSWORD="your_password"
+
+    # =========================================================================
+    # Step 1: Launch CaC Job
+    # =========================================================================
+    - name: Get CaC job template ID
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ 'Z / CaC / Controller' | urlencode }}"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_cac_template
+
+    - name: Launch CaC job template
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/{{ r_cac_template.json.results[0].id }}/launch/"
+        method: POST
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        body_format: json
+        body: {}
+        status_code: [201, 202]
+      register: r_cac_launch
+      when: r_cac_template.json.count > 0
+
+    - name: Wait for CaC job to complete
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/jobs/{{ r_cac_launch.json.id }}/"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_cac_job
+      until: r_cac_job.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 60
+      delay: 10
+      when: r_cac_launch is defined
+
+    - name: Verify CaC job succeeded
+      ansible.builtin.assert:
+        that:
+          - r_cac_job.json.status == 'successful'
+        fail_msg: "CaC job failed. Check AAP job output for errors."
+      when: r_cac_job is defined
+
+    - name: Display CaC job completion
+      ansible.builtin.debug:
+        msg: "✓ CaC job completed successfully (Job #{{ r_cac_launch.json.id }})"
+      when: r_cac_job.json.status == 'successful'
+
+    # =========================================================================
+    # Step 2: Launch Lab Initialization Job
+    # =========================================================================
+    - name: Get lab initialization job template ID
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ 'Ansible Leapp Lab Initialization' | urlencode }}"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_init_template
+
+    - name: Launch lab initialization job template
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/{{ r_init_template.json.results[0].id }}/launch/"
+        method: POST
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        body_format: json
+        body: {}
+        status_code: [201, 202]
+      register: r_init_launch
+      when: r_init_template.json.count > 0
+
+    - name: Wait for lab initialization to complete
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/jobs/{{ r_init_launch.json.id }}/"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_init_job
+      until: r_init_job.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 60
+      delay: 10
+      when: r_init_launch is defined
+
+    - name: Verify lab initialization succeeded
+      ansible.builtin.assert:
+        that:
+          - r_init_job.json.status == 'successful'
+        fail_msg: "Lab initialization job failed. Check AAP job output for errors."
+      when: r_init_job is defined
+
+    - name: Display lab initialization completion
+      ansible.builtin.debug:
+        msg: "✓ Lab initialization completed successfully (Job #{{ r_init_launch.json.id }})"
+      when: r_init_job.json.status == 'successful'
+
+    # =========================================================================
+    # Step 3: Launch Analysis Job
+    # =========================================================================
+    - name: Get analysis job template ID
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ 'AUTO / 01 Analysis' | urlencode }}"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_analysis_template
+
+    - name: Launch analysis job template for ALL_rhel
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/{{ r_analysis_template.json.results[0].id }}/launch/"
+        method: POST
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        body_format: json
+        body:
+          extra_vars: {}
+          survey: "ALL_rhel"
+        status_code: [201, 202]
+      register: r_analysis_launch
+      when: r_analysis_template.json.count > 0
+
+    - name: Wait for analysis job to complete
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/jobs/{{ r_analysis_launch.json.id }}/"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_analysis_job
+      until: r_analysis_job.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 60
+      delay: 10
+      when: r_analysis_launch is defined
+
+    - name: Verify analysis job succeeded
+      ansible.builtin.assert:
+        that:
+          - r_analysis_job.json.status == 'successful'
+        fail_msg: "Analysis job failed. Check AAP job output for errors."
+      when: r_analysis_job is defined
+
+    - name: Display analysis job completion
+      ansible.builtin.debug:
+        msg: "✓ Pre-upgrade analysis completed successfully (Job #{{ r_analysis_launch.json.id }})"
+      when: r_analysis_job.json.status == 'successful'
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 1 Solver Completed Successfully
+          ================================================================================
+
+          All tasks completed:
+            ✓ CaC job configured AAP
+            ✓ Lab initialization prepared nodes
+            ✓ Pre-upgrade analysis generated Leapp reports
+
+          Next steps:
+            - Review pre-upgrade reports in RHEL Web Console
+            - Run Module 2 solver to execute upgrades
+            - Or grade Module 1: grade_lab automating-ripu-with-ansible 1
+
+          ================================================================================
