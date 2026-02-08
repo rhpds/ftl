@@ -65,61 +65,25 @@
         gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
 
     # =========================================================================
-    # Checkpoint 1.1: OpenShift access validated
+    # Exercise 1.1: OpenShift Console Login
     # =========================================================================
-    - name: "1.1: Verify OpenShift CLI access"
+    - name: "Exercise 1.1: Verify OpenShift CLI access"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        task_description_message: "OpenShift access validated - can list pods"
+        task_description_message: "Exercise 1.1: OpenShift Console accessible - can list pods"
         command: "oc get pods -n {{ mcp_openshift_namespace }} --no-headers | wc -l"
         expected_output_regex: "^[1-9][0-9]*$"  # At least 1 pod exists
-        student_error_message: "Unable to access OpenShift. Verify: oc CLI is logged in and you have access to namespace {{ mcp_openshift_namespace }}"
+        student_error_message: "Unable to access OpenShift. Log in to OpenShift Console and verify access to namespace {{ mcp_openshift_namespace }}"
 
     # =========================================================================
-    # Checkpoint 1.2: MCP OpenShift Server pod is running
+    # Exercise 1.2: LibreChat Login and Configuration
     # =========================================================================
-    - name: "1.2: Verify MCP OpenShift Server pod is running"
+    - name: "Exercise 1.2a: Verify LibreChat pod is running"
       ansible.builtin.include_role:
         name: grader_check_ocp_pod_running
       vars:
-        task_description_message: "MCP OpenShift Server pod is running"
-        pod_name: "openshift-.*"  # Regex to match deployment pod
-        pod_namespace: "{{ mcp_openshift_namespace }}"
-        student_error_message: "MCP OpenShift Server pod not found or not running in namespace {{ mcp_openshift_namespace }}. This should be pre-deployed by the lab environment. Check pod status: oc get pods -n {{ mcp_openshift_namespace }}"
-
-    # =========================================================================
-    # Checkpoint 1.3: MCP Gitea Server pod is running
-    # =========================================================================
-    - name: "1.3: Verify MCP Gitea Server pod is running"
-      ansible.builtin.include_role:
-        name: grader_check_ocp_pod_running
-      vars:
-        task_description_message: "MCP Gitea Server pod is running"
-        pod_name: "gitea-.*"  # Regex to match deployment pod
-        pod_namespace: "{{ mcp_gitea_namespace }}"
-        student_error_message: "MCP Gitea Server pod not found or not running in namespace {{ mcp_gitea_namespace }}. This should be pre-deployed by the lab environment. Check pod status: oc get pods -n {{ mcp_gitea_namespace }}"
-
-    # =========================================================================
-    # Checkpoint 1.4: Gitea repository accessible
-    # =========================================================================
-    - name: "1.4: Verify Gitea repository exists"
-      ansible.builtin.include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Gitea repository 'mcp' accessible for user {{ gitea_user }}"
-        command: "curl -s -u {{ gitea_user }}:{{ gitea_password }} {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'"
-        expected_output: "mcp"
-        student_error_message: "Gitea repository '{{ gitea_user }}/mcp' not found. This should be pre-deployed by the lab environment. Check: {{ gitea_url }}/{{ gitea_user }}/mcp"
-
-    # =========================================================================
-    # Checkpoint 1.5: LibreChat accessible
-    # =========================================================================
-    - name: "1.5a: Verify LibreChat pod is running"
-      ansible.builtin.include_role:
-        name: grader_check_ocp_pod_running
-      vars:
-        task_description_message: "LibreChat pod is running"
+        task_description_message: "Exercise 1.2: LibreChat pod is running"
         pod_name: "librechat-.*"
         pod_namespace: "{{ librechat_namespace }}"
         student_error_message: |
@@ -127,22 +91,22 @@
           This should be pre-deployed by the lab environment.
           Check pods: oc get pods -n {{ librechat_namespace }}
 
-    - name: "1.5b: Verify LibreChat route exists"
+    - name: "Exercise 1.2b: Verify LibreChat route exists"
       ansible.builtin.include_role:
         name: grader_check_ocp_route_exists
       vars:
-        task_description_message: "LibreChat route exists"
+        task_description_message: "Exercise 1.2: LibreChat route exists"
         route_name: "librechat"
         route_namespace: "{{ librechat_namespace }}"
         student_error_message: |
           LibreChat route not found in namespace {{ librechat_namespace }}.
           Check routes: oc get routes -n {{ librechat_namespace }}
 
-    - name: "1.5c: Verify LibreChat UI is responding"
+    - name: "Exercise 1.2c: Verify LibreChat UI is responding"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        task_description_message: "LibreChat UI is accessible via HTTP"
+        task_description_message: "Exercise 1.2: LibreChat UI is accessible via HTTP"
         command: >
           curl -s -k -o /dev/null -w '%{http_code}'
           https://librechat-{{ librechat_namespace }}.{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}
@@ -150,7 +114,43 @@
         student_error_message: |
           LibreChat is not responding to HTTP requests.
           The pod is running but the application may not be healthy.
-          Check logs: oc logs -n {{ librechat_namespace }} deployment/librechat
+          Check logs: oc get logs -n {{ librechat_namespace }} deployment/librechat
+
+    # =========================================================================
+    # Exercise 1.3: MCP OpenShift Server Available
+    # =========================================================================
+    - name: "Exercise 1.3: Verify MCP OpenShift Server pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "Exercise 1.3: MCP OpenShift Server pod is running"
+        pod_name: "openshift-.*"  # Regex to match deployment pod
+        pod_namespace: "{{ mcp_openshift_namespace }}"
+        student_error_message: "MCP OpenShift Server pod not found or not running in namespace {{ mcp_openshift_namespace }}. This should be pre-deployed. Check pod status: oc get pods -n {{ mcp_openshift_namespace }}"
+
+    # =========================================================================
+    # Exercise 1.4: MCP Gitea Server Available
+    # =========================================================================
+    - name: "Exercise 1.4: Verify MCP Gitea Server pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "Exercise 1.4: MCP Gitea Server pod is running"
+        pod_name: "gitea-.*"  # Regex to match deployment pod
+        pod_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "MCP Gitea Server pod not found or not running in namespace {{ mcp_gitea_namespace }}. This should be pre-deployed. Check pod status: oc get pods -n {{ mcp_gitea_namespace }}"
+
+    # =========================================================================
+    # Exercise 1.5: Gitea Login
+    # =========================================================================
+    - name: "Exercise 1.5: Verify Gitea repository exists"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "Exercise 1.5: Gitea repository 'mcp' accessible for user {{ gitea_user }}"
+        command: "curl -s -u {{ gitea_user }}:{{ gitea_password }} {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'"
+        expected_output: "mcp"
+        student_error_message: "Gitea repository '{{ gitea_user }}/mcp' not found. Log in to Gitea and verify repository exists: {{ gitea_url }}/{{ gitea_user }}/mcp"
 
 - name: Finalize FTL Grading Session - Module 1
   hosts: localhost
