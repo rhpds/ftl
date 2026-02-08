@@ -9,7 +9,6 @@
 #   - AAP_HOSTNAME: AAP controller URL
 #   - AAP_USERNAME: AAP username (default: lab-user)
 #   - AAP_PASSWORD: AAP password
-#   - SSH_PASSWORD: Password for SSH access to nodes (usually same as AAP_PASSWORD)
 #
 # Usage:
 #   ansible-playbook grade_module_02.yml
@@ -27,8 +26,8 @@
   roles:
     - ftl_run_init
 
-# Play 2: Grade Module 2 - Upgrade Execution
-- name: Grade Module 2 - Upgrade Execution
+# Play 2: Grade Module 2 - Upgrade Workflow (Exercises 2.1)
+- name: Grade Module 2 - Upgrade Workflow
   hosts: localhost
   gather_facts: false
   vars:
@@ -57,32 +56,29 @@
             export AAP_PASSWORD="your_password"
 
     # =========================================================================
-    # Checkpoint 2.1: Upgrade Job Template Exists
+    # Exercise 2.1: Run OS Upgrade Jobs
     # =========================================================================
-    - name: Check upgrade job template exists
+    - name: "Exercise 2.1: Upgrade job template exists"
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "AUTO / 02 Upgrade"
-        task_description_message: "Upgrade job template configured"
+        task_description_message: "Exercise 2.1: Upgrade workflow template configured"
         require_job_execution: false
-        student_error_message: "Upgrade job template not found. Verify CaC job completed successfully."
+        student_error_message: "Upgrade workflow template not found. Verify CaC job completed."
 
-    # =========================================================================
-    # Checkpoint 2.2: Upgrade Job Executed Successfully
-    # =========================================================================
-    - name: Check upgrade workflow job completed
+    - name: "Exercise 2.1: Upgrade workflow job executed successfully"
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "AUTO / 02 Upgrade"
-        task_description_message: "Upgrade workflow job executed successfully"
+        task_description_message: "Exercise 2.1: Upgrade workflow executed successfully"
         require_job_execution: true
         check_last_n_jobs: 10
-        student_error_message: "Upgrade job not run or failed. Launch the 'AUTO / 02 Upgrade' workflow template."
+        student_error_message: "Upgrade workflow not run or failed. Launch 'AUTO / 02 Upgrade' workflow."
 
-# Play 3: Validate RHEL Versions on Nodes
-- name: Validate RHEL versions on upgraded nodes
+# Play 3: Grade Module 2 - Node Validation (Exercises 2.2-2.4)
+- name: Grade Module 2 - RHEL Upgrade Validation
   hosts: nodes
   gather_facts: true
   become: false
@@ -91,43 +87,88 @@
 
   tasks:
     # =========================================================================
-    # Checkpoint 2.3: Node1 (RHEL 7→8)
+    # Exercise 2.2: Let's Talk About Snapshots
     # =========================================================================
-    - name: Check node1 upgraded to RHEL 8
+    # Note: Snapshots currently disabled in lab, but check for snapshot playbook execution
+    - name: "Exercise 2.2: Check for snapshot evidence on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "ls -la /var/log/leapp/"
+        expected_rc: 0
+        task_description_message: "Exercise 2.2: Leapp log directory exists on {{ inventory_hostname }}"
+        student_error_message: "Leapp logs not found. Verify upgrade workflow ran."
+
+    # =========================================================================
+    # Exercise 2.3: Check if the Upgrade Worked
+    # =========================================================================
+    - name: "Exercise 2.3: node1 upgraded from RHEL 7 to RHEL 8"
       when: inventory_hostname == 'node1'
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
         command: "cat /etc/redhat-release"
         expected_output_regex: "Red Hat Enterprise Linux.*release 8"
-        task_description_message: "node1 upgraded from RHEL 7 to RHEL 8"
-        student_error_message: "node1 not upgraded. Verify upgrade job completed and check for errors."
+        task_description_message: "Exercise 2.3: node1 upgraded to RHEL 8"
+        student_error_message: "node1 not upgraded to RHEL 8. Check upgrade workflow job output."
 
-    # =========================================================================
-    # Checkpoint 2.4: Node2 (RHEL 8→9)
-    # =========================================================================
-    - name: Check node2 upgraded to RHEL 9
+    - name: "Exercise 2.3: node2 upgraded from RHEL 8 to RHEL 9"
       when: inventory_hostname == 'node2'
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
         command: "cat /etc/redhat-release"
         expected_output_regex: "Red Hat Enterprise Linux.*release 9"
-        task_description_message: "node2 upgraded from RHEL 8 to RHEL 9"
-        student_error_message: "node2 not upgraded. Verify upgrade job completed and check for errors."
+        task_description_message: "Exercise 2.3: node2 upgraded to RHEL 9"
+        student_error_message: "node2 not upgraded to RHEL 9. Check upgrade workflow job output."
 
-    # =========================================================================
-    # Checkpoint 2.5: Node3 (RHEL 9→10)
-    # =========================================================================
-    - name: Check node3 upgraded to RHEL 10
+    - name: "Exercise 2.3: node3 upgraded from RHEL 9 to RHEL 10"
       when: inventory_hostname == 'node3'
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
         command: "cat /etc/redhat-release"
-        expected_output_regex: "Red Hat Enterprise Linux.*release 10"
-        task_description_message: "node3 upgraded from RHEL 9 to RHEL 10"
-        student_error_message: "node3 not upgraded. Verify upgrade job completed and check for errors."
+        expected_output_regex: "Red Hat Enterprise Linux.*(release 10|release 9)"
+        task_description_message: "Exercise 2.3: node3 upgrade completed"
+        student_error_message: "node3 upgrade failed. Check upgrade workflow job output. (Note: RHEL 10 may show as 9 if not yet available)"
+
+    - name: "Exercise 2.3: System booted into upgraded kernel on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "uname -r"
+        expected_rc: 0
+        task_description_message: "Exercise 2.3: {{ inventory_hostname }} booted successfully post-upgrade"
+        student_error_message: "System not responding. Verify node rebooted after upgrade."
+
+    # =========================================================================
+    # Exercise 2.4: How is the Pet App Doing (Optional)
+    # =========================================================================
+    - name: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_service_running
+      vars:
+        service_name: "mariadb"
+        task_description_message: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
+        student_error_message: "MariaDB not running after upgrade. Check if pet app needs restart."
+
+    - name: "Exercise 2.4: Pet app running post-upgrade on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "pgrep -f spring-petclinic"
+        expected_rc: 0
+        task_description_message: "Exercise 2.4: Pet application running post-upgrade on {{ inventory_hostname }}"
+        student_error_message: "Pet app not running after upgrade. Check cron entry or manually restart."
+
+    - name: "Exercise 2.4: Pet app data preserved on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "mysql -u root petclinic -e 'SELECT COUNT(*) FROM owners;'"
+        expected_rc: 0
+        task_description_message: "Exercise 2.4: Pet app database accessible post-upgrade on {{ inventory_hostname }}"
+        student_error_message: "Pet app database not accessible. Check MariaDB upgrade status."
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 2

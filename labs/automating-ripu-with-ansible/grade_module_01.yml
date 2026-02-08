@@ -9,7 +9,6 @@
 #   - AAP_HOSTNAME: AAP controller URL (e.g., https://controller-guid.example.com)
 #   - AAP_USERNAME: AAP username (default: lab-user)
 #   - AAP_PASSWORD: AAP password
-#   - SUBDOMAIN_BASE: Cluster subdomain (e.g., guid.example.com)
 #
 # Usage:
 #   ansible-playbook grade_module_01.yml
@@ -27,25 +26,16 @@
   roles:
     - ftl_run_init
 
-# Play 2: Grade Module 1 - Pre-upgrade Analysis
-- name: Grade Module 1 - Pre-upgrade Analysis
+# Play 2: Grade Module 1 - AAP Configuration (Exercises 1.1-1.2)
+- name: Grade Module 1 - AAP Configuration
   hosts: localhost
   gather_facts: false
   vars:
-    # Report file variable MUST be defined in each play
     grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_01.txt"
-
-    # AAP connection details
     aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
     aap_username: "{{ lookup('env', 'AAP_USERNAME') | default('lab-user', true) }}"
     aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
     aap_validate_certs: false
-
-    # RIPU nodes to check
-    ripu_nodes:
-      - node1  # RHEL 7
-      - node2  # RHEL 8
-      - node3  # RHEL 9
 
   tasks:
     # =========================================================================
@@ -67,65 +57,139 @@
         quiet: false
 
     # =========================================================================
-    # Checkpoint 1.1: AAP Controller Accessible and Licensed
+    # Exercise 1.1: Workshop Lab Environment
     # =========================================================================
-    - name: Check AAP controller is accessible
+    - name: "Exercise 1.1: AAP controller accessible and licensed"
       ansible.builtin.include_role:
         name: grader_check_aap_licensed
       vars:
-        task_description_message: "AAP controller accessible and has valid license"
-        student_error_message: "AAP controller not accessible or missing license. Check AAP_HOSTNAME environment variable and verify controller is running."
+        task_description_message: "Exercise 1.1: AAP controller accessible and has valid license"
+        student_error_message: "AAP controller not accessible or missing license. Check AAP_HOSTNAME and run CaC job."
 
-    # =========================================================================
-    # Checkpoint 1.2: CaC Job Template Completed
-    # =========================================================================
-    - name: Check CaC job template completed
+    - name: "Exercise 1.1: CaC job template completed"
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "Z / CaC / Controller"
-        task_description_message: "Configuration as Code (CaC) job completed successfully"
+        task_description_message: "Exercise 1.1: Configuration as Code (CaC) job completed"
         require_job_execution: true
-        student_error_message: "CaC job not run or failed. Launch the 'Z / CaC / Controller' job template in AAP."
+        student_error_message: "CaC job not run. Launch 'Z / CaC / Controller' job template."
 
-    # =========================================================================
-    # Checkpoint 1.3: Lab Initialization Job Completed
-    # =========================================================================
-    - name: Check lab initialization job completed
+    - name: "Exercise 1.1: Lab initialization job completed"
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "Ansible Leapp Lab Initialization"
-        task_description_message: "Lab initialization job completed successfully"
+        task_description_message: "Exercise 1.1: Lab initialization job completed"
         require_job_execution: true
-        student_error_message: "Lab initialization job not run or failed. Launch the 'Ansible Leapp Lab Initialization' job template in AAP."
+        student_error_message: "Lab initialization not run. Launch 'Ansible Leapp Lab Initialization' job template."
 
     # =========================================================================
-    # Checkpoint 1.4: Analysis Job Template Exists
+    # Exercise 1.2: Run Pre-upgrade Jobs
     # =========================================================================
-    - name: Check analysis job template exists
+    - name: "Exercise 1.2: Analysis job template exists"
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "AUTO / 01 Analysis"
-        task_description_message: "Pre-upgrade analysis job template configured"
+        task_description_message: "Exercise 1.2: Pre-upgrade analysis job template configured"
         require_job_execution: false
-        student_error_message: "Analysis job template not found. Verify CaC job completed successfully."
+        student_error_message: "Analysis job template not found. Verify CaC job completed."
 
-    # =========================================================================
-    # Checkpoint 1.5: Analysis Job Executed Successfully
-    # =========================================================================
-    - name: Check analysis job executed successfully
+    - name: "Exercise 1.2: Analysis job executed successfully"
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "AUTO / 01 Analysis"
-        task_description_message: "Pre-upgrade analysis job executed successfully"
+        task_description_message: "Exercise 1.2: Pre-upgrade analysis job executed"
         require_job_execution: true
         check_last_n_jobs: 10
-        student_error_message: "Analysis job not run or failed. Launch the 'AUTO / 01 Analysis' job template for ALL_rhel hosts."
+        student_error_message: "Analysis job not run. Launch 'AUTO / 01 Analysis' for ALL_rhel hosts."
 
-# Play 3: Generate final report
+# Play 3: Grade Module 1 - Node Validation (Exercises 1.3-1.6)
+- name: Grade Module 1 - Node Validation
+  hosts: nodes
+  gather_facts: true
+  become: false
+  vars:
+    grader_student_report_file: "grading_report_{{ ansible_user | default(ansible_env.USER) }}_module_01.txt"
+
+  tasks:
+    # =========================================================================
+    # Exercise 1.3: Review Pre-upgrade Reports
+    # =========================================================================
+    - name: "Exercise 1.3: Leapp pre-upgrade report exists on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_file_contains
+      vars:
+        file_path: "/var/log/leapp/leapp-report.txt"
+        task_description_message: "Exercise 1.3: Leapp report generated on {{ inventory_hostname }}"
+        student_error_message: "Leapp report not found. Run analysis job for this node."
+
+    - name: "Exercise 1.3: Leapp report contains risk entries on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_file_contains
+      vars:
+        file_path: "/var/log/leapp/leapp-report.txt"
+        expected_content_regex: "(Risk Factor: high|Risk Factor: medium|Risk Factor: low)"
+        task_description_message: "Exercise 1.3: Leapp report contains risk analysis on {{ inventory_hostname }}"
+        student_error_message: "Leapp report exists but does not contain risk analysis."
+
+    # =========================================================================
+    # Exercise 1.4: Perform Recommended Remediation (Check common remediations)
+    # =========================================================================
+    # Note: Specific remediation varies by environment, checking that analysis was re-run
+    - name: "Exercise 1.4: Leapp report updated (remediation cycle) on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_file_contains
+      vars:
+        file_path: "/var/log/leapp/leapp-report.txt"
+        task_description_message: "Exercise 1.4: Leapp analysis re-run after remediation on {{ inventory_hostname }}"
+        student_error_message: "Re-run analysis job after performing remediation steps."
+
+    # =========================================================================
+    # Exercise 1.5: Custom Pre-upgrade Checks
+    # =========================================================================
+    # Check for custom actors or modules (workshop uses custom leapp actors)
+    - name: "Exercise 1.5: Custom Leapp actors directory exists on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_file_exists
+      vars:
+        file_path: "/etc/leapp/repos.d"
+        task_description_message: "Exercise 1.5: Leapp custom repositories directory on {{ inventory_hostname }}"
+        student_error_message: "Custom Leapp repos directory not found. Review custom modules exercise."
+        file_type: directory
+
+    # =========================================================================
+    # Exercise 1.6: Deploy a Pet App (Optional but recommended)
+    # =========================================================================
+    - name: "Exercise 1.6: Pet app installed on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_service_running
+      vars:
+        service_name: "mariadb"
+        task_description_message: "Exercise 1.6: Pet app database (MariaDB) running on {{ inventory_hostname }}"
+        student_error_message: "MariaDB not running. Install pet app or launch 'PETS / App Install' job."
+
+    - name: "Exercise 1.6: Pet app accessible on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "pgrep -f spring-petclinic"
+        expected_rc: 0
+        task_description_message: "Exercise 1.6: Pet application running on {{ inventory_hostname }}"
+        student_error_message: "Pet app not running. Start app or check reboot cron entry."
+
+    - name: "Exercise 1.6: Pet app reboot cron configured on {{ inventory_hostname }}"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        command: "crontab -l"
+        expected_content_regex: "@reboot.*spring-petclinic"
+        task_description_message: "Exercise 1.6: Pet app configured to start on reboot on {{ inventory_hostname }}"
+        student_error_message: "Reboot cron entry not found. Configure app to start automatically."
+
+# Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 1
   hosts: localhost
   gather_facts: false

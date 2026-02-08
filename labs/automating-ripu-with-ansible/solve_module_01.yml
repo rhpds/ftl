@@ -213,6 +213,64 @@
       when: r_analysis_job.json.status == 'successful'
 
     # =========================================================================
+    # Step 4: Launch Pet App Install Job (Optional Exercise 1.6)
+    # =========================================================================
+    - name: Get pet app install job template ID
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/?name={{ 'PETS / App Install' | urlencode }}"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_petapp_template
+      failed_when: false
+
+    - name: Launch pet app install job for ALL_rhel
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/job_templates/{{ r_petapp_template.json.results[0].id }}/launch/"
+        method: POST
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        body_format: json
+        body:
+          extra_vars: {}
+          survey: "ALL_rhel"
+        status_code: [201, 202]
+      register: r_petapp_launch
+      when: r_petapp_template.json.count | default(0) > 0
+
+    - name: Wait for pet app install to complete
+      ansible.builtin.uri:
+        url: "{{ aap_hostname }}/api/v2/jobs/{{ r_petapp_launch.json.id }}/"
+        method: GET
+        user: "{{ aap_username }}"
+        password: "{{ aap_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ aap_validate_certs }}"
+        status_code: 200
+      register: r_petapp_job
+      until: r_petapp_job.json.status in ['successful', 'failed', 'error', 'canceled']
+      retries: 60
+      delay: 10
+      when: r_petapp_launch is defined and r_petapp_launch is not skipped
+
+    - name: Display pet app install completion
+      ansible.builtin.debug:
+        msg: "✓ Pet application installed on all nodes (Job #{{ r_petapp_launch.json.id }})"
+      when:
+        - r_petapp_job is defined
+        - r_petapp_job.json.status == 'successful'
+
+    - name: Display pet app install skip message
+      ansible.builtin.debug:
+        msg: "⚠ Pet app install job template not found - skipping optional exercise 1.6"
+      when: r_petapp_template.json.count | default(0) == 0
+
+    # =========================================================================
     # Summary
     # =========================================================================
     - name: Display completion summary
@@ -226,9 +284,13 @@
             ✓ CaC job configured AAP
             ✓ Lab initialization prepared nodes
             ✓ Pre-upgrade analysis generated Leapp reports
+            ✓ Pet application installed (optional exercise 1.6)
 
           Next steps:
-            - Review pre-upgrade reports in RHEL Web Console
+            - Review pre-upgrade reports in RHEL Web Console (Exercise 1.3)
+            - Perform manual remediation if needed (Exercise 1.4)
+            - Review custom modules (Exercise 1.5)
+            - Test pet app accessibility (Exercise 1.6)
             - Run Module 2 solver to execute upgrades
             - Or grade Module 1: grade_lab automating-ripu-with-ansible 1
 
