@@ -118,12 +118,12 @@
       until: r_rollback_job.json.status in ['successful', 'failed', 'error', 'canceled']
       retries: 60
       delay: 10
-      when: r_rollback_launch is defined
+      when: r_rollback_launch is not skipped
 
     - name: Display rollback result
       ansible.builtin.debug:
         msg: "Rollback job completed with status: {{ r_rollback_job.json.status }}"
-      when: r_rollback_job is defined
+      when: r_rollback_job is not skipped
 
     # =========================================================================
     # Summary
@@ -145,4 +145,4 @@
             - Or grade full lab: grade_lab automating-ripu-with-ansible
 
           ================================================================================
-      when: r_rollback_job is defined
+      when: r_rollback_job is not skipped
