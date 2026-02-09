@@ -143,10 +143,16 @@
     # =========================================================================
     # Exercise 2.4: How is the Pet App Doing
     # =========================================================================
-    # Pet app is deployed by Module 1 solver and should survive the upgrade.
-    # These checks validate that MariaDB, app, and data are intact post-upgrade.
+    # Pet app deployment (Exercise 1.6) is OPTIONAL for learners.
+    # Check if deployed, provide helpful messages for both scenarios.
+
+    - name: "Exercise 2.4: Check if pet app was deployed in Module 1"
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/spring-petclinic"
+      register: r_petapp_check
 
     - name: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
+      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_service_running
       vars:
@@ -157,6 +163,7 @@
           Run Module 2 solver to fix pet app.
 
     - name: "Exercise 2.4: Pet app running post-upgrade on {{ inventory_hostname }}"
+      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -168,6 +175,7 @@
           Run Module 2 solver to reinstall JDK and restart pet app.
 
     - name: "Exercise 2.4: Pet app data preserved on {{ inventory_hostname }}"
+      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -177,6 +185,13 @@
         student_error_message: |
           Pet app database not accessible. Check MariaDB upgrade status.
           Run Module 2 solver to fix pet app database.
+
+    - name: "Exercise 2.4: Pet app not deployed - optional exercise skipped on {{ inventory_hostname }}"
+      when: not r_petapp_check.stat.exists
+      ansible.builtin.debug:
+        msg: |
+          SKIP: Exercise 2.4 - Pet app was not deployed (Exercise 1.6 is optional).
+          To deploy pet app, run: solve_lab automating-ripu-with-ansible 1
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 2
