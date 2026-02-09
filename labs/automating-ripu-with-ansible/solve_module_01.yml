@@ -160,19 +160,15 @@
         - r_init_job is not skipped
         - r_init_job.json.status == 'successful'
 
-    - name: Display warning if lab initialization failed
+    - name: Display lab initialization result
       ansible.builtin.debug:
         msg: |
-          ⚠ Lab initialization job failed with status: {{ r_init_job.json.status }}
+          ⚠ Lab initialization job status: {{ r_init_job.json.status }}
 
-          Job details:
-          - Job ID: {{ r_init_launch.json.id }}
-          - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_init_launch.json.id }}/output
+          Job ID: {{ r_init_launch.json.id }}
+          Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_init_launch.json.id }}/output
 
-          Common reason: Nodes are already upgraded from a previous run.
-          The initialization job expects fresh RHEL 7/8/9 nodes but found upgraded versions.
-
-          Continuing with pet app deployment anyway...
+          Continuing with pet app deployment...
       when:
         - r_init_job is not skipped
         - r_init_job.json.status != 'successful'
@@ -229,17 +225,13 @@
         - r_analysis_job is not skipped
         - r_analysis_job.json.status == 'successful'
 
-    - name: Display warning if analysis job failed
+    - name: Display analysis job result
       ansible.builtin.debug:
         msg: |
-          ⚠ Pre-upgrade analysis job failed with status: {{ r_analysis_job.json.status }}
+          ⚠ Pre-upgrade analysis job status: {{ r_analysis_job.json.status }}
 
-          Job details:
-          - Job ID: {{ r_analysis_launch.json.id }}
-          - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_analysis_launch.json.id }}/output
-
-          Common reason: Nodes are already upgraded from a previous run.
-          The analysis job expects to analyze RHEL 7→8, 8→9, 9→10 upgrades.
+          Job ID: {{ r_analysis_launch.json.id }}
+          Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_analysis_launch.json.id }}/output
 
           Continuing with pet app deployment anyway...
       when:

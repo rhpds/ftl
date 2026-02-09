@@ -56,21 +56,13 @@
             export ROLLBACK_NODE="node1"
 
     # =========================================================================
-    # Snapshot Availability Warning
+    # Rollback Information
     # =========================================================================
-    - name: Display snapshot warning
+    - name: Display rollback information
       ansible.builtin.debug:
         msg: |
           ================================================================================
-          WARNING: Snapshot-based Rollback
-          ================================================================================
-
-          This solver will attempt to rollback {{ rollback_node }} using snapshots.
-
-          IMPORTANT: Snapshots are currently NOT deployed in the lab environment,
-          so this operation is expected to fail. This solver is provided for
-          completeness when snapshots become available.
-
+          Launching Rollback Job for {{ rollback_node }}
           ================================================================================
 
     # =========================================================================
@@ -135,9 +127,6 @@
           ================================================================================
 
           Rollback job status: {{ r_rollback_job.json.status | default('not launched') }}
-
-          Note: If rollback failed, this is expected because snapshots are not
-          currently available in the lab environment.
 
           Next steps:
             - Grade Module 3: grade_lab automating-ripu-with-ansible 3
