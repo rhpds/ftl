@@ -42,15 +42,16 @@
             name: openshift-tool-filter
             namespace: "{{ mcp_openshift_namespace }}"
           spec:
-            toolsFilter:
-              - events_list
-              - namespaces_list
-              - pods_get
-              - pods_list
-              - pods_list_in_namespace
-              - pods_log
-              - resources_get
-              - resources_list
+            toolFilter:
+              allowlist:
+                - events_list
+                - namespaces_list
+                - pods_get
+                - pods_list
+                - pods_list_in_namespace
+                - pods_log
+                - resources_get
+                - resources_list
 
     - name: Update MCPServer to use tool filter
       kubernetes.core.k8s:
@@ -168,6 +169,47 @@
               requests:
                 cpu: "50m"
                 memory: "64Mi"
+
+    # =========================================================================
+    # Create routes for MCP Servers
+    # =========================================================================
+    - name: Create route for Fetch MCP Server
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+            name: fetch
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            to:
+              kind: Service
+              name: fetch
+            port:
+              targetPort: 8080
+            tls:
+              termination: edge
+              insecureEdgeTerminationPolicy: Redirect
+
+    - name: Create route for Yardstick MCP Server
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+            name: yardstick
+            namespace: "{{ mcp_gitea_namespace }}"
+          spec:
+            to:
+              kind: Service
+              name: yardstick
+            port:
+              targetPort: 8080
+            tls:
+              termination: edge
+              insecureEdgeTerminationPolicy: Redirect
 
     # =========================================================================
     # Wait for deployments

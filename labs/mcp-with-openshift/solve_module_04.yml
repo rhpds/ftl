@@ -118,7 +118,7 @@
           apiVersion: v1
           kind: ConfigMap
           metadata:
-            name: rh-one-mcp
+            name: mcp-servers-catalog
             namespace: "{{ mcp_gitea_namespace }}"
           data:
             registry.json: |
@@ -166,7 +166,7 @@
               - name: rh-one-mcp
                 format: toolhive
                 configMapRef:
-                  name: rh-one-mcp
+                  name: mcp-servers-catalog
                   key: registry.json
                 syncPolicy:
                   interval: "1h"
