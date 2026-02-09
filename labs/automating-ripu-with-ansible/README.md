@@ -234,35 +234,82 @@ cat /tmp/grading_dir/grading_report_${USER}.txt
 
 ## Testing Instructions
 
-### Fresh Environment (Before Any Lab Work)
-
-Expected: Module 1 checkpoints FAIL (AAP not configured yet)
+### Initial Setup on Bastion Host
 
 ```bash
-export AAP_HOSTNAME="https://controller-abc123.example.com"
-export AAP_PASSWORD="<password>"
-grade_lab automating-ripu-with-ansible 1
-# Expected: FAILED 26 Errors
+# 1. Clone FTL repository
+git clone https://github.com/rhpds/ftl.git ~/ftl
+
+# 2. Install FTL
+cd ~/ftl
+./bin/setup_ftl
+
+# 3. Add to PATH
+echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# 4. Verify installation
+which grade_lab solve_lab
 ```
 
-### After Module 1 Solver
-
-Expected: Module 1 PASS (except possibly some remediation/custom checks)
+### Set Environment Variables
 
 ```bash
+# Get values from workshop or user_data.yaml
+export AAP_HOSTNAME="https://controller-k2z7h.apps.ocpv08.rhdp.net"
+export AAP_PASSWORD="MjQ3OTIw_1"
+export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
+
+# Verify AAP connection
+curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
+  "${AAP_HOSTNAME}/api/controller/v2/ping/"
+```
+
+### Test Module 1 (Pre-upgrade Analysis)
+
+```bash
+# Grade before solving (should fail - CaC not run yet)
+grade_lab automating-ripu-with-ansible 1
+# Expected: FAIL on CaC, lab init, analysis
+
+# Solve Module 1 (automated - 5-10 minutes)
 solve_lab automating-ripu-with-ansible 1
+# Launches: CaC → Lab Init → Analysis → Pet App Install
+
+# Grade after solving (should pass)
 grade_lab automating-ripu-with-ansible 1
-# Expected: SUCCESS or minimal failures
+# Expected: PASS all 26 checkpoints
+
+# View report
+cat /tmp/grading_dir/grading_report_${USER}_module_01.txt
 ```
 
-### After Module 2 Solver
+### Test Module 2 (Upgrade Execution)
 
-Expected: Module 1 and 2 PASS
+**WARNING:** Module 2 performs actual RHEL upgrades and takes 30-60 minutes.
 
 ```bash
-solve_lab automating-ripu-with-ansible 2  # Takes 30-60 minutes
+# Solve Module 2 (automated, non-interactive, 30-60 minutes)
+solve_lab automating-ripu-with-ansible 2
+# Upgrades: node1 (RHEL 7→8), node2 (RHEL 8→9), node3 (RHEL 9→10)
+
+# Grade after solving (should pass)
+grade_lab automating-ripu-with-ansible 2
+# Expected: PASS all 26 checkpoints
+
+# View report
+cat /tmp/grading_dir/grading_report_${USER}_module_02.txt
+```
+
+### Test Full Lab
+
+```bash
+# Grade all modules
 grade_lab automating-ripu-with-ansible
-# Expected: Module 1 SUCCESS, Module 2 SUCCESS
+# Expected: 52 PASS (Module 1 + 2), Module 3 skipped
+
+# View full report
+cat /tmp/grading_dir/grading_report_${USER}.txt
 ```
 
 ### Manual Verification
@@ -285,27 +332,62 @@ curl localhost:8080  # Should return HTML
 
 ## Troubleshooting
 
+### AAP 2.6 API Changes (IMPORTANT)
+
+This lab uses **AAP 2.6** which has different API endpoints than AAP 2.4:
+
+**AAP 2.4 (old):** `/api/v2/`
+**AAP 2.6 (new):** `/api/controller/v2/` (controller) and `/api/gateway/v1/` (gateway)
+
+All FTL graders and solvers have been updated to use the correct AAP 2.6 endpoints.
+
 ### AAP Connection Issues
 
 ```bash
-# Test AAP API access
+# Test AAP API access (AAP 2.6)
 curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/v2/ping/"
+  "${AAP_HOSTNAME}/api/controller/v2/ping/"
 
 # Should return JSON with "instances" and "version"
+
+# Test config endpoint (license check)
+curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
+  "${AAP_HOSTNAME}/api/controller/v2/config/" | jq .license_info
 ```
 
 ### Job Template Not Found
 
 ```bash
-# List all job templates
+# List all job templates (AAP 2.6)
 curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/v2/job_templates/" | jq '.results[].name'
+  "${AAP_HOSTNAME}/api/controller/v2/job_templates/" | jq '.results[].name' | sort
 
 # Verify CaC job completed
 curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/v2/job_templates/?name=Z%20/%20CaC%20/%20Controller"
+  "${AAP_HOSTNAME}/api/controller/v2/job_templates/?name=Z%20/%20CaC%20/%20Controller"
 ```
+
+**Known Template Name Issues:**
+- The CaC job creates "Ansible Leapp Lab initailization" (typo: "initailization" instead of "Initialization")
+- FTL graders/solvers have been updated to match the actual template name
+
+### Survey Variables (AAP 2.6)
+
+AAP 2.6 handles survey responses differently than AAP 2.4:
+
+```bash
+# AAP 2.4 style (old - doesn't work):
+body:
+  extra_vars: {}
+  survey: "ALL_rhel"
+
+# AAP 2.6 style (correct):
+body:
+  extra_vars:
+    rhel_inventory_group: "ALL_rhel"
+```
+
+All FTL solvers pass survey variables in `extra_vars` for AAP 2.6 compatibility.
 
 ### Node SSH Access Issues
 

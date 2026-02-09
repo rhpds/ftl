@@ -13,18 +13,137 @@ FTL is a collection-based approach to lab grading and solving that:
 
 == Quick Start
 
-=== Installation
+=== Installation on Bastion Host
 
 [source,bash]
 ----
-# Install from Galaxy (when published)
-ansible-galaxy collection install rhdp.ftl
+# 1. Clone FTL repository
+git clone https://github.com/rhpds/ftl.git ~/ftl
+cd ~/ftl
 
-# Or install from local build
-ansible-galaxy collection install rhdp-ftl-1.0.0.tar.gz
+# 2. Run setup script (creates venv, installs Ansible + dependencies)
+./bin/setup_ftl
+
+# 3. Add to PATH
+echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# 4. Verify installation
+which grade_lab solve_lab
 ----
 
-=== Usage
+=== Testing Production Labs
+
+==== MCP (Model Context Protocol) with OpenShift
+
+**Lab Info:**
+- Checkpoints: 35 (6 Module 1 + 9 Module 2 + 11 Module 3 + 9 Module 4)
+- Environment: OpenShift multi-user
+- Time: 10-15 minutes for solver
+
+**Setup:**
+[source,bash]
+----
+# Set environment variables (from workshop)
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
+export PASSWORD="<password_from_user_data>"
+
+# Test AAP connection
+curl -k -u lab-user:${PASSWORD} \
+  https://controller-xxxxx.apps.example.com/api/controller/v2/ping/
+----
+
+**Test Module 1 (Lab Setup):**
+[source,bash]
+----
+# Grade Module 1 (should mostly pass - pre-deployed)
+grade_lab mcp-with-openshift 1
+
+# Expected: PASS 6 checkpoints (OpenShift, LibreChat, MCP servers, Gitea)
+----
+
+**Test Full Lab:**
+[source,bash]
+----
+# Solve all modules (automated, 10-15 minutes)
+solve_lab mcp-with-openshift
+
+# Grade all modules
+grade_lab mcp-with-openshift
+
+# Expected: PASS all 35 checkpoints
+# View report
+cat /tmp/grading_dir/grading_report_${USER}.txt
+----
+
+==== Automating RHEL In-Place Upgrades with Ansible
+
+**Lab Info:**
+- Checkpoints: 57 (26 Module 1 + 26 Module 2 + 5 Module 3)
+- Environment: RHEL bastion + 3 nodes (RHEL 7, 8, 9)
+- Time: Module 1 (10 min) + Module 2 (30-60 min for upgrades)
+
+**Setup:**
+[source,bash]
+----
+# Set environment variables (from workshop)
+export AAP_HOSTNAME="https://controller-xxxxx.apps.example.com"
+export AAP_PASSWORD="<password_from_user_data>"
+export AAP_USERNAME="lab-user"  # Optional
+
+# Test AAP connection (AAP 2.6)
+curl -k -u ${AAP_USERNAME}:${AAP_PASSWORD} \
+  ${AAP_HOSTNAME}/api/controller/v2/ping/
+----
+
+**Test Module 1 (Pre-upgrade Analysis):**
+[source,bash]
+----
+# Grade before solving (should fail - CaC not run)
+grade_lab automating-ripu-with-ansible 1
+# Expected: FAIL (CaC, lab init, analysis not run)
+
+# Solve Module 1 (automated, 5-10 minutes)
+solve_lab automating-ripu-with-ansible 1
+# Runs: CaC → Lab Init → Analysis → Pet App Install
+
+# Grade after solving
+grade_lab automating-ripu-with-ansible 1
+# Expected: PASS all 26 checkpoints
+
+# View report
+cat /tmp/grading_dir/grading_report_${USER}_module_01.txt
+----
+
+**Test Module 2 (Upgrade Execution):**
+[source,bash]
+----
+# WARNING: Module 2 performs actual RHEL upgrades (30-60 minutes)
+
+# Solve Module 2 (automated, non-interactive)
+solve_lab automating-ripu-with-ansible 2
+# Upgrades: node1 (7→8), node2 (8→9), node3 (9→10)
+
+# Grade after upgrades complete
+grade_lab automating-ripu-with-ansible 2
+# Expected: PASS all 26 checkpoints
+
+# View report
+cat /tmp/grading_dir/grading_report_${USER}_module_02.txt
+----
+
+**Test Full Lab:**
+[source,bash]
+----
+# Grade all completed modules
+grade_lab automating-ripu-with-ansible
+
+# Expected: PASS 52 checkpoints (Module 1 + 2), Module 3 skipped
+# View full report
+cat /tmp/grading_dir/grading_report_${USER}.txt
+----
+
+=== Development Usage
 
 Create a lab directory with grader and solver playbooks:
 
@@ -77,6 +196,27 @@ FTL graders and solvers require certain environment variables to be set. These a
 |===
 
 NOTE: `LAB_USER` is automatically set from the username argument (e.g., `grade_lab <lab-name> user1`). No need to export it manually.
+
+=== AAP-Specific Variables (for AAP labs)
+
+[cols="1,2,1"]
+|===
+| Variable | Description | Example
+
+| `AAP_HOSTNAME`
+| AAP Controller URL
+| `https://controller-xxxxx.apps.example.com`
+
+| `AAP_PASSWORD`
+| AAP user password
+| From AgnosticV user data
+
+| `AAP_USERNAME`
+| AAP username
+| `lab-user` (default)
+|===
+
+IMPORTANT: FTL supports *AAP 2.6* with the new gateway architecture. All AAP roles use `/api/controller/v2/` endpoints (not the legacy `/api/v2/` paths).
 
 === Optional Variables
 
