@@ -9,7 +9,6 @@
     path: "{{ grader_working_dir }}"
     state: directory
     mode: '0755'
-    owner: "{{ ansible_user | default(omit) }}"
 
 # Remove any previous grading report
 # This ensures each grading run starts fresh without confusion from old results
