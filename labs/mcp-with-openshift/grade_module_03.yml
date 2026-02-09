@@ -57,17 +57,16 @@
       ansible.builtin.set_fact:
         tool_filter_configured: "{{
           r_tool_config.resources | length > 0 and
-          r_tool_config.resources[0].spec.toolFilter is defined and
-          r_tool_config.resources[0].spec.toolFilter.allowlist is defined and
-          r_tool_config.resources[0].spec.toolFilter.allowlist | length > 0
+          r_tool_config.resources[0].spec.toolsFilter is defined and
+          r_tool_config.resources[0].spec.toolsFilter | length > 0
         }}"
 
     - name: "Exercise 3.2: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
-          'PASS: Exercise 3.2: Tool filter allowlist configured (least-privilege access)'
+          'PASS: Exercise 3.2: Tool filter configured (least-privilege access with ' + (r_tool_config.resources[0].spec.toolsFilter | length | string) + ' allowed tools)'
           if tool_filter_configured
-          else 'FAIL: Exercise 3.2: Tool filter applied: MCPToolConfig exists but allowlist not configured. Add spec.toolFilter.allowlist to restrict tools.'
+          else 'FAIL: Exercise 3.2: Tool filter applied: MCPToolConfig exists but toolsFilter not configured. Add spec.toolsFilter array to restrict tools.'
         }}"
 
     - name: "Exercise 3.2: Log result"

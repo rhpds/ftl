@@ -42,16 +42,15 @@
             name: openshift-tool-filter
             namespace: "{{ mcp_openshift_namespace }}"
           spec:
-            toolFilter:
-              allowlist:
-                - events_list
-                - namespaces_list
-                - pods_get
-                - pods_list
-                - pods_list_in_namespace
-                - pods_log
-                - resources_get
-                - resources_list
+            toolsFilter:
+              - events_list
+              - namespaces_list
+              - pods_get
+              - pods_list
+              - pods_list_in_namespace
+              - pods_log
+              - resources_get
+              - resources_list
 
     - name: Update MCPServer to use tool filter
       kubernetes.core.k8s:
