@@ -18,44 +18,41 @@ FTL (Finish The Labs) provides automated validation (grading) and completion (so
 
 ## Quick Start
 
-### Dedicated Cluster (single user per cluster)
+### MCP Lab (OpenShift-based)
 
 ```bash
 # Clone FTL
 git clone https://github.com/rhpds/ftl.git ~/ftl
+cd ~/ftl
 
-# Add to PATH
-echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
+# Set required environment variables
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-zwh9g.dynamic.redhatworkshops.io"
+export PASSWORD="<your_password_from_user_data>"
 
-# Grade the lab
-grade_lab mcp-with-openshift
+# Grade the lab (multi-user environment)
+./bin/grade_lab mcp-with-openshift user1
 
 # Or solve (auto-complete) the lab
-solve_lab mcp-with-openshift
+./bin/solve_lab mcp-with-openshift user1
 ```
 
-### Multi-User Environment (shared cluster)
+### RIPU Lab (Ansible Automation Platform-based)
 
 ```bash
-# On bastion as system:admin
-
 # Clone FTL
 git clone https://github.com/rhpds/ftl.git ~/ftl
-export PATH="$HOME/ftl/bin:$PATH"
+cd ~/ftl
 
-# Grade all modules for user2
-grade_lab mcp-with-openshift user2
+# Set required environment variables
+export AAP_HOSTNAME="https://controller-guid.example.com"
+export AAP_USERNAME="lab-user"  # Optional
+export AAP_PASSWORD="<your_password_from_user_data>"
 
-# Grade module 1 for user3
-grade_lab mcp-with-openshift user3 1
+# Grade the lab
+./bin/grade_lab automating-ripu-with-ansible
 
-# Solve all modules for user4
-solve_lab mcp-with-openshift user4
-
-# Or use environment variable
-export LAB_USER=user1
-grade_lab mcp-with-openshift
+# Or solve (auto-complete) the lab
+./bin/solve_lab automating-ripu-with-ansible
 ```
 
 ## Current Labs
@@ -63,18 +60,46 @@ grade_lab mcp-with-openshift
 ### MCP with OpenShift (`mcp-with-openshift`)
 **Model Context Protocol Enterprise Integration Lab**
 
-- **Modules**: 4 modules, 18 total checkpoints
+- **Modules**: 4 modules, 35 total checkpoints
 - **Duration**: 60-90 minutes
 - **Technology**: OpenShift, MCP, ToolHive, LibreChat, Gitea, PostgreSQL
 - **Validation**: 100% API-based (no browser automation)
 
 **Checkpoints:**
-- Module 1: Lab Setup (5 checkpoints)
-- Module 2: SRE Agent Demo (4 checkpoints)
-- Module 3: MCP Server Administration (5 checkpoints)
-- Module 4: MCP Registry (4 checkpoints)
+- Module 1: Lab Setup (6 checkpoints)
+- Module 2: SRE Agent Demo (9 checkpoints)
+- Module 3: MCP Server Administration (11 checkpoints)
+- Module 4: MCP Registry (9 checkpoints)
 
-**Test Status**: ✅ All 18/18 checkpoints passing
+**Required Environment Variables:**
+```bash
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-<guid>.<domain>"
+export PASSWORD="<password_from_user_data>"
+```
+
+**Test Status**: ✅ Tested in production environments
+
+### Automating RIPU with Ansible (`automating-ripu-with-ansible`)
+**RHEL In-Place Upgrade Automation Lab**
+
+- **Modules**: 3 modules, 57 total checkpoints
+- **Duration**: 2-3 hours (includes upgrade wait time)
+- **Technology**: Ansible Automation Platform, RHEL Leapp, Multi-node inventory
+- **Validation**: AAP API + SSH command validation on managed nodes
+
+**Checkpoints:**
+- Module 1: Pre-upgrade Analysis (26 checkpoints)
+- Module 2: Upgrade Execution (26 checkpoints)
+- Module 3: Rollback (5 checkpoints - snapshots disabled in lab)
+
+**Required Environment Variables:**
+```bash
+export AAP_HOSTNAME="https://controller-<guid>.<domain>"
+export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
+export AAP_PASSWORD="<password_from_user_data>"
+```
+
+**Test Status**: ✅ Tested with AAP 2.6 and RHEL 7→8, 8→9, 9→10 upgrades
 
 ## Architecture
 
@@ -143,42 +168,47 @@ ftl/
 
 ## Usage Examples
 
-### Dedicated Cluster Environment
-
-When each student has their own cluster:
+### MCP Lab (Multi-User OpenShift Environment)
 
 ```bash
-# Grade all modules
-grade_lab mcp-with-openshift
+# Set environment variables
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-zwh9g.dynamic.redhatworkshops.io"
+export PASSWORD="<password>"
 
-# Grade specific modules
-grade_lab mcp-with-openshift 1  # Module 1 only
-grade_lab mcp-with-openshift 2  # Module 2 only
+# Grade all modules for user1
+./bin/grade_lab mcp-with-openshift user1
 
-# Solve all modules
-solve_lab mcp-with-openshift
+# Grade specific module for user2
+./bin/grade_lab mcp-with-openshift user2 1  # Module 1 only
 
-# Solve specific modules
-solve_lab mcp-with-openshift 3
-solve_lab mcp-with-openshift 4
+# Solve all modules for user3
+./bin/solve_lab mcp-with-openshift user3
+
+# Solve specific module for user4
+./bin/solve_lab mcp-with-openshift user4 2
 ```
 
-### Multi-User Environment
-
-When grading/solving for specific users in a shared cluster:
+### RIPU Lab (AAP-based Environment)
 
 ```bash
-# Grade all modules for user2
-grade_lab mcp-with-openshift user2
+# Set environment variables
+export AAP_HOSTNAME="https://controller-guid.example.com"
+export AAP_USERNAME="lab-user"
+export AAP_PASSWORD="<password>"
 
-# Grade module 1 for user3
-grade_lab mcp-with-openshift user3 1
+# Grade all modules (single user environment)
+./bin/grade_lab automating-ripu-with-ansible
 
-# Solve all modules for user4
-solve_lab mcp-with-openshift user4
+# Grade specific modules
+./bin/grade_lab automating-ripu-with-ansible 1  # Module 1 only
+./bin/grade_lab automating-ripu-with-ansible 2  # Module 2 only
 
-# Solve module 2 for user5
-solve_lab mcp-with-openshift user5 2
+# Solve all modules
+./bin/solve_lab automating-ripu-with-ansible
+
+# Solve specific modules
+./bin/solve_lab automating-ripu-with-ansible 1
+./bin/solve_lab automating-ripu-with-ansible 2
 ```
 
 **Command Format:**
@@ -187,9 +217,14 @@ grade_lab <lab-name> [user] [module-number]
 solve_lab <lab-name> [user] [module-number]
 ```
 
+**Arguments:**
+- `lab-name`: Required. Lab directory name (e.g., `mcp-with-openshift`, `automating-ripu-with-ansible`)
+- `user`: Optional. OpenShift username (e.g., `user1`, `user2`). For MCP multi-user environments only.
+- `module-number`: Optional. Module number (e.g., `1`, `2`, `3`). Omit to run all modules.
+
 **Smart Parsing:**
-- 2nd arg is a number → module number (uses `$LAB_USER` or `$USER`)
-- 2nd arg is not a number → username (3rd arg is module number)
+- If 2nd arg is a number → module number (uses `$LAB_USER` or current user)
+- If 2nd arg is not a number → username (3rd arg is module number)
 
 ### Manual Execution
 
