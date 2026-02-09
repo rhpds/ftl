@@ -55,11 +55,11 @@
       ansible.builtin.set_fact:
         gitea_user: "{{ base_namespace_prefix }}"
 
-    - name: Set namespace variables (env override or default)
+    - name: Set namespace variables (env override or build from LAB_USER)
       ansible.builtin.set_fact:
-        mcp_openshift_namespace: "{{ lookup('env', 'MCP_OPENSHIFT_NAMESPACE') | default('mcp-openshift', true) }}"
-        mcp_gitea_namespace: "{{ lookup('env', 'MCP_GITEA_NAMESPACE') | default('mcp-gitea', true) }}"
-        librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat', true) }}"
+        mcp_openshift_namespace: "{{ lookup('env', 'MCP_OPENSHIFT_NAMESPACE') | default('mcp-openshift-' + base_namespace_prefix, true) }}"
+        mcp_gitea_namespace: "{{ lookup('env', 'MCP_GITEA_NAMESPACE') | default('mcp-gitea-' + base_namespace_prefix, true) }}"
+        librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat-' + base_namespace_prefix, true) }}"
 
     - name: Set Gitea URL (env override or build from ingress domain)
       ansible.builtin.set_fact:
