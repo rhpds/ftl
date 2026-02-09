@@ -217,63 +217,126 @@
         - r_analysis_job.json.status == 'successful'
 
     # =========================================================================
-    # Step 4: Launch Pet App Install Job (Optional Exercise 1.6)
+    # Step 4: Deploy Pet App Directly on Nodes (Exercise 1.6)
     # =========================================================================
-    - name: Get pet app install job template ID
-      ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/controller/v2/job_templates/?name={{ 'PETS / App Install' | urlencode }}"
-        method: GET
-        user: "{{ aap_username }}"
-        password: "{{ aap_password }}"
-        force_basic_auth: true
-        validate_certs: "{{ aap_validate_certs }}"
-        status_code: 200
-      register: r_petapp_template
+    - name: Display pet app deployment message
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Deploying Pet Application on all nodes
+          ================================================================================
+
+          This will install and configure the Spring PetClinic application on:
+            - node1 (RHEL 7)
+            - node2 (RHEL 8)
+            - node3 (RHEL 9)
+
+          ================================================================================
+
+# Play 2: Deploy Pet App on All Nodes
+- name: Solve Module 1 - Deploy Pet Application
+  hosts: nodes
+  gather_facts: true
+  become: false
+
+  tasks:
+    # =========================================================================
+    # Install dependencies
+    # =========================================================================
+    - name: Configure Adoptium yum repository for Temurin JDK
+      ansible.builtin.yum_repository:
+        name: adoptium
+        description: Adoptium repo for Temurin OpenJDK
+        gpgkey: https://packages.adoptium.net/artifactory/api/gpg/key/public
+        baseurl: "https://packages.adoptium.net/artifactory/rpm/rhel/{{ ansible_distribution_major_version }}/x86_64"
+        enabled: yes
+      become: true
+
+    - name: Install required packages
+      ansible.builtin.yum:
+        name:
+          - mariadb-server
+          - mariadb
+          - git
+          - temurin-17-jdk
+        state: present
+      become: true
+
+    # =========================================================================
+    # Configure and start MariaDB
+    # =========================================================================
+    - name: Start and enable MariaDB service
+      ansible.builtin.service:
+        name: mariadb
+        state: started
+        enabled: true
+      become: true
+
+    - name: Create petclinic database and user
+      ansible.builtin.shell: |
+        mysql -u root <<EOF
+        CREATE DATABASE IF NOT EXISTS petclinic;
+        ALTER DATABASE petclinic DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;
+        GRANT ALL PRIVILEGES ON petclinic.* TO 'petclinic'@'localhost' IDENTIFIED BY 'petclinic';
+        FLUSH PRIVILEGES;
+        EOF
+      become: true
+      changed_when: true
+
+    # =========================================================================
+    # Clone and configure Spring PetClinic
+    # =========================================================================
+    - name: Check if spring-petclinic already exists
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/spring-petclinic"
+      register: r_petclinic_dir
+
+    - name: Clone Spring PetClinic repository
+      ansible.builtin.git:
+        repo: https://github.com/spring-projects/spring-petclinic.git
+        dest: "{{ ansible_env.HOME }}/spring-petclinic"
+        version: main
+      when: not r_petclinic_dir.stat.exists
+
+    # =========================================================================
+    # Start pet application
+    # =========================================================================
+    - name: Check if pet app is already running
+      ansible.builtin.shell: pgrep -f spring-petclinic
+      register: r_app_running
       failed_when: false
+      changed_when: false
 
-    - name: Launch pet app install job for ALL_rhel
-      ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/controller/v2/job_templates/{{ r_petapp_template.json.results[0].id }}/launch/"
-        method: POST
-        user: "{{ aap_username }}"
-        password: "{{ aap_password }}"
-        force_basic_auth: true
-        validate_certs: "{{ aap_validate_certs }}"
-        body_format: json
-        body:
-          extra_vars:
-            rhel_inventory_group: "ALL_rhel"
-        status_code: [201, 202]
-      register: r_petapp_launch
-      when: r_petapp_template.json.count | default(0) > 0
+    - name: Start pet app using at
+      ansible.builtin.shell: |
+        echo 'cd $HOME/spring-petclinic && ./mvnw spring-boot:run -Dspring-boot.run.profiles=mysql >> $HOME/app.log 2>&1' | at now
+      when: r_app_running.rc != 0
+      changed_when: true
 
-    - name: Wait for pet app install to complete
-      ansible.builtin.uri:
-        url: "{{ aap_hostname }}/api/controller/v2/jobs/{{ r_petapp_launch.json.id }}/"
-        method: GET
-        user: "{{ aap_username }}"
-        password: "{{ aap_password }}"
-        force_basic_auth: true
-        validate_certs: "{{ aap_validate_certs }}"
-        status_code: 200
-      register: r_petapp_job
-      until: r_petapp_job.json.status in ['successful', 'failed', 'error', 'canceled']
-      retries: 60
-      delay: 10
-      when: r_petapp_launch is not skipped
+    - name: Wait for application to start
+      ansible.builtin.wait_for:
+        port: 8080
+        timeout: 300
+      ignore_errors: true
 
-    - name: Display pet app install completion
+    # =========================================================================
+    # Configure auto-start on reboot
+    # =========================================================================
+    - name: Add cron entry for pet app auto-start on reboot
+      ansible.builtin.cron:
+        name: Pet Clinic app start on boot
+        special_time: reboot
+        job: 'cd $HOME/spring-petclinic && ./mvnw spring-boot:run -Dspring-boot.run.profiles=mysql >> $HOME/app.log 2>&1'
+
+    - name: Display pet app deployment status
       ansible.builtin.debug:
-        msg: "✓ Pet application installed on all nodes (Job #{{ r_petapp_launch.json.id }})"
-      when:
-        - r_petapp_job is not skipped
-        - r_petapp_job.json.status == 'successful'
+        msg: "✓ Pet application deployed and running on {{ inventory_hostname }}:8080"
 
-    - name: Display pet app install skip message
-      ansible.builtin.debug:
-        msg: "⚠ Pet app install job template not found - skipping optional exercise 1.6"
-      when: r_petapp_template.json.count | default(0) == 0
-
+# Play 3: Display Summary
+- name: Solve Module 1 - Display Summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
     # =========================================================================
     # Summary
     # =========================================================================

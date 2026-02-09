@@ -161,7 +161,7 @@
         file_type: directory
 
     # =========================================================================
-    # Exercise 1.6: Deploy a Pet App (Optional but recommended)
+    # Exercise 1.6: Deploy a Pet App (Optional for learners, always deployed by solver)
     # =========================================================================
     - name: "Exercise 1.6: Pet app installed on {{ inventory_hostname }}"
       ansible.builtin.include_role:
@@ -169,7 +169,9 @@
       vars:
         service_name: "mariadb"
         task_description_message: "Exercise 1.6: Pet app database (MariaDB) running on {{ inventory_hostname }}"
-        student_error_message: "MariaDB not running. Install pet app or launch 'PETS / App Install' job."
+        student_error_message: |
+          MariaDB not running. Exercise 1.6 is optional but recommended.
+          Run Module 1 solver to deploy pet app automatically.
 
     - name: "Exercise 1.6: Pet app accessible on {{ inventory_hostname }}"
       ansible.builtin.include_role:
@@ -178,7 +180,9 @@
         command: "pgrep -f spring-petclinic"
         expected_rc: 0
         task_description_message: "Exercise 1.6: Pet application running on {{ inventory_hostname }}"
-        student_error_message: "Pet app not running. Start app or check reboot cron entry."
+        student_error_message: |
+          Pet app not running. Exercise 1.6 is optional but recommended.
+          Run Module 1 solver to deploy and start pet app.
 
     - name: "Exercise 1.6: Pet app reboot cron configured on {{ inventory_hostname }}"
       ansible.builtin.include_role:
@@ -187,7 +191,9 @@
         command: "crontab -l"
         expected_content_regex: "@reboot.*spring-petclinic"
         task_description_message: "Exercise 1.6: Pet app configured to start on reboot on {{ inventory_hostname }}"
-        student_error_message: "Reboot cron entry not found. Configure app to start automatically."
+        student_error_message: |
+          Reboot cron entry not found. Exercise 1.6 is optional but recommended.
+          Run Module 1 solver to configure auto-start.
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 1

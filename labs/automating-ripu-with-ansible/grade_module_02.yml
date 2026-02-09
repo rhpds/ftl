@@ -141,29 +141,22 @@
         student_error_message: "System not responding. Verify node rebooted after upgrade."
 
     # =========================================================================
-    # Exercise 2.4: How is the Pet App Doing (Optional)
+    # Exercise 2.4: How is the Pet App Doing
     # =========================================================================
-    # NOTE: Exercise 1.6 (Pet App Deployment) is OPTIONAL per workshop.
-    # These checks only pass if student completed optional Exercise 1.6.
-
-    - name: "Exercise 2.4: Check if pet app was deployed (optional exercise)"
-      ansible.builtin.stat:
-        path: "{{ ansible_env.HOME }}/spring-petclinic"
-      register: r_petapp_check
+    # Pet app is deployed by Module 1 solver and should survive the upgrade.
+    # These checks validate that MariaDB, app, and data are intact post-upgrade.
 
     - name: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
-      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_service_running
       vars:
         service_name: "mariadb"
         task_description_message: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
         student_error_message: |
-          MariaDB not running after upgrade. Exercise 1.6 is optional.
-          Run solver to deploy and fix pet app.
+          MariaDB not running after upgrade.
+          Run Module 2 solver to fix pet app.
 
     - name: "Exercise 2.4: Pet app running post-upgrade on {{ inventory_hostname }}"
-      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -171,11 +164,10 @@
         expected_rc: 0
         task_description_message: "Exercise 2.4: Pet application running post-upgrade on {{ inventory_hostname }}"
         student_error_message: |
-          Pet app not running after upgrade. 3rd-party JDK may be removed (expected).
-          Run solver to reinstall JDK and restart pet app.
+          Pet app not running after upgrade. 3rd-party JDK may be removed during upgrade.
+          Run Module 2 solver to reinstall JDK and restart pet app.
 
     - name: "Exercise 2.4: Pet app data preserved on {{ inventory_hostname }}"
-      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -184,7 +176,7 @@
         task_description_message: "Exercise 2.4: Pet app database accessible post-upgrade on {{ inventory_hostname }}"
         student_error_message: |
           Pet app database not accessible. Check MariaDB upgrade status.
-          Run solver to fix pet app database.
+          Run Module 2 solver to fix pet app database.
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 2
