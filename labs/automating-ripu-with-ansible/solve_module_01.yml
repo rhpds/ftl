@@ -88,17 +88,27 @@
       delay: 10
       when: r_cac_launch is defined
 
-    - name: Verify CaC job succeeded
-      ansible.builtin.assert:
-        that:
-          - r_cac_job.json.status == 'successful'
-        fail_msg: "CaC job failed. Check AAP job output for errors."
-      when: r_cac_job is defined
-
     - name: Display CaC job completion
       ansible.builtin.debug:
         msg: "✓ CaC job completed successfully (Job #{{ r_cac_launch.json.id }})"
-      when: r_cac_job.json.status == 'successful'
+      when:
+        - r_cac_job is defined
+        - r_cac_job.json.status == 'successful'
+
+    - name: Fail if CaC job did not succeed
+      ansible.builtin.fail:
+        msg: |
+          CaC job failed with status: {{ r_cac_job.json.status }}
+
+          Job details:
+          - Job ID: {{ r_cac_launch.json.id }}
+          - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_cac_launch.json.id }}/output
+
+          Check the AAP Web UI for detailed error logs.
+          The CaC job should configure AAP with templates and is required for subsequent steps.
+      when:
+        - r_cac_job is defined
+        - r_cac_job.json.status != 'successful'
 
     # =========================================================================
     # Step 2: Launch Lab Initialization Job
@@ -143,19 +153,32 @@
       delay: 10
       when: r_init_launch is not skipped
 
-    - name: Verify lab initialization succeeded
-      ansible.builtin.assert:
-        that:
-          - r_init_job.json.status == 'successful'
-        fail_msg: "Lab initialization job failed. Check AAP job output for errors."
-      when: r_init_job is not skipped
-
     - name: Display lab initialization completion
       ansible.builtin.debug:
         msg: "✓ Lab initialization completed successfully (Job #{{ r_init_launch.json.id }})"
       when:
         - r_init_job is not skipped
         - r_init_job.json.status == 'successful'
+
+    - name: Fail if lab initialization did not succeed
+      ansible.builtin.fail:
+        msg: |
+          Lab initialization job failed with status: {{ r_init_job.json.status }}
+
+          Job details:
+          - Job ID: {{ r_init_launch.json.id }}
+          - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_init_launch.json.id }}/output
+
+          Check the AAP Web UI for detailed error logs.
+          The lab initialization job prepares servers for the workshop and is required.
+
+          Common issues:
+          - Managed nodes not accessible via SSH
+          - Packages already installed causing conflicts
+          - Permission issues on managed nodes
+      when:
+        - r_init_job is not skipped
+        - r_init_job.json.status != 'successful'
 
     # =========================================================================
     # Step 3: Launch Analysis Job
@@ -202,19 +225,32 @@
       delay: 10
       when: r_analysis_launch is not skipped
 
-    - name: Verify analysis job succeeded
-      ansible.builtin.assert:
-        that:
-          - r_analysis_job.json.status == 'successful'
-        fail_msg: "Analysis job failed. Check AAP job output for errors."
-      when: r_analysis_job is not skipped
-
     - name: Display analysis job completion
       ansible.builtin.debug:
         msg: "✓ Pre-upgrade analysis completed successfully (Job #{{ r_analysis_launch.json.id }})"
       when:
         - r_analysis_job is not skipped
         - r_analysis_job.json.status == 'successful'
+
+    - name: Fail if analysis job did not succeed
+      ansible.builtin.fail:
+        msg: |
+          Pre-upgrade analysis job failed with status: {{ r_analysis_job.json.status }}
+
+          Job details:
+          - Job ID: {{ r_analysis_launch.json.id }}
+          - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_analysis_launch.json.id }}/output
+
+          Check the AAP Web UI for detailed error logs.
+          The analysis job runs Leapp pre-upgrade analysis on all managed nodes.
+
+          Common issues:
+          - Leapp packages not available on managed nodes
+          - Network issues accessing Red Hat subscription repositories
+          - Insufficient disk space on managed nodes
+      when:
+        - r_analysis_job is not skipped
+        - r_analysis_job.json.status != 'successful'
 
     # =========================================================================
     # Step 4: Deploy Pet App Directly on Nodes (Exercise 1.6)
