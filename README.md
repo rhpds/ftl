@@ -43,10 +43,10 @@ export PASSWORD="Xy9aB_1"  # Get from demo.redhat.com > Your lab > User tab
 git clone https://github.com/rhpds/ftl.git ~/ftl
 cd ~/ftl
 
-# Set required environment variables (from demo.redhat.com User tab)
+# Set required environment variables (from demo.redhat.com Advanced Settings)
 export AAP_HOSTNAME="https://controller-guid.example.com"
 export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
-export AAP_PASSWORD="Xy9aB_1"  # Get from demo.redhat.com > Your lab > User tab
+export AAP_PASSWORD="Xy9aB_1"  # Get from demo.redhat.com > Your lab > Advanced Settings
 
 # Grade the lab
 ./bin/grade_lab automating-ripu-with-ansible
@@ -96,7 +96,7 @@ export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 ```bash
 export AAP_HOSTNAME="https://controller-<guid>.<domain>"
 export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
-export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > User tab
+export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > Advanced Settings
 ```
 
 **Test Status**: ✅ Tested with AAP 2.6 and RHEL 7→8, 8→9, 9→10 upgrades
@@ -191,7 +191,7 @@ export PASSWORD="Xy9aB_1"
 ### RIPU Lab (AAP-based Environment)
 
 ```bash
-# Get credentials from demo.redhat.com > Your lab > User tab or Advanced Settings
+# Get credentials from demo.redhat.com > Your lab > Advanced Settings
 export AAP_HOSTNAME="https://controller-guid.example.com"
 export AAP_USERNAME="lab-user"  # Optional
 export AAP_PASSWORD="Xy9aB_1"
