@@ -25,9 +25,9 @@ FTL (Finish The Labs) provides automated validation (grading) and completion (so
 git clone https://github.com/rhpds/ftl.git ~/ftl
 cd ~/ftl
 
-# Set required environment variables
+# Set required environment variables (from demo.redhat.com User tab)
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-zwh9g.dynamic.redhatworkshops.io"
-export PASSWORD="<your_password_from_user_data>"
+export PASSWORD="Xy9aB_1"  # Get from demo.redhat.com > Your lab > User tab
 
 # Grade the lab (multi-user environment)
 ./bin/grade_lab mcp-with-openshift user1
@@ -43,10 +43,10 @@ export PASSWORD="<your_password_from_user_data>"
 git clone https://github.com/rhpds/ftl.git ~/ftl
 cd ~/ftl
 
-# Set required environment variables
+# Set required environment variables (from demo.redhat.com User tab)
 export AAP_HOSTNAME="https://controller-guid.example.com"
-export AAP_USERNAME="lab-user"  # Optional
-export AAP_PASSWORD="<your_password_from_user_data>"
+export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
+export AAP_PASSWORD="Xy9aB_1"  # Get from demo.redhat.com > Your lab > User tab
 
 # Grade the lab
 ./bin/grade_lab automating-ripu-with-ansible
@@ -74,7 +74,7 @@ export AAP_PASSWORD="<your_password_from_user_data>"
 **Required Environment Variables:**
 ```bash
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-<guid>.<domain>"
-export PASSWORD="<password_from_user_data>"
+export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 ```
 
 **Test Status**: ✅ Tested in production environments
@@ -96,7 +96,7 @@ export PASSWORD="<password_from_user_data>"
 ```bash
 export AAP_HOSTNAME="https://controller-<guid>.<domain>"
 export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
-export AAP_PASSWORD="<password_from_user_data>"
+export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > User tab
 ```
 
 **Test Status**: ✅ Tested with AAP 2.6 and RHEL 7→8, 8→9, 9→10 upgrades
@@ -171,9 +171,9 @@ ftl/
 ### MCP Lab (Multi-User OpenShift Environment)
 
 ```bash
-# Set environment variables
+# Get credentials from demo.redhat.com > Your lab > User tab
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-zwh9g.dynamic.redhatworkshops.io"
-export PASSWORD="<password>"
+export PASSWORD="Xy9aB_1"
 
 # Grade all modules for user1
 ./bin/grade_lab mcp-with-openshift user1
@@ -191,10 +191,10 @@ export PASSWORD="<password>"
 ### RIPU Lab (AAP-based Environment)
 
 ```bash
-# Set environment variables
+# Get credentials from demo.redhat.com > Your lab > User tab or Advanced Settings
 export AAP_HOSTNAME="https://controller-guid.example.com"
-export AAP_USERNAME="lab-user"
-export AAP_PASSWORD="<password>"
+export AAP_USERNAME="lab-user"  # Optional
+export AAP_PASSWORD="Xy9aB_1"
 
 # Grade all modules (single user environment)
 ./bin/grade_lab automating-ripu-with-ansible
