@@ -110,7 +110,7 @@
 - name: Grade Module 1 - Node Validation
   hosts: nodes
   gather_facts: true
-  become: false
+  become: true
   vars:
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
 
@@ -161,19 +161,19 @@
         file_type: directory
 
     # =========================================================================
-    # Exercise 1.6: Deploy a Pet App (Optional for learners, always deployed by solver)
+    # Exercise 1.6: Deploy a Pet App
     # =========================================================================
-    - name: "Exercise 1.6: Pet app installed on {{ inventory_hostname }}"
+    - name: "Exercise 1.6: Pet app database (MariaDB) running on {{ inventory_hostname }}"
       ansible.builtin.include_role:
         name: grader_check_service_running
       vars:
         service_name: "mariadb"
         task_description_message: "Exercise 1.6: Pet app database (MariaDB) running on {{ inventory_hostname }}"
         student_error_message: |
-          MariaDB not running. Exercise 1.6 is optional but recommended.
-          Run Module 1 solver to deploy pet app automatically.
+          MariaDB not running on {{ inventory_hostname }}.
+          Install and start MariaDB, then create petclinic database.
 
-    - name: "Exercise 1.6: Pet app accessible on {{ inventory_hostname }}"
+    - name: "Exercise 1.6: Pet application running on {{ inventory_hostname }}"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -181,10 +181,10 @@
         expected_rc: 0
         task_description_message: "Exercise 1.6: Pet application running on {{ inventory_hostname }}"
         student_error_message: |
-          Pet app not running. Exercise 1.6 is optional but recommended.
-          Run Module 1 solver to deploy and start pet app.
+          Pet app not running on {{ inventory_hostname }}.
+          Clone spring-petclinic repo and start application with MySQL profile.
 
-    - name: "Exercise 1.6: Pet app reboot cron configured on {{ inventory_hostname }}"
+    - name: "Exercise 1.6: Pet app auto-start configured on {{ inventory_hostname }}"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -192,8 +192,8 @@
         expected_content_regex: "@reboot.*spring-petclinic"
         task_description_message: "Exercise 1.6: Pet app configured to start on reboot on {{ inventory_hostname }}"
         student_error_message: |
-          Reboot cron entry not found. Exercise 1.6 is optional but recommended.
-          Run Module 1 solver to configure auto-start.
+          Reboot cron entry not found on {{ inventory_hostname }}.
+          Add cron entry to auto-start pet app on system reboot.
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 1
