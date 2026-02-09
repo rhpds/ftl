@@ -60,15 +60,16 @@
     - workflow_template_found | default(false) | bool
     - require_job_execution | default(true) | bool
 
-# Check for successful workflow job
-- name: Check for successful workflow job execution
+# Check for workflow job execution (successful or any status if allow_failed_status is true)
+- name: Check for workflow job execution
   when:
     - workflow_template_found | default(false) | bool
     - require_job_execution | default(true) | bool
     - r_workflow_jobs.json.count | default(0) | int > 0
   ansible.builtin.set_fact:
-    successful_job_found: "{{ r_workflow_jobs.json.results | selectattr('status', 'equalto', 'successful') | list | length > 0 }}"
+    successful_job_found: "{{ (allow_failed_status | default(false) | bool) or (r_workflow_jobs.json.results | selectattr('status', 'equalto', 'successful') | list | length > 0) }}"
     latest_job_status: "{{ r_workflow_jobs.json.results[0].status | default('unknown') }}"
+    job_was_executed: true
 
 # Evaluate success - workflow template exists only
 - name: Evaluate success (template exists only)

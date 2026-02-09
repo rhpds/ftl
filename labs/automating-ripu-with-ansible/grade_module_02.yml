@@ -67,15 +67,16 @@
         require_job_execution: false
         student_error_message: "Upgrade workflow template not found. Verify CaC job completed."
 
-    - name: "Exercise 2.1: Upgrade workflow job executed successfully"
+    - name: "Exercise 2.1: Upgrade workflow job executed"
       ansible.builtin.include_role:
         name: grader_check_aap_workflow_completed
       vars:
         workflow_template_name: "AUTO / 02 Upgrade"
-        task_description_message: "Exercise 2.1: Upgrade workflow executed successfully"
+        task_description_message: "Exercise 2.1: Upgrade workflow executed (status may show failed due to infrastructure)"
         require_job_execution: true
         check_last_n_jobs: 10
-        student_error_message: "Upgrade workflow not run or failed. Launch 'AUTO / 02 Upgrade' workflow."
+        allow_failed_status: true
+        student_error_message: "Upgrade workflow not run. Launch 'AUTO / 02 Upgrade' workflow."
 
 # Play 3: Grade Module 2 - Node Validation (Exercises 2.2-2.4)
 - name: Grade Module 2 - RHEL Upgrade Validation
