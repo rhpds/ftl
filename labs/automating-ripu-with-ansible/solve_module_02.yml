@@ -191,9 +191,11 @@
           failed_when: false
           changed_when: false
 
-        - name: Reinstall temurin-17-jdk if missing
+        - name: Reinstall temurin-17-jdk and at if missing
           ansible.builtin.yum:
-            name: temurin-17-jdk
+            name:
+              - temurin-17-jdk
+              - at
             state: present
           become: true
           when: r_jdk_check.rc != 0
@@ -241,6 +243,13 @@
               ansible.builtin.shell: pkill -f spring-petclinic || true
               become: true
               changed_when: false
+
+            - name: Start and enable atd service
+              ansible.builtin.service:
+                name: atd
+                state: started
+                enabled: true
+              become: true
 
             - name: Start pet app using at
               ansible.builtin.shell: |

@@ -289,6 +289,7 @@
           - mariadb
           - git
           - temurin-17-jdk
+          - at
         state: present
       become: true
 
@@ -336,6 +337,14 @@
       register: r_app_running
       failed_when: false
       changed_when: false
+
+    - name: Start and enable atd service
+      ansible.builtin.service:
+        name: atd
+        state: started
+        enabled: true
+      become: true
+      when: r_app_running.rc != 0
 
     - name: Start pet app using at
       ansible.builtin.shell: |
