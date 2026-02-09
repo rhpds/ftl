@@ -69,23 +69,27 @@
         student_error_message: "Rollback job template not found. Verify CaC job completed successfully."
 
     # =========================================================================
-    # Checkpoint 3.2: Rollback Job Executed (Optional - if snapshots available)
+    # Checkpoint 3.2: Rollback Job Executed
     # =========================================================================
     - name: Check rollback job completed
       ansible.builtin.include_role:
         name: grader_check_aap_job_completed
       vars:
         job_template_name: "AUTO / 03 Rollback"
-        task_description_message: "Rollback job executed successfully (if snapshots available)"
+        task_description_message: "Rollback job executed"
         require_job_execution: true
         check_last_n_jobs: 10
-        student_error_message: "Rollback job not run. Note: Snapshots are currently disabled in this lab environment."
+        allow_failed_status: true
+        student_error_message: |
+          Rollback job not executed.
+          Note: Snapshots are not available in current lab environment - job will fail.
+          Launch rollback job to demonstrate the process.
 
 # Play 3: Validate RHEL Versions Reverted (if rollback executed)
 - name: Validate RHEL versions reverted on nodes
   hosts: nodes
   gather_facts: true
-  become: false
+  become: true
   vars:
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_03.txt"
 
