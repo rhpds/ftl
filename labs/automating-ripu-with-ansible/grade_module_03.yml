@@ -80,10 +80,7 @@
         require_job_execution: true
         check_last_n_jobs: 10
         allow_failed_status: true
-        student_error_message: |
-          Rollback job not executed.
-          Note: Snapshots are not available in current lab environment - job will fail.
-          Launch rollback job to demonstrate the process.
+        student_error_message: "Rollback job not executed. Launch rollback job from AAP controller."
 
 # NOTE: Plays 3-5 for node version validation are removed because snapshots
 # are not available in the current lab environment. Rollback job execution

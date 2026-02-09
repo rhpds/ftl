@@ -106,10 +106,7 @@
         command: "cat /etc/redhat-release"
         expected_output_regex: "Red Hat Enterprise Linux.*release 8"
         task_description_message: "Exercise 2.3: node1 upgraded to RHEL 8"
-        student_error_message: |
-          node1 not upgraded to RHEL 8. Check upgrade workflow job output.
-          NOTE: In lab environments, infrastructure limitations may cause upgrades to fail.
-          This is expected and demonstrates real-world upgrade challenges discussed in workshop.
+        student_error_message: "node1 not upgraded to RHEL 8. Check upgrade workflow job output and verify upgrade job completed successfully."
 
     - name: "Exercise 2.3: node2 upgraded from RHEL 8 to RHEL 9"
       when: inventory_hostname == 'node2'
@@ -128,8 +125,8 @@
       vars:
         command: "cat /etc/redhat-release"
         expected_output_regex: "Red Hat Enterprise Linux.*(release 10|release 9)"
-        task_description_message: "Exercise 2.3: node3 upgrade completed"
-        student_error_message: "node3 upgrade failed. Check upgrade workflow job output. (Note: RHEL 10 may show as 9 if not yet available)"
+        task_description_message: "Exercise 2.3: node3 upgraded to RHEL 10"
+        student_error_message: "node3 not upgraded to RHEL 10. Check upgrade workflow job output and verify upgrade job completed successfully."
 
     - name: "Exercise 2.3: System booted into upgraded kernel on {{ inventory_hostname }}"
       ansible.builtin.include_role:
