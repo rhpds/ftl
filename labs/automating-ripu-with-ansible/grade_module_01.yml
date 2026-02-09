@@ -188,7 +188,7 @@
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        command: "crontab -l"
+        command: "crontab -u cloud-user -l"
         expected_content_regex: "@reboot.*spring-petclinic"
         task_description_message: "Exercise 1.6: Pet app configured to start on reboot on {{ inventory_hostname }}"
         student_error_message: |
