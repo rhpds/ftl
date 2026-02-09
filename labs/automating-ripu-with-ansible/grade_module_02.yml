@@ -82,7 +82,7 @@
 - name: Grade Module 2 - RHEL Upgrade Validation
   hosts: nodes
   gather_facts: true
-  become: false
+  become: true
   vars:
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
 
@@ -143,27 +143,17 @@
     # =========================================================================
     # Exercise 2.4: How is the Pet App Doing
     # =========================================================================
-    # Pet app deployment (Exercise 1.6) is OPTIONAL for learners.
-    # Check if deployed, provide helpful messages for both scenarios.
-
-    - name: "Exercise 2.4: Check if pet app was deployed in Module 1"
-      ansible.builtin.stat:
-        path: "{{ ansible_env.HOME }}/spring-petclinic"
-      register: r_petapp_check
-
     - name: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
-      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_service_running
       vars:
         service_name: "mariadb"
-        task_description_message: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
+        task_description_message: "Exercise 2.4: Pet app database (MariaDB) running post-upgrade on {{ inventory_hostname }}"
         student_error_message: |
-          MariaDB not running after upgrade.
-          Run Module 2 solver to fix pet app.
+          MariaDB not running after upgrade on {{ inventory_hostname }}.
+          Reinstall MariaDB and restore petclinic database.
 
-    - name: "Exercise 2.4: Pet app running post-upgrade on {{ inventory_hostname }}"
-      when: r_petapp_check.stat.exists
+    - name: "Exercise 2.4: Pet application running post-upgrade on {{ inventory_hostname }}"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -171,11 +161,10 @@
         expected_rc: 0
         task_description_message: "Exercise 2.4: Pet application running post-upgrade on {{ inventory_hostname }}"
         student_error_message: |
-          Pet app not running after upgrade. 3rd-party JDK may be removed during upgrade.
-          Run Module 2 solver to reinstall JDK and restart pet app.
+          Pet app not running after upgrade on {{ inventory_hostname }}.
+          3rd-party JDK removed during upgrade - reinstall temurin-17-jdk and restart app.
 
-    - name: "Exercise 2.4: Pet app data preserved on {{ inventory_hostname }}"
-      when: r_petapp_check.stat.exists
+    - name: "Exercise 2.4: Pet app database accessible post-upgrade on {{ inventory_hostname }}"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
@@ -183,15 +172,8 @@
         expected_rc: 0
         task_description_message: "Exercise 2.4: Pet app database accessible post-upgrade on {{ inventory_hostname }}"
         student_error_message: |
-          Pet app database not accessible. Check MariaDB upgrade status.
-          Run Module 2 solver to fix pet app database.
-
-    - name: "Exercise 2.4: Pet app not deployed - optional exercise skipped on {{ inventory_hostname }}"
-      when: not r_petapp_check.stat.exists
-      ansible.builtin.debug:
-        msg: |
-          SKIP: Exercise 2.4 - Pet app was not deployed (Exercise 1.6 is optional).
-          To deploy pet app, run: solve_lab automating-ripu-with-ansible 1
+          Pet app database not accessible on {{ inventory_hostname }}.
+          Database may need restoration after upgrade.
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 2
