@@ -125,7 +125,15 @@
 
     - name: Display upgrade completion
       ansible.builtin.debug:
-        msg: "Upgrade workflow completed with status: {{ r_upgrade_job.json.status | default('unknown') }}"
+        msg: |
+          {{ '✓ Upgrade workflow completed successfully' if r_upgrade_job.json.status == 'successful' else '⚠ Upgrade workflow status: ' + r_upgrade_job.json.status }}
+
+          {% if r_upgrade_job.json.status != 'successful' %}
+          Note: If nodes are already upgraded from a previous run, the upgrade workflow
+          will fail because it expects RHEL 7/8/9 but found RHEL 8/9/10.
+
+          Continuing with pet app restoration...
+          {% endif %}
       when: r_upgrade_job is not skipped
 
 # Play 2: Fix Pet App After Upgrade

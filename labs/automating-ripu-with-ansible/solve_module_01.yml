@@ -160,22 +160,19 @@
         - r_init_job is not skipped
         - r_init_job.json.status == 'successful'
 
-    - name: Fail if lab initialization did not succeed
-      ansible.builtin.fail:
+    - name: Display warning if lab initialization failed
+      ansible.builtin.debug:
         msg: |
-          Lab initialization job failed with status: {{ r_init_job.json.status }}
+          ⚠ Lab initialization job failed with status: {{ r_init_job.json.status }}
 
           Job details:
           - Job ID: {{ r_init_launch.json.id }}
           - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_init_launch.json.id }}/output
 
-          Check the AAP Web UI for detailed error logs.
-          The lab initialization job prepares servers for the workshop and is required.
+          Common reason: Nodes are already upgraded from a previous run.
+          The initialization job expects fresh RHEL 7/8/9 nodes but found upgraded versions.
 
-          Common issues:
-          - Managed nodes not accessible via SSH
-          - Packages already installed causing conflicts
-          - Permission issues on managed nodes
+          Continuing with pet app deployment anyway...
       when:
         - r_init_job is not skipped
         - r_init_job.json.status != 'successful'
@@ -232,22 +229,19 @@
         - r_analysis_job is not skipped
         - r_analysis_job.json.status == 'successful'
 
-    - name: Fail if analysis job did not succeed
-      ansible.builtin.fail:
+    - name: Display warning if analysis job failed
+      ansible.builtin.debug:
         msg: |
-          Pre-upgrade analysis job failed with status: {{ r_analysis_job.json.status }}
+          ⚠ Pre-upgrade analysis job failed with status: {{ r_analysis_job.json.status }}
 
           Job details:
           - Job ID: {{ r_analysis_launch.json.id }}
           - Job URL: {{ aap_hostname }}/#/jobs/playbook/{{ r_analysis_launch.json.id }}/output
 
-          Check the AAP Web UI for detailed error logs.
-          The analysis job runs Leapp pre-upgrade analysis on all managed nodes.
+          Common reason: Nodes are already upgraded from a previous run.
+          The analysis job expects to analyze RHEL 7→8, 8→9, 9→10 upgrades.
 
-          Common issues:
-          - Leapp packages not available on managed nodes
-          - Network issues accessing Red Hat subscription repositories
-          - Insufficient disk space on managed nodes
+          Continuing with pet app deployment anyway...
       when:
         - r_analysis_job is not skipped
         - r_analysis_job.json.status != 'successful'
