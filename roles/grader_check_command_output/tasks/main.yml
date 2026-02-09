@@ -67,10 +67,35 @@
   ansible.builtin.set_fact:
     grader_output_message: "PASS: {{ task_description_message }}"
 
-# Create FAIL message
-# Report failure with helpful error message
-- name: Create Fail message
-  when: not success | bool
+# Create FAIL message - regex pattern mismatch
+- name: Create Fail message (regex mismatch)
+  when:
+    - not success | bool
+    - expected_output_regex is defined
+    - expected_output_regex | length > 0
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message }}
+      (output did not match pattern '{{ expected_output_regex }}', got: {{ r_command.stdout.strip() }})
+
+# Create FAIL message - exact output mismatch
+- name: Create Fail message (exact output mismatch)
+  when:
+    - not success | bool
+    - expected_output is defined
+    - expected_output | length > 0
+    - (expected_output_regex is not defined or expected_output_regex | length == 0)
+  ansible.builtin.set_fact:
+    grader_output_message: >-
+      FAIL: {{ task_description_message }}: {{ student_error_message }}
+      (expected: '{{ expected_output }}', got: '{{ r_command.stdout.strip() }}')
+
+# Create FAIL message - return code mismatch
+- name: Create Fail message (return code mismatch)
+  when:
+    - not success | bool
+    - (expected_output is not defined or expected_output | length == 0)
+    - (expected_output_regex is not defined or expected_output_regex | length == 0)
   ansible.builtin.set_fact:
     grader_output_message: >-
       FAIL: {{ task_description_message }}: {{ student_error_message }}
