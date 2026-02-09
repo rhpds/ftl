@@ -90,15 +90,10 @@
     # =========================================================================
     # Exercise 2.2: Let's Talk About Snapshots
     # =========================================================================
-    # Note: Snapshots currently disabled in lab, but check for snapshot playbook execution
-    - name: "Exercise 2.2: Check for snapshot evidence on {{ inventory_hostname }}"
-      ansible.builtin.include_role:
-        name: grader_check_command_output
-      vars:
-        command: "ls -la /var/log/leapp/"
-        expected_rc: 0
-        task_description_message: "Exercise 2.2: Leapp log directory exists on {{ inventory_hostname }}"
-        student_error_message: "Leapp logs not found. Verify upgrade workflow ran."
+    # NOTE: Exercise 2.2 is DISCUSSION ONLY per workshop instructions
+    # Workshop says: "This exercise is for discussion only in the current lab environment.
+    # No steps are to be performed." Snapshots are disabled in lab.
+    # We skip automated validation for this discussion-only exercise.
 
     # =========================================================================
     # Exercise 2.3: Check if the Upgrade Worked
@@ -111,7 +106,10 @@
         command: "cat /etc/redhat-release"
         expected_output_regex: "Red Hat Enterprise Linux.*release 8"
         task_description_message: "Exercise 2.3: node1 upgraded to RHEL 8"
-        student_error_message: "node1 not upgraded to RHEL 8. Check upgrade workflow job output."
+        student_error_message: |
+          node1 not upgraded to RHEL 8. Check upgrade workflow job output.
+          NOTE: In lab environments, infrastructure limitations may cause upgrades to fail.
+          This is expected and demonstrates real-world upgrade challenges discussed in workshop.
 
     - name: "Exercise 2.3: node2 upgraded from RHEL 8 to RHEL 9"
       when: inventory_hostname == 'node2'
@@ -145,31 +143,48 @@
     # =========================================================================
     # Exercise 2.4: How is the Pet App Doing (Optional)
     # =========================================================================
+    # NOTE: Exercise 1.6 (Pet App Deployment) is OPTIONAL per workshop.
+    # These checks only pass if student completed optional Exercise 1.6.
+
+    - name: "Exercise 2.4: Check if pet app was deployed (optional exercise)"
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/spring-petclinic"
+      register: r_petapp_check
+
     - name: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
+      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_service_running
       vars:
         service_name: "mariadb"
         task_description_message: "Exercise 2.4: Pet app database running post-upgrade on {{ inventory_hostname }}"
-        student_error_message: "MariaDB not running after upgrade. Check if pet app needs restart."
+        student_error_message: |
+          MariaDB not running after upgrade. Exercise 1.6 is optional.
+          Run solver to deploy and fix pet app.
 
     - name: "Exercise 2.4: Pet app running post-upgrade on {{ inventory_hostname }}"
+      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
         command: "pgrep -f spring-petclinic"
         expected_rc: 0
         task_description_message: "Exercise 2.4: Pet application running post-upgrade on {{ inventory_hostname }}"
-        student_error_message: "Pet app not running after upgrade. Check cron entry or manually restart."
+        student_error_message: |
+          Pet app not running after upgrade. 3rd-party JDK may be removed (expected).
+          Run solver to reinstall JDK and restart pet app.
 
     - name: "Exercise 2.4: Pet app data preserved on {{ inventory_hostname }}"
+      when: r_petapp_check.stat.exists
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        command: "mysql -u root petclinic -e 'SELECT COUNT(*) FROM owners;'"
+        command: "mysql -u root -e 'SELECT COUNT(*) FROM petclinic.owners;' 2>/dev/null"
         expected_rc: 0
         task_description_message: "Exercise 2.4: Pet app database accessible post-upgrade on {{ inventory_hostname }}"
-        student_error_message: "Pet app database not accessible. Check MariaDB upgrade status."
+        student_error_message: |
+          Pet app database not accessible. Check MariaDB upgrade status.
+          Run solver to fix pet app database.
 
 # Play 4: Generate final report
 - name: Finalize FTL Grading Session - Module 2
