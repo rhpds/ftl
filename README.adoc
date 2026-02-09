@@ -44,9 +44,9 @@ which grade_lab solve_lab
 **Setup:**
 [source,bash]
 ----
-# Set environment variables (from workshop)
+# Set environment variables (from demo.redhat.com)
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
-export PASSWORD="<password_from_user_data>"
+export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 
 # Test AAP connection
 curl -k -u lab-user:${PASSWORD} \
@@ -86,9 +86,9 @@ cat /tmp/grading_dir/grading_report_${USER}.txt
 **Setup:**
 [source,bash]
 ----
-# Set environment variables (from workshop)
+# Set environment variables (from demo.redhat.com)
 export AAP_HOSTNAME="https://controller-xxxxx.apps.example.com"
-export AAP_PASSWORD="<password_from_user_data>"
+export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > Advanced Settings
 export AAP_USERNAME="lab-user"  # Optional
 
 # Test AAP connection (AAP 2.6)
@@ -239,9 +239,9 @@ When using FTL from a lab bastion, set these before running graders/solvers:
 
 [source,bash]
 ----
-# Set from AgnosticV user data
+# Set from demo.redhat.com > Your lab > User tab
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
-export PASSWORD="<password_from_user_data>"
+export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 
 # Run grader (username argument sets LAB_USER automatically)
 grade_lab <lab-name> user1

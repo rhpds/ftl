@@ -77,7 +77,7 @@ This lab provides automated grading and solving for the [Automating RIPU with An
 # AAP Controller connection
 export AAP_HOSTNAME="https://controller-<guid>.<domain>"
 export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
-export AAP_PASSWORD="<password_from_user_data>"
+export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > Advanced Settings
 ```
 
 ### Setting Up Environment

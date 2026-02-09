@@ -106,8 +106,8 @@ This lab provides automated grading for the [MCP with OpenShift workshop](https:
 # OpenShift cluster ingress domain
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-<guid>.<domain>"
 
-# User password (from AgnosticV user data)
-export PASSWORD="<password_from_user_data>"
+# User password (from demo.redhat.com > Your lab > User tab)
+export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 ```
 
 **Note:** `LAB_USER` is automatically set from the username argument when using grade_lab/solve_lab commands.
