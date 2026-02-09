@@ -15,12 +15,14 @@
 # Append grading result to report file
 # Format: "PASS: Task description" or "FAIL: Task description: Error message"
 # Using lineinfile ensures the message is added even if the file doesn't exist yet
+# delegate_to: localhost ensures results from managed nodes write to bastion's report
 - name: Append grading result to report
   ansible.builtin.lineinfile:
     path: "{{ grader_working_dir }}/{{ grader_student_report_file }}"
     line: "{{ grader_output_message }}"
     create: true
     mode: '0644'
+  delegate_to: localhost
 
 # Debug output for verbose mode
 # Helps developers see grading results in real-time during testing
