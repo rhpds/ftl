@@ -45,13 +45,13 @@
           - AAP_PASSWORD: AAP password
 
     # =========================================================================
-    # User Confirmation
+    # Display upgrade information
     # =========================================================================
-    - name: Display upgrade warning
-      ansible.builtin.pause:
-        prompt: |
+    - name: Display upgrade information
+      ansible.builtin.debug:
+        msg: |
           ================================================================================
-          WARNING: RHEL In-Place Upgrade
+          Starting RHEL In-Place Upgrade
           ================================================================================
 
           This will:
@@ -61,7 +61,6 @@
 
           Nodes will be unavailable during the upgrade (approximately 30-60 minutes).
 
-          Press ENTER to continue or Ctrl+C to cancel...
           ================================================================================
 
     # =========================================================================
@@ -88,8 +87,8 @@
         validate_certs: "{{ aap_validate_certs }}"
         body_format: json
         body:
-          extra_vars: {}
-          survey: "ALL_rhel"
+          extra_vars:
+            rhel_inventory_group: "ALL_rhel"
         status_code: [201, 202]
       register: r_upgrade_launch
       when: r_upgrade_template.json.count > 0

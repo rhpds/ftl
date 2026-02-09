@@ -59,8 +59,8 @@
     # Snapshot Availability Warning
     # =========================================================================
     - name: Display snapshot warning
-      ansible.builtin.pause:
-        prompt: |
+      ansible.builtin.debug:
+        msg: |
           ================================================================================
           WARNING: Snapshot-based Rollback
           ================================================================================
@@ -71,7 +71,6 @@
           so this operation is expected to fail. This solver is provided for
           completeness when snapshots become available.
 
-          Press ENTER to continue anyway, or Ctrl+C to cancel...
           ================================================================================
 
     # =========================================================================
@@ -99,8 +98,8 @@
         body_format: json
         body:
           limit: "{{ rollback_node }}"
-          extra_vars: {}
-          survey: "ALL_rhel"
+          extra_vars:
+            rhel_inventory_group: "ALL_rhel"
         status_code: [201, 202]
       register: r_rollback_launch
       when: r_rollback_template.json.count > 0
