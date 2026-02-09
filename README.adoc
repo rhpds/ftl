@@ -47,17 +47,13 @@ which grade_lab solve_lab
 # Set environment variables (from demo.redhat.com)
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
 export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
-
-# Test AAP connection
-curl -k -u lab-user:${PASSWORD} \
-  https://controller-xxxxx.apps.example.com/api/controller/v2/ping/
 ----
 
 **Test Module 1 (Lab Setup):**
 [source,bash]
 ----
 # Grade Module 1 (should mostly pass - pre-deployed)
-grade_lab mcp-with-openshift 1
+grade_lab mcp-with-openshift user1 1
 
 # Expected: PASS 6 checkpoints (OpenShift, LibreChat, MCP servers, Gitea)
 ----
@@ -66,14 +62,14 @@ grade_lab mcp-with-openshift 1
 [source,bash]
 ----
 # Solve all modules (automated, 10-15 minutes)
-solve_lab mcp-with-openshift
+solve_lab mcp-with-openshift user1
 
 # Grade all modules
-grade_lab mcp-with-openshift
+grade_lab mcp-with-openshift user1
 
 # Expected: PASS all 35 checkpoints
 # View report
-cat /tmp/grading_dir/grading_report_${USER}.txt
+cat /tmp/grading_dir/grading_report_user1.txt
 ----
 
 ==== Automating RHEL In-Place Upgrades with Ansible
@@ -165,9 +161,9 @@ Students invoke grading from lab bastion:
 
 [source,bash]
 ----
-# Set required environment variables (from AgnosticV user data)
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="<from_user_data>"
-export PASSWORD="<from_user_data>"
+# Set required environment variables (from demo.redhat.com)
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="<cluster_ingress_domain>"
+export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 
 # Grade lab progress (pass username as argument)
 grade_lab <lab-name> user1
@@ -178,7 +174,7 @@ solve_lab <lab-name> user1
 
 == Environment Variables
 
-FTL graders and solvers require certain environment variables to be set. These are typically provided in AgnosticV user data when labs are deployed.
+FTL graders and solvers require certain environment variables to be set. These are displayed in demo.redhat.com when labs are deployed.
 
 === Required Variables
 
@@ -192,7 +188,7 @@ FTL graders and solvers require certain environment variables to be set. These a
 
 | `PASSWORD`
 | User password for service authentication (Gitea, etc.)
-| From AgnosticV `password` or `gitea_password` field
+| From demo.redhat.com > Your lab > User tab
 |===
 
 NOTE: `LAB_USER` is automatically set from the username argument (e.g., `grade_lab <lab-name> user1`). No need to export it manually.
@@ -209,7 +205,7 @@ NOTE: `LAB_USER` is automatically set from the username argument (e.g., `grade_l
 
 | `AAP_PASSWORD`
 | AAP user password
-| From AgnosticV user data
+| From demo.redhat.com > Your lab > Advanced Settings
 
 | `AAP_USERNAME`
 | AAP username
@@ -247,7 +243,7 @@ export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
 grade_lab <lab-name> user1
 ----
 
-TIP: Values for these variables are provided in AgnosticV user data when labs are provisioned. Look for fields like `openshift_cluster_ingress_domain`, `password`, `gitea_password`, etc.
+TIP: Values for these variables are displayed in demo.redhat.com when labs are provisioned. For MCP labs, check User tab. For AAP labs, check Advanced Settings.
 
 === Multi-User Grading
 
@@ -259,15 +255,15 @@ When grading as system:admin for multiple users:
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
 
 # Grade user1 (LAB_USER is set automatically from argument)
-export PASSWORD="<user1_password_from_agv>"
+export PASSWORD="<user1_password>"  # From demo.redhat.com > Your lab > User tab
 grade_lab <lab-name> user1
 
 # Grade user2 (update PASSWORD for each user)
-export PASSWORD="<user2_password_from_agv>"
+export PASSWORD="<user2_password>"  # From demo.redhat.com > Your lab > User tab
 grade_lab <lab-name> user2
 ----
 
-IMPORTANT: Each user has their own password in AgnosticV user data. The PASSWORD must match the user you're grading. Common password fields: `password`, `gitea_password`, `console_password`.
+IMPORTANT: Each user has their own password shown in demo.redhat.com > Your lab > User tab. The PASSWORD must match the user you're grading.
 
 == Documentation
 
