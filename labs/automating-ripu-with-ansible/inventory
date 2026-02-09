@@ -6,4 +6,4 @@ node3
 [all:vars]
 ansible_user=cloud-user
 ansible_password="{{ lookup('env', 'SSH_PASSWORD') | default(lookup('env', 'AAP_PASSWORD'), true) }}"
-ansible_become=false
+ansible_become_method=sudo
