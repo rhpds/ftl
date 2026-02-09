@@ -117,14 +117,24 @@ if [ -n "${MODULE_NUM}" ]; then
     echo -e "${GREEN}========================================${NC}"
     echo ""
 
-    ansible-playbook "${MODULE_FILE}"
+    # Check if lab has custom inventory
+    if [ -f "labs/${LAB_NAME}/inventory" ]; then
+        ansible-playbook -i "labs/${LAB_NAME}/inventory" "${MODULE_FILE}"
+    else
+        ansible-playbook "${MODULE_FILE}"
+    fi
 else
     # Solve all modules
     echo -e "Solving:  ${BLUE}All modules${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
 
-    ansible-playbook "labs/${LAB_NAME}/solve_lab.yml"
+    # Check if lab has custom inventory
+    if [ -f "labs/${LAB_NAME}/inventory" ]; then
+        ansible-playbook -i "labs/${LAB_NAME}/inventory" "labs/${LAB_NAME}/solve_lab.yml"
+    else
+        ansible-playbook "labs/${LAB_NAME}/solve_lab.yml"
+    fi
 fi
 
 echo ""
