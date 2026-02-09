@@ -112,6 +112,22 @@ export PASSWORD="<password_from_user_data>"
 
 **Note:** `LAB_USER` is automatically set from the username argument when using grade_lab/solve_lab commands.
 
+### Optional Environment Variables
+
+If your lab environment uses different namespace or URL conventions, you can override the defaults:
+
+```bash
+# Namespace overrides (defaults shown)
+export MCP_OPENSHIFT_NAMESPACE="mcp-openshift"
+export MCP_GITEA_NAMESPACE="mcp-gitea"
+export LIBRECHAT_NAMESPACE="librechat"
+
+# URL override (defaults to https://gitea.$OPENSHIFT_CLUSTER_INGRESS_DOMAIN)
+export GITEA_URL="https://gitea.apps.cluster-<guid>.<domain>"
+```
+
+These are typically not needed unless your lab deployment uses custom namespace names.
+
 ### Setting Up Environment
 
 1. **Get ingress domain from user data:**

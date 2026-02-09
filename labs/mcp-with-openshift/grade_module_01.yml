@@ -46,6 +46,7 @@
         label: "{{ item.name }}"
 
     # Set variables from environment
+    # Allow environment variables to override defaults for flexibility
     - name: Set base namespace prefix
       ansible.builtin.set_fact:
         base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
@@ -54,15 +55,15 @@
       ansible.builtin.set_fact:
         gitea_user: "{{ base_namespace_prefix }}"
 
-    - name: Set namespace variables
+    - name: Set namespace variables (env override or default)
       ansible.builtin.set_fact:
-        mcp_openshift_namespace: "mcp-openshift-{{ base_namespace_prefix }}"
-        mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
-        librechat_namespace: "librechat-{{ base_namespace_prefix }}"
+        mcp_openshift_namespace: "{{ lookup('env', 'MCP_OPENSHIFT_NAMESPACE') | default('mcp-openshift', true) }}"
+        mcp_gitea_namespace: "{{ lookup('env', 'MCP_GITEA_NAMESPACE') | default('mcp-gitea', true) }}"
+        librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat', true) }}"
 
-    - name: Set Gitea URL
+    - name: Set Gitea URL (env override or build from ingress domain)
       ansible.builtin.set_fact:
-        gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
+        gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.' + openshift_cluster_ingress_domain, true) }}"
 
     # =========================================================================
     # Exercise 1.1: OpenShift Console Login
