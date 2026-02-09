@@ -62,8 +62,8 @@ fi
 echo "Checking Ansible collections..."
 if [ -f "requirements.yml" ]; then
     # Check if collections are already installed
-    if ! ansible-galaxy collection list | grep -q "kubernetes.core" || \
-       ! ansible-galaxy collection list | grep -q "community.general"; then
+    if ! ansible-galaxy collection list 2>/dev/null | grep -q "kubernetes.core" || \
+       ! ansible-galaxy collection list 2>/dev/null | grep -q "community.general"; then
         echo "Installing Ansible collections..."
         ansible-galaxy collection install -r requirements.yml --force-with-deps > /dev/null 2>&1 || true
     else
