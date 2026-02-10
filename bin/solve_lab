@@ -124,17 +124,27 @@ if [ -n "${MODULE_NUM}" ]; then
         ansible-playbook "${MODULE_FILE}"
     fi
 else
-    # Solve all modules
+    # Solve all modules in order
+    MODULE_FILES=$(ls -1 labs/${LAB_NAME}/solve_module_*.yml 2>/dev/null | sort)
+    if [ -z "${MODULE_FILES}" ]; then
+        echo -e "${RED}Error: No solver modules found for '${LAB_NAME}'${NC}"
+        exit 1
+    fi
+
     echo -e "Solving:  ${BLUE}All modules${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
 
-    # Check if lab has custom inventory
-    if [ -f "labs/${LAB_NAME}/inventory" ]; then
-        ansible-playbook -i "labs/${LAB_NAME}/inventory" "labs/${LAB_NAME}/solve_lab.yml"
-    else
-        ansible-playbook "labs/${LAB_NAME}/solve_lab.yml"
-    fi
+    for MODULE_FILE in ${MODULE_FILES}; do
+        MOD_NUM=$(echo "${MODULE_FILE}" | sed 's/.*solve_module_//' | sed 's/.yml//' | sed 's/^0*//')
+        echo -e "${BLUE}--- Solving Module ${MOD_NUM} ---${NC}"
+        if [ -f "labs/${LAB_NAME}/inventory" ]; then
+            ansible-playbook -i "labs/${LAB_NAME}/inventory" "${MODULE_FILE}"
+        else
+            ansible-playbook "${MODULE_FILE}"
+        fi
+        echo ""
+    done
 fi
 
 echo ""
