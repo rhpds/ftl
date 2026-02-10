@@ -95,18 +95,74 @@
         namespace: "{{ project_name }}"
       register: r_mongodb_deployment
 
-    - name: Deploy MongoDB using oc new-app
+    - name: Deploy MongoDB
       when: r_mongodb_deployment.resources | length == 0
-      ansible.builtin.command: >
-        oc new-app --name=mongodb
-        --docker-image=quay.io/centos7/mongodb-36-centos7:latest
-        --env=MONGODB_ADMIN_PASSWORD=admin123
-        --env=MONGODB_USER=parksapp
-        --env=MONGODB_PASSWORD=parksapp123
-        --env=MONGODB_DATABASE=parksapp
-        --labels=app=workshop,component=nationalparks,role=database
-        -n {{ project_name }}
-      changed_when: true
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mongodb
+            namespace: "{{ project_name }}"
+            labels:
+              app: workshop
+              component: nationalparks
+              role: database
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mongodb
+                deployment: mongodb
+            template:
+              metadata:
+                labels:
+                  app: mongodb
+                  deployment: mongodb
+              spec:
+                containers:
+                  - name: mongodb
+                    image: "quay.io/centos7/mongodb-36-centos7:latest"
+                    ports:
+                      - containerPort: 27017
+                        protocol: TCP
+                    env:
+                      - name: MONGODB_ADMIN_PASSWORD
+                        value: admin123
+                      - name: MONGODB_USER
+                        value: parksapp
+                      - name: MONGODB_PASSWORD
+                        value: parksapp123
+                      - name: MONGODB_DATABASE
+                        value: parksapp
+                    volumeMounts:
+                      - name: mongodb-data
+                        mountPath: /var/lib/mongodb/data
+                volumes:
+                  - name: mongodb-data
+                    emptyDir: {}
+
+    - name: Create mongodb service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mongodb
+            namespace: "{{ project_name }}"
+            labels:
+              app: mongodb
+          spec:
+            ports:
+              - name: 27017-tcp
+                port: 27017
+                protocol: TCP
+                targetPort: 27017
+            selector:
+              app: mongodb
+              deployment: mongodb
 
     - name: Wait for MongoDB deployment to be ready
       kubernetes.core.k8s_info:
