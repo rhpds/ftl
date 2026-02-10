@@ -1,0 +1,110 @@
+---
+# =============================================================================
+# Grader Role: Check OpenShift Build Completed
+# =============================================================================
+#
+# Validates that a BuildConfig exists and optionally that a Build has completed
+# successfully.
+#
+# Required Variables:
+#   - task_description_message: Description shown in grading output
+#   - build_config_name: Name of the BuildConfig to check
+#   - build_config_namespace: Namespace containing the BuildConfig
+#
+# Optional Variables:
+#   - require_build_execution: If true, verifies at least one Build completed (default: false)
+#   - check_last_n_builds: Number of recent builds to check (default: 5)
+#   - student_error_message: Custom error message (optional)
+#
+# Example Usage:
+#   - name: Check nationalparks build completed
+#     ansible.builtin.include_role:
+#       name: grader_check_ocp_build_completed
+#     vars:
+#       task_description_message: "Nationalparks S2I build completed successfully"
+#       build_config_name: "nationalparks"
+#       build_config_namespace: "{{ project_name }}"
+#       require_build_execution: true
+#       student_error_message: "S2I build for nationalparks not found or failed"
+#
+# =============================================================================
+
+- name: Check if BuildConfig exists
+  kubernetes.core.k8s_info:
+    api_version: build.openshift.io/v1
+    kind: BuildConfig
+    name: "{{ build_config_name }}"
+    namespace: "{{ build_config_namespace }}"
+  register: r_buildconfig
+  failed_when: false
+
+- name: Evaluate BuildConfig existence
+  ansible.builtin.set_fact:
+    buildconfig_exists: "{{ r_buildconfig.resources | length > 0 }}"
+
+- name: Check for Build executions if required
+  when:
+    - buildconfig_exists
+    - require_build_execution | default(false)
+  block:
+    - name: Get recent Builds for this BuildConfig
+      kubernetes.core.k8s_info:
+        api_version: build.openshift.io/v1
+        kind: Build
+        namespace: "{{ build_config_namespace }}"
+        label_selectors:
+          - "buildconfig={{ build_config_name }}"
+      register: r_builds
+
+    - name: Sort builds by creation timestamp and check last N
+      ansible.builtin.set_fact:
+        recent_builds: "{{ r_builds.resources | sort(attribute='metadata.creationTimestamp', reverse=true) | list }}"
+        builds_to_check: "{{ check_last_n_builds | default(5) }}"
+
+    - name: Check if any recent build completed successfully
+      ansible.builtin.set_fact:
+        build_succeeded: "{{
+          recent_builds[:builds_to_check | int] |
+          selectattr('status.phase', 'defined') |
+          selectattr('status.phase', 'equalto', 'Complete') |
+          list | length > 0
+        }}"
+
+    - name: Get latest build status for error message
+      when: not (build_succeeded | default(false))
+      ansible.builtin.set_fact:
+        latest_build_status: "{{
+          recent_builds[0].status.phase | default('Unknown')
+          if recent_builds | length > 0
+          else 'No builds found'
+        }}"
+
+- name: Set default build_succeeded if not checking execution
+  when: not (require_build_execution | default(false))
+  ansible.builtin.set_fact:
+    build_succeeded: true
+
+- name: Determine overall success
+  ansible.builtin.set_fact:
+    check_passed: "{{
+      buildconfig_exists and
+      (build_succeeded | default(true))
+    }}"
+
+- name: Create result message
+  ansible.builtin.set_fact:
+    grader_output_message: "{{
+      'PASS: ' + task_description_message
+      if check_passed
+      else (student_error_message | default(default_error_message))
+    }}"
+  vars:
+    default_error_message: "{{
+      'FAIL: ' + task_description_message + ': BuildConfig ' + build_config_name + ' not found in namespace ' + build_config_namespace
+      if not buildconfig_exists
+      else 'FAIL: ' + task_description_message + ': No successful builds found for BuildConfig ' + build_config_name + '. Latest build status: ' + (latest_build_status | default('Unknown')) + '. Check builds: oc get builds -n ' + build_config_namespace + ' -l buildconfig=' + build_config_name
+    }}"
+
+- name: Log result to grading report
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log

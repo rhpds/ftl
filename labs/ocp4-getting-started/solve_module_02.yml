@@ -1,0 +1,368 @@
+---
+# =============================================================================
+# FTL Solver: OpenShift 4 Getting Started - Module 2
+# =============================================================================
+#
+# Automatically completes Module 2 tasks:
+# 1. Create MongoDB credentials secret
+# 2. Deploy MongoDB database
+# 3. Create nationalparks BuildConfig and trigger S2I build
+# 4. Configure nationalparks environment variables for database
+# 5. Add route label for service discovery
+# 6. Load national parks data
+# 7. Configure health probes
+#
+# Environment Variables Required:
+#   - PROJECT_NAME: OpenShift project/namespace
+#   - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: Cluster apps domain
+#
+# Usage:
+#   export PROJECT_NAME="workshop-user1"
+#   export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
+#   ansible-playbook solve_module_02.yml
+#
+# Or via wrapper:
+#   solve_lab ocp4-getting-started 2
+#
+# =============================================================================
+
+- name: Solve Module 2 - Building from Source and Data Integration
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    project_name: "{{ lookup('env', 'PROJECT_NAME') | default('workshop-user1') }}"
+    cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
+    nationalparks_git_repo: "https://github.com/openshift-roadshow/nationalparks.git"
+    mongodb_image: "mongo:6.0.4"
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'PROJECT_NAME') | length > 0 or 'workshop' in project_name
+          - lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length > 0 or 'apps' in cluster_domain
+        fail_msg: |
+          Required environment variables not set
+
+    - name: Display solver information
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Solving Module 2: Building from Source and Data Integration
+          ================================================================================
+          Project: {{ project_name }}
+          Git Repo: {{ nationalparks_git_repo }}
+          ================================================================================
+
+    # =========================================================================
+    # Step 1: Create MongoDB Credentials Secret
+    # =========================================================================
+    - name: Check if mongodb-credentials secret exists
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: mongodb-credentials
+        namespace: "{{ project_name }}"
+      register: r_secret
+
+    - name: Create mongodb-credentials secret
+      when: r_secret.resources | length == 0
+      ansible.builtin.command: >
+        oc create secret generic mongodb-credentials
+        --from-literal=admin-usr=admin
+        --from-literal=admin-pwd=admin123
+        --from-literal=app-usr=parksapp
+        --from-literal=app-pwd=parksapp123
+        -n {{ project_name }}
+      changed_when: true
+
+    # =========================================================================
+    # Step 2: Deploy MongoDB
+    # =========================================================================
+    - name: Check if mongodb deployment exists
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: mongodb
+        namespace: "{{ project_name }}"
+      register: r_mongodb_deployment
+
+    - name: Deploy MongoDB
+      when: r_mongodb_deployment.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mongodb
+            namespace: "{{ project_name }}"
+            labels:
+              app: workshop
+              component: nationalparks
+              role: database
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mongodb
+                deployment: mongodb
+            template:
+              metadata:
+                labels:
+                  app: mongodb
+                  deployment: mongodb
+              spec:
+                containers:
+                  - name: mongodb
+                    image: "{{ mongodb_image }}"
+                    ports:
+                      - containerPort: 27017
+                        protocol: TCP
+                    env:
+                      - name: MONGO_INITDB_ROOT_USERNAME
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: admin-usr
+                      - name: MONGO_INITDB_ROOT_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: admin-pwd
+                    volumeMounts:
+                      - name: mongodb-data
+                        mountPath: /data/db
+                volumes:
+                  - name: mongodb-data
+                    emptyDir: {}
+
+    - name: Create mongodb service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mongodb
+            namespace: "{{ project_name }}"
+            labels:
+              app: mongodb
+          spec:
+            ports:
+              - name: 27017-tcp
+                port: 27017
+                protocol: TCP
+                targetPort: 27017
+            selector:
+              app: mongodb
+              deployment: mongodb
+
+    - name: Wait for MongoDB pod to be running
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ project_name }}"
+        label_selectors:
+          - app=mongodb
+      register: r_mongodb_pods
+      until:
+        - r_mongodb_pods.resources | length > 0
+        - r_mongodb_pods.resources[0].status.phase == "Running"
+      retries: 30
+      delay: 10
+
+    # =========================================================================
+    # Step 3: Initialize MongoDB Database
+    # =========================================================================
+    - name: Initialize MongoDB parksapp database and user
+      ansible.builtin.command: >
+        oc exec deployment/mongodb -n {{ project_name }} --
+        mongosh -u admin -p admin123 --authenticationDatabase admin --eval
+        "db.getSiblingDB('parksapp').createUser({user: 'parksapp', pwd: 'parksapp123', roles: [{role: 'dbAdmin', db: 'parksapp'}, {role: 'readWrite', db: 'parksapp'}]})"
+      register: r_mongo_init
+      changed_when: "'Successfully added user' in r_mongo_init.stdout or '{ok: 1}' in r_mongo_init.stdout"
+      failed_when: false
+
+    # =========================================================================
+    # Step 4: Create Nationalparks BuildConfig and Start Build
+    # =========================================================================
+    - name: Check if nationalparks BuildConfig exists
+      kubernetes.core.k8s_info:
+        api_version: build.openshift.io/v1
+        kind: BuildConfig
+        name: nationalparks
+        namespace: "{{ project_name }}"
+      register: r_buildconfig
+
+    - name: Create nationalparks S2I BuildConfig
+      when: r_buildconfig.resources | length == 0
+      ansible.builtin.command: >
+        oc new-app {{ nationalparks_git_repo }}
+        --name=nationalparks
+        --image-stream=openshift/java:openjdk-11-ubi8
+        --labels=app=workshop,component=nationalparks,role=backend
+        -n {{ project_name }}
+      changed_when: true
+
+    - name: Wait for initial build to complete
+      kubernetes.core.k8s_info:
+        api_version: build.openshift.io/v1
+        kind: Build
+        namespace: "{{ project_name }}"
+        label_selectors:
+          - buildconfig=nationalparks
+      register: r_builds
+      until:
+        - r_builds.resources | length > 0
+        - r_builds.resources[0].status.phase in ['Complete', 'Failed']
+      retries: 60
+      delay: 10
+
+    # =========================================================================
+    # Step 5: Create HTTPS Route for Nationalparks
+    # =========================================================================
+    - name: Check if nationalparks route exists
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: nationalparks
+        namespace: "{{ project_name }}"
+      register: r_np_route
+
+    - name: Create HTTPS route for nationalparks
+      when: r_np_route.resources | length == 0
+      ansible.builtin.command: >
+        oc create route edge nationalparks
+        --service=nationalparks
+        -n {{ project_name }}
+      changed_when: true
+
+    - name: Add type=parksmap-backend label to route
+      ansible.builtin.command: >
+        oc label route nationalparks type=parksmap-backend -n {{ project_name }}
+      changed_when: true
+      failed_when: false
+
+    # =========================================================================
+    # Step 6: Configure Nationalparks Database Environment Variables
+    # =========================================================================
+    - name: Configure database environment variables
+      ansible.builtin.command: >
+        oc set env deployment/nationalparks
+        MONGODB_SERVER_HOST=mongodb
+        MONGODB_DATABASE=parksapp
+        MONGODB_USER=parksapp
+        MONGODB_PASSWORD=parksapp123
+        -n {{ project_name }}
+      changed_when: true
+
+    # =========================================================================
+    # Step 7: Wait for Nationalparks to be Ready
+    # =========================================================================
+    - name: Wait for nationalparks pod to be running
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ project_name }}"
+        label_selectors:
+          - app=nationalparks
+      register: r_np_pods
+      until:
+        - r_np_pods.resources | length > 0
+        - r_np_pods.resources[0].status.phase == "Running"
+      retries: 30
+      delay: 10
+
+    - name: Get nationalparks route hostname
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: nationalparks
+        namespace: "{{ project_name }}"
+      register: r_route
+
+    - name: Wait for nationalparks application to be responsive
+      ansible.builtin.uri:
+        url: "https://{{ r_route.resources[0].spec.host }}/ws/info/"
+        validate_certs: false
+        status_code: 200
+      register: r_app_check
+      until: r_app_check is succeeded
+      retries: 30
+      delay: 10
+
+    # =========================================================================
+    # Step 8: Load National Parks Data
+    # =========================================================================
+    - name: Load national parks data
+      ansible.builtin.uri:
+        url: "https://{{ r_route.resources[0].spec.host }}/ws/data/load"
+        method: GET
+        validate_certs: false
+        status_code: 200
+      register: r_data_load
+
+    - name: Verify data loaded
+      ansible.builtin.debug:
+        msg: "Data loaded: {{ r_data_load.json }}"
+
+    # =========================================================================
+    # Step 9: Configure Health Probes
+    # =========================================================================
+    - name: Add readiness probe
+      ansible.builtin.command: >
+        oc set probe deployment/nationalparks
+        --readiness
+        --get-url=https://:8080/ws/info/
+        --initial-delay-seconds=10
+        --timeout-seconds=3
+        -n {{ project_name }}
+      changed_when: true
+
+    - name: Add liveness probe
+      ansible.builtin.command: >
+        oc set probe deployment/nationalparks
+        --liveness
+        --get-url=https://:8080/ws/info/
+        --initial-delay-seconds=30
+        --timeout-seconds=3
+        -n {{ project_name }}
+      changed_when: true
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 2 Solver Completed Successfully
+          ================================================================================
+
+          Resources created:
+            ✓ Secret: mongodb-credentials
+            ✓ Deployment: mongodb (database)
+            ✓ Service: mongodb
+            ✓ BuildConfig: nationalparks (S2I)
+            ✓ Build: Completed successfully
+            ✓ Deployment: nationalparks (backend)
+            ✓ Route: nationalparks (HTTPS with type=parksmap-backend label)
+            ✓ Environment: Database connection configured
+            ✓ Data: National parks loaded
+            ✓ Health Probes: Readiness and liveness configured
+
+          Application URL: https://{{ r_route.resources[0].spec.host }}
+
+          Next steps:
+            - Test application: curl -k https://{{ r_route.resources[0].spec.host }}/ws/info/
+            - Verify data: curl -k https://{{ r_route.resources[0].spec.host }}/ws/data/all | jq length
+            - Grade Module 2: grade_lab ocp4-getting-started 2
+            - Continue to Module 3: solve_lab ocp4-getting-started 3
+
+          ================================================================================

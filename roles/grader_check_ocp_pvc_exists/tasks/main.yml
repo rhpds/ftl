@@ -1,0 +1,118 @@
+---
+# =============================================================================
+# Grader Role: Check OpenShift PersistentVolumeClaim Exists
+# =============================================================================
+#
+# Validates that a PersistentVolumeClaim exists and optionally checks its status.
+#
+# Required Variables:
+#   - task_description_message: Description shown in grading output
+#   - pvc_name: Name of the PVC to check
+#   - pvc_namespace: Namespace containing the PVC
+#
+# Optional Variables:
+#   - check_pvc_bound: If true, verifies PVC is in Bound status (default: false)
+#   - min_storage_size: Minimum storage size (e.g., "1Gi") - optional
+#   - student_error_message: Custom error message (optional)
+#
+# Example Usage:
+#   - name: Check app-source PVC
+#     ansible.builtin.include_role:
+#       name: grader_check_ocp_pvc_exists
+#     vars:
+#       task_description_message: "PVC app-source-pvc created for pipeline workspace"
+#       pvc_name: "app-source-pvc"
+#       pvc_namespace: "{{ project_name }}"
+#       check_pvc_bound: true
+#       min_storage_size: "1Gi"
+#       student_error_message: "PVC app-source-pvc not found or not bound"
+#
+# =============================================================================
+
+- name: Check if PVC exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    name: "{{ pvc_name }}"
+    namespace: "{{ pvc_namespace }}"
+  register: r_pvc
+  failed_when: false
+
+- name: Evaluate PVC existence
+  ansible.builtin.set_fact:
+    pvc_exists: "{{ r_pvc.resources | length > 0 }}"
+
+- name: Check PVC status and storage if exists
+  when: pvc_exists
+  block:
+    - name: Get PVC status
+      ansible.builtin.set_fact:
+        pvc_status: "{{ r_pvc.resources[0].status.phase | default('Unknown') }}"
+        pvc_storage: "{{ r_pvc.resources[0].spec.resources.requests.storage | default('0Gi') }}"
+
+    - name: Check if PVC is bound when required
+      when: check_pvc_bound | default(false)
+      ansible.builtin.set_fact:
+        pvc_is_bound: "{{ pvc_status == 'Bound' }}"
+
+    - name: Set default pvc_is_bound if not checking
+      when: not (check_pvc_bound | default(false))
+      ansible.builtin.set_fact:
+        pvc_is_bound: true
+
+    - name: Check storage size if minimum specified
+      when: min_storage_size is defined
+      block:
+        - name: Convert storage sizes to comparable format (remove units)
+          ansible.builtin.set_fact:
+            pvc_size_value: "{{ pvc_storage | regex_replace('[^0-9]', '') | int }}"
+            min_size_value: "{{ min_storage_size | regex_replace('[^0-9]', '') | int }}"
+            pvc_size_unit: "{{ pvc_storage | regex_replace('[0-9]', '') }}"
+            min_size_unit: "{{ min_storage_size | regex_replace('[0-9]', '') }}"
+
+        - name: Check if storage meets minimum (same unit assumed)
+          ansible.builtin.set_fact:
+            storage_sufficient: "{{
+              pvc_size_value | int >= min_size_value | int and
+              pvc_size_unit == min_size_unit
+            }}"
+
+    - name: Set default storage_sufficient if no minimum specified
+      when: min_storage_size is not defined
+      ansible.builtin.set_fact:
+        storage_sufficient: true
+
+- name: Set defaults if PVC doesn't exist
+  when: not pvc_exists
+  ansible.builtin.set_fact:
+    pvc_is_bound: false
+    storage_sufficient: false
+    pvc_status: "Not found"
+
+- name: Determine overall success
+  ansible.builtin.set_fact:
+    check_passed: "{{
+      pvc_exists and
+      (pvc_is_bound | default(true)) and
+      (storage_sufficient | default(true))
+    }}"
+
+- name: Create result message
+  ansible.builtin.set_fact:
+    grader_output_message: "{{
+      'PASS: ' + task_description_message
+      if check_passed
+      else (student_error_message | default(default_error_message))
+    }}"
+  vars:
+    default_error_message: "{{
+      'FAIL: ' + task_description_message + ': PVC ' + pvc_name + ' not found in namespace ' + pvc_namespace + '. Create the PVC: oc create -f <pvc-definition.yaml> -n ' + pvc_namespace
+      if not pvc_exists
+      else 'FAIL: ' + task_description_message + ': PVC ' + pvc_name + ' status is ' + (pvc_status | default('Unknown')) + ' (expected Bound). Check PVC: oc describe pvc ' + pvc_name + ' -n ' + pvc_namespace
+      if not (pvc_is_bound | default(true))
+      else 'FAIL: ' + task_description_message + ': PVC ' + pvc_name + ' storage (' + (pvc_storage | default('0Gi')) + ') is less than required minimum (' + (min_storage_size | default('0Gi')) + '). Check PVC: oc get pvc ' + pvc_name + ' -n ' + pvc_namespace
+    }}"
+
+- name: Log result to grading report
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log

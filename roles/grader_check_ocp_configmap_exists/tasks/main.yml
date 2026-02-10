@@ -1,0 +1,94 @@
+---
+# =============================================================================
+# Grader Role: Check OpenShift ConfigMap Exists
+# =============================================================================
+#
+# Validates that a ConfigMap exists and optionally contains required keys.
+#
+# Required Variables:
+#   - task_description_message: Description shown in grading output
+#   - configmap_name: Name of the ConfigMap to check
+#   - configmap_namespace: Namespace containing the ConfigMap
+#
+# Optional Variables:
+#   - required_keys: List of keys that must exist in the ConfigMap (default: [])
+#   - student_error_message: Custom error message (optional)
+#
+# Example Usage:
+#   - name: Check application config
+#     ansible.builtin.include_role:
+#       name: grader_check_ocp_configmap_exists
+#     vars:
+#       task_description_message: "Application configuration ConfigMap created"
+#       configmap_name: "app-config"
+#       configmap_namespace: "{{ project_name }}"
+#       required_keys:
+#         - database.host
+#         - database.port
+#       student_error_message: "ConfigMap app-config not found or missing keys"
+#
+# =============================================================================
+
+- name: Check if ConfigMap exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ configmap_name }}"
+    namespace: "{{ configmap_namespace }}"
+  register: r_configmap
+  failed_when: false
+
+- name: Evaluate ConfigMap existence
+  ansible.builtin.set_fact:
+    configmap_exists: "{{ r_configmap.resources | length > 0 }}"
+
+- name: Check for required keys if ConfigMap exists
+  when:
+    - configmap_exists
+    - required_keys is defined
+    - required_keys | length > 0
+  block:
+    - name: Get ConfigMap data keys
+      ansible.builtin.set_fact:
+        configmap_data_keys: "{{ r_configmap.resources[0].data.keys() | list }}"
+
+    - name: Check if all required keys are present
+      ansible.builtin.set_fact:
+        all_keys_present: "{{
+          (required_keys | difference(configmap_data_keys) | length) == 0
+        }}"
+
+    - name: Get missing keys for error message
+      when: not all_keys_present
+      ansible.builtin.set_fact:
+        missing_keys: "{{ required_keys | difference(configmap_data_keys) | list }}"
+
+- name: Set default all_keys_present if no keys required
+  when: not (required_keys is defined and required_keys | length > 0)
+  ansible.builtin.set_fact:
+    all_keys_present: true
+
+- name: Determine overall success
+  ansible.builtin.set_fact:
+    check_passed: "{{
+      configmap_exists and
+      (all_keys_present | default(true))
+    }}"
+
+- name: Create result message
+  ansible.builtin.set_fact:
+    grader_output_message: "{{
+      'PASS: ' + task_description_message
+      if check_passed
+      else (student_error_message | default(default_error_message))
+    }}"
+  vars:
+    default_error_message: "{{
+      'FAIL: ' + task_description_message + ': ConfigMap ' + configmap_name + ' not found in namespace ' + configmap_namespace + '. Create the ConfigMap: oc create configmap ' + configmap_name + ' -n ' + configmap_namespace
+      if not configmap_exists
+      else 'FAIL: ' + task_description_message + ': ConfigMap ' + configmap_name + ' missing required keys: ' + (missing_keys | default([]) | join(', ')) + '. Check ConfigMap: oc describe configmap ' + configmap_name + ' -n ' + configmap_namespace
+    }}"
+
+- name: Log result to grading report
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log

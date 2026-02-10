@@ -1,0 +1,96 @@
+---
+# =============================================================================
+# Grader Role: Check OpenShift Secret Exists
+# =============================================================================
+#
+# Validates that a Secret exists and optionally contains required keys.
+#
+# Required Variables:
+#   - task_description_message: Description shown in grading output
+#   - secret_name: Name of the Secret to check
+#   - secret_namespace: Namespace containing the Secret
+#
+# Optional Variables:
+#   - required_keys: List of keys that must exist in the Secret (default: [])
+#   - student_error_message: Custom error message (optional)
+#
+# Example Usage:
+#   - name: Check mongodb credentials secret
+#     ansible.builtin.include_role:
+#       name: grader_check_ocp_secret_exists
+#     vars:
+#       task_description_message: "MongoDB credentials secret created"
+#       secret_name: "mongodb-credentials"
+#       secret_namespace: "{{ project_name }}"
+#       required_keys:
+#         - admin-usr
+#         - admin-pwd
+#         - app-usr
+#         - app-pwd
+#       student_error_message: "Secret mongodb-credentials not found or missing required keys"
+#
+# =============================================================================
+
+- name: Check if Secret exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ secret_name }}"
+    namespace: "{{ secret_namespace }}"
+  register: r_secret
+  failed_when: false
+
+- name: Evaluate Secret existence
+  ansible.builtin.set_fact:
+    secret_exists: "{{ r_secret.resources | length > 0 }}"
+
+- name: Check for required keys if Secret exists
+  when:
+    - secret_exists
+    - required_keys is defined
+    - required_keys | length > 0
+  block:
+    - name: Get Secret data keys
+      ansible.builtin.set_fact:
+        secret_data_keys: "{{ r_secret.resources[0].data.keys() | list }}"
+
+    - name: Check if all required keys are present
+      ansible.builtin.set_fact:
+        all_keys_present: "{{
+          (required_keys | difference(secret_data_keys) | length) == 0
+        }}"
+
+    - name: Get missing keys for error message
+      when: not all_keys_present
+      ansible.builtin.set_fact:
+        missing_keys: "{{ required_keys | difference(secret_data_keys) | list }}"
+
+- name: Set default all_keys_present if no keys required
+  when: not (required_keys is defined and required_keys | length > 0)
+  ansible.builtin.set_fact:
+    all_keys_present: true
+
+- name: Determine overall success
+  ansible.builtin.set_fact:
+    check_passed: "{{
+      secret_exists and
+      (all_keys_present | default(true))
+    }}"
+
+- name: Create result message
+  ansible.builtin.set_fact:
+    grader_output_message: "{{
+      'PASS: ' + task_description_message
+      if check_passed
+      else (student_error_message | default(default_error_message))
+    }}"
+  vars:
+    default_error_message: "{{
+      'FAIL: ' + task_description_message + ': Secret ' + secret_name + ' not found in namespace ' + secret_namespace + '. Create the secret: oc create secret generic ' + secret_name + ' -n ' + secret_namespace
+      if not secret_exists
+      else 'FAIL: ' + task_description_message + ': Secret ' + secret_name + ' missing required keys: ' + (missing_keys | default([]) | join(', ')) + '. Check secret: oc describe secret ' + secret_name + ' -n ' + secret_namespace
+    }}"
+
+- name: Log result to grading report
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log

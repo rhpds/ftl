@@ -1,0 +1,163 @@
+---
+# =============================================================================
+# Grader Role: Check HTTP JSON Response
+# =============================================================================
+#
+# Validates that an HTTP endpoint returns a successful response and optionally
+# verifies JSON content contains expected fields or values.
+#
+# Required Variables:
+#   - task_description_message: Description shown in grading output
+#   - endpoint_url: Full URL to test (e.g., https://example.com/api/info)
+#
+# Optional Variables:
+#   - expected_status_code: HTTP status code to expect (default: 200)
+#   - validate_https: Require HTTPS protocol (default: false)
+#   - validate_certs: Validate SSL certificates (default: false)
+#   - json_field_checks: List of field existence checks (default: [])
+#   - json_value_checks: Dict of field:value pairs to validate (default: {})
+#   - student_error_message: Custom error message (optional)
+#   - timeout: Request timeout in seconds (default: 10)
+#
+# Example Usage:
+#   - name: Check nationalparks info endpoint
+#     ansible.builtin.include_role:
+#       name: grader_check_http_json_response
+#     vars:
+#       task_description_message: "Nationalparks /ws/info/ endpoint returns correct data"
+#       endpoint_url: "https://nationalparks-{{ project_name }}.{{ cluster_domain }}/ws/info/"
+#       validate_https: true
+#       json_field_checks:
+#         - id
+#         - displayName
+#         - center
+#       json_value_checks:
+#         id: "nationalparks"
+#       student_error_message: "Nationalparks endpoint not accessible or returning incorrect data"
+#
+# =============================================================================
+
+- name: Check URL protocol if HTTPS validation required
+  when: validate_https | default(false)
+  ansible.builtin.set_fact:
+    is_https: "{{ endpoint_url.startswith('https://') }}"
+
+- name: Set default is_https if not validating
+  when: not (validate_https | default(false))
+  ansible.builtin.set_fact:
+    is_https: true
+
+- name: Test HTTP endpoint
+  ansible.builtin.uri:
+    url: "{{ endpoint_url }}"
+    method: GET
+    validate_certs: "{{ validate_certs | default(false) }}"
+    return_content: yes
+    status_code: "{{ expected_status_code | default(200) }}"
+    timeout: "{{ timeout | default(10) }}"
+  register: r_http_response
+  failed_when: false
+
+- name: Evaluate HTTP response success
+  ansible.builtin.set_fact:
+    http_success: "{{
+      r_http_response is succeeded and
+      r_http_response.status == (expected_status_code | default(200))
+    }}"
+
+- name: Parse and validate JSON content if response succeeded
+  when:
+    - http_success
+    - (json_field_checks is defined and json_field_checks | length > 0) or
+      (json_value_checks is defined and json_value_checks | length > 0)
+  block:
+    - name: Parse JSON response
+      ansible.builtin.set_fact:
+        response_json: "{{ r_http_response.json | default({}) }}"
+
+    - name: Check for required JSON fields
+      when: json_field_checks is defined and json_field_checks | length > 0
+      ansible.builtin.set_fact:
+        missing_fields: "{{ json_field_checks | difference(response_json.keys() | list) }}"
+
+    - name: Evaluate field existence
+      when: json_field_checks is defined and json_field_checks | length > 0
+      ansible.builtin.set_fact:
+        all_fields_present: "{{ missing_fields | length == 0 }}"
+
+    - name: Check JSON field values
+      when: json_value_checks is defined and json_value_checks | length > 0
+      block:
+        - name: Compare expected values
+          ansible.builtin.set_fact:
+            value_mismatches: "{{
+              json_value_checks.keys() | list |
+              map('regex_replace', '^(.*)$', '\\1') |
+              select('in', response_json.keys()) |
+              select('match', '^.*$') |
+              map('extract', json_value_checks) |
+              zip(json_value_checks.keys() | map('extract', response_json)) |
+              rejectattr('0', 'equalto', '1') |
+              map(attribute='0') |
+              list
+            }}"
+
+        - name: Evaluate value matches
+          ansible.builtin.set_fact:
+            all_values_match: "{{
+              json_value_checks.keys() | list |
+              select('in', response_json.keys()) |
+              map('extract', response_json) |
+              zip(json_value_checks.keys() | map('extract', json_value_checks)) |
+              select('match', '^.*$') |
+              map('first') |
+              zip(json_value_checks.keys() | map('extract', json_value_checks)) |
+              select('first', 'equalto', 'last') |
+              list | length == (json_value_checks | length)
+            }}"
+            incorrect_values: "{{
+              json_value_checks.keys() | list |
+              select('in', response_json.keys()) |
+              select('match', '^.*$') |
+              reject('extract', response_json, 'equalto', json_value_checks) |
+              list
+            }}"
+
+- name: Set default validation results if not checking JSON
+  when: >
+    not (json_field_checks is defined and json_field_checks | length > 0) and
+    not (json_value_checks is defined and json_value_checks | length > 0)
+  ansible.builtin.set_fact:
+    all_fields_present: true
+    all_values_match: true
+
+- name: Determine overall success
+  ansible.builtin.set_fact:
+    check_passed: "{{
+      is_https and
+      http_success and
+      (all_fields_present | default(true)) and
+      (all_values_match | default(true))
+    }}"
+
+- name: Create result message
+  ansible.builtin.set_fact:
+    grader_output_message: "{{
+      'PASS: ' + task_description_message
+      if check_passed
+      else (student_error_message | default(default_error_message))
+    }}"
+  vars:
+    default_error_message: "{{
+      'FAIL: ' + task_description_message + ': URL must use HTTPS protocol. Current URL: ' + endpoint_url
+      if not is_https
+      else 'FAIL: ' + task_description_message + ': HTTP request failed. Status: ' + (r_http_response.status | default(0) | string) + '. URL: ' + endpoint_url
+      if not http_success
+      else 'FAIL: ' + task_description_message + ': JSON response missing required fields: ' + (missing_fields | default([]) | join(', ')) + '. URL: ' + endpoint_url
+      if not (all_fields_present | default(true))
+      else 'FAIL: ' + task_description_message + ': JSON field values incorrect for fields: ' + (incorrect_values | default([]) | join(', ')) + '. URL: ' + endpoint_url
+    }}"
+
+- name: Log result to grading report
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log

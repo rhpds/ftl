@@ -1,0 +1,113 @@
+---
+# =============================================================================
+# Grader Role: Check OpenShift Tekton PipelineRun
+# =============================================================================
+#
+# Validates that a Tekton Pipeline exists and optionally that a PipelineRun
+# has completed successfully.
+#
+# Required Variables:
+#   - task_description_message: Description shown in grading output
+#   - pipeline_name: Name of the Pipeline to check
+#   - pipeline_namespace: Namespace containing the Pipeline
+#
+# Optional Variables:
+#   - require_pipeline_run: If true, verifies at least one PipelineRun succeeded (default: false)
+#   - check_last_n_runs: Number of recent runs to check (default: 5)
+#   - student_error_message: Custom error message (optional)
+#
+# Example Usage:
+#   - name: Check nationalparks pipeline executed
+#     ansible.builtin.include_role:
+#       name: grader_check_ocp_pipeline_run
+#     vars:
+#       task_description_message: "Nationalparks pipeline executed successfully"
+#       pipeline_name: "nationalparks-pipeline"
+#       pipeline_namespace: "{{ project_name }}"
+#       require_pipeline_run: true
+#       student_error_message: "Pipeline nationalparks-pipeline not found or no successful runs"
+#
+# =============================================================================
+
+- name: Check if Pipeline exists
+  kubernetes.core.k8s_info:
+    api_version: tekton.dev/v1
+    kind: Pipeline
+    name: "{{ pipeline_name }}"
+    namespace: "{{ pipeline_namespace }}"
+  register: r_pipeline
+  failed_when: false
+
+- name: Evaluate Pipeline existence
+  ansible.builtin.set_fact:
+    pipeline_exists: "{{ r_pipeline.resources | length > 0 }}"
+
+- name: Check for PipelineRun executions if required
+  when:
+    - pipeline_exists
+    - require_pipeline_run | default(false)
+  block:
+    - name: Get recent PipelineRuns for this Pipeline
+      kubernetes.core.k8s_info:
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ pipeline_namespace }}"
+        label_selectors:
+          - "tekton.dev/pipeline={{ pipeline_name }}"
+      register: r_pipelineruns
+
+    - name: Sort PipelineRuns by creation timestamp and check last N
+      ansible.builtin.set_fact:
+        recent_runs: "{{ r_pipelineruns.resources | sort(attribute='metadata.creationTimestamp', reverse=true) | list }}"
+        runs_to_check: "{{ check_last_n_runs | default(5) }}"
+
+    - name: Check if any recent run succeeded
+      ansible.builtin.set_fact:
+        run_succeeded: "{{
+          recent_runs[:runs_to_check | int] |
+          selectattr('status.conditions', 'defined') |
+          map(attribute='status.conditions') |
+          flatten |
+          selectattr('type', 'equalto', 'Succeeded') |
+          selectattr('status', 'equalto', 'True') |
+          list | length > 0
+        }}"
+
+    - name: Get latest run status for error message
+      when: not (run_succeeded | default(false))
+      ansible.builtin.set_fact:
+        latest_run_status: "{{
+          (recent_runs[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | first).reason | default('Unknown')
+          if recent_runs | length > 0 and recent_runs[0].status.conditions is defined
+          else 'No runs found'
+        }}"
+
+- name: Set default run_succeeded if not checking execution
+  when: not (require_pipeline_run | default(false))
+  ansible.builtin.set_fact:
+    run_succeeded: true
+
+- name: Determine overall success
+  ansible.builtin.set_fact:
+    check_passed: "{{
+      pipeline_exists and
+      (run_succeeded | default(true))
+    }}"
+
+- name: Create result message
+  ansible.builtin.set_fact:
+    grader_output_message: "{{
+      'PASS: ' + task_description_message
+      if check_passed
+      else (student_error_message | default(default_error_message))
+    }}"
+  vars:
+    default_error_message: "{{
+      'FAIL: ' + task_description_message + ': Pipeline ' + pipeline_name + ' not found in namespace ' + pipeline_namespace + '. Create the pipeline definition.'
+      if not pipeline_exists
+      else 'FAIL: ' + task_description_message + ': No successful PipelineRuns found for ' + pipeline_name + '. Latest status: ' + (latest_run_status | default('Unknown')) + '. Check runs: oc get pipelineruns -n ' + pipeline_namespace + ' -l tekton.dev/pipeline=' + pipeline_name
+    }}"
+
+- name: Log result to grading report
+  ansible.builtin.include_role:
+    name: ftl_run_log_grade_to_log

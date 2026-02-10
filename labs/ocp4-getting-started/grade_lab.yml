@@ -1,0 +1,116 @@
+---
+# =============================================================================
+# Grade Full Lab: OpenShift 4 Getting Started Workshop
+# =============================================================================
+#
+# Orchestrates grading for all 3 modules and generates consolidated report.
+#
+# Environment Variables Required:
+#   - PROJECT_NAME: OpenShift project/namespace
+#   - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: Cluster apps domain
+#
+# Usage:
+#   export PROJECT_NAME="workshop-user1"
+#   export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
+#   ansible-playbook grade_lab.yml
+#
+# Or via wrapper:
+#   grade_lab ocp4-getting-started
+#
+# =============================================================================
+
+- name: Initialize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "OpenShift 4 Getting Started - Full Lab"
+    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+  roles:
+    - ftl_run_init
+
+- name: Grade All Modules
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+    project_name: "{{ lookup('env', 'PROJECT_NAME') | default('workshop-user1') }}"
+    cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
+
+  tasks:
+    # =========================================================================
+    # Module 1: Deploying and Managing Applications
+    # =========================================================================
+    - name: Grade Module 1
+      ansible.builtin.command:
+        cmd: ansible-playbook grade_module_01.yml
+        chdir: "{{ playbook_dir }}"
+      register: r_module_01
+      changed_when: false
+      failed_when: false
+
+    - name: Read Module 1 report
+      ansible.builtin.slurp:
+        src: "/tmp/grading_dir/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
+      register: r_module_01_report
+
+    - name: Append Module 1 report to full lab report
+      ansible.builtin.lineinfile:
+        path: "/tmp/grading_dir/{{ grader_student_report_file }}"
+        line: "{{ r_module_01_report.content | b64decode }}"
+        insertafter: "^Results$"
+
+    # =========================================================================
+    # Module 2: Building from Source and Data Integration
+    # =========================================================================
+    - name: Grade Module 2
+      ansible.builtin.command:
+        cmd: ansible-playbook grade_module_02.yml
+        chdir: "{{ playbook_dir }}"
+      register: r_module_02
+      changed_when: false
+      failed_when: false
+
+    - name: Read Module 2 report
+      ansible.builtin.slurp:
+        src: "/tmp/grading_dir/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
+      register: r_module_02_report
+
+    - name: Append Module 2 report to full lab report
+      ansible.builtin.lineinfile:
+        path: "/tmp/grading_dir/{{ grader_student_report_file }}"
+        line: "{{ r_module_02_report.content | b64decode }}"
+        insertafter: EOF
+
+    # =========================================================================
+    # Module 3: CI/CD with Tekton Pipelines
+    # =========================================================================
+    - name: Grade Module 3
+      ansible.builtin.command:
+        cmd: ansible-playbook grade_module_03.yml
+        chdir: "{{ playbook_dir }}"
+      register: r_module_03
+      changed_when: false
+      failed_when: false
+
+    - name: Read Module 3 report
+      ansible.builtin.slurp:
+        src: "/tmp/grading_dir/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_03.txt"
+      register: r_module_03_report
+
+    - name: Append Module 3 report to full lab report
+      ansible.builtin.lineinfile:
+        path: "/tmp/grading_dir/{{ grader_student_report_file }}"
+        line: "{{ r_module_03_report.content | b64decode }}"
+        insertafter: EOF
+
+- name: Finalize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  vars:
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish
