@@ -1,0 +1,156 @@
+---
+# =============================================================================
+# Grade Full Lab: [Lab Name]
+# =============================================================================
+#
+# Orchestrates grading for all modules and generates consolidated report.
+#
+# This playbook calls all module graders and combines their results into
+# a single comprehensive grading report.
+#
+# Environment Variables Required:
+#   - REQUIRED_VAR_1: [Description]
+#   - REQUIRED_VAR_2: [Description]
+#
+# Optional:
+#   - LAB_USER: Username for multi-user environments (defaults to $USER)
+#
+# Usage:
+#   export REQUIRED_VAR_1="value"
+#   export REQUIRED_VAR_2="value"
+#   ansible-playbook grade_lab.yml
+#
+# Or via wrapper:
+#   grade_lab your-lab-name
+#
+# =============================================================================
+
+# =============================================================================
+# Play 1: Initialize Full Lab Grading Session
+# =============================================================================
+- name: Initialize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "[Lab Name] - Full Lab"
+    student_name: "{{ lookup('env', 'LAB_USER') | default('student') }}"
+    # CRITICAL: Define grader_student_report_file for full lab report
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+  roles:
+    - ftl_run_init
+
+# =============================================================================
+# Play 2: Grade All Modules
+# =============================================================================
+- name: Grade All Modules
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    # Define your lab-specific variables here
+    required_var_1: "{{ lookup('env', 'REQUIRED_VAR_1') | default('default-value') }}"
+    required_var_2: "{{ lookup('env', 'REQUIRED_VAR_2') | default('default-value') }}"
+
+    # CRITICAL: Define grader_student_report_file
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+
+  tasks:
+    # =========================================================================
+    # Grade Module 1
+    # =========================================================================
+    - name: Grade Module 1
+      ansible.builtin.import_playbook: grade_module_01.yml
+
+    - name: Read Module 1 report
+      ansible.builtin.slurp:
+        src: "/tmp/grading_dir/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
+      register: r_module_01_report
+
+    - name: Append Module 1 report to full lab report
+      ansible.builtin.blockinfile:
+        path: "/tmp/grading_dir/{{ grader_student_report_file }}"
+        marker: "# {mark} MODULE 1 RESULTS"
+        block: "{{ r_module_01_report.content | b64decode }}"
+        insertafter: "^Results$"
+
+    # =========================================================================
+    # Grade Module 2 (if exists)
+    # =========================================================================
+    # Uncomment and duplicate this block for additional modules
+    #
+    # - name: Grade Module 2
+    #   ansible.builtin.import_playbook: grade_module_02.yml
+    #
+    # - name: Read Module 2 report
+    #   ansible.builtin.slurp:
+    #     src: "/tmp/grading_dir/grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
+    #   register: r_module_02_report
+    #
+    # - name: Append Module 2 report to full lab report
+    #   ansible.builtin.blockinfile:
+    #     path: "/tmp/grading_dir/{{ grader_student_report_file }}"
+    #     marker: "# {mark} MODULE 2 RESULTS"
+    #     block: "{{ r_module_02_report.content | b64decode }}"
+    #     insertafter: EOF
+
+    # =========================================================================
+    # Add more modules as needed
+    # =========================================================================
+
+# =============================================================================
+# Play 3: Finalize Full Lab Grading Session
+# =============================================================================
+- name: Finalize FTL Grading Session - Full Lab
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # CRITICAL: Define grader_student_report_file
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish
+
+# =============================================================================
+# Notes for Lab Authors:
+# =============================================================================
+#
+# 1. **Orchestrator Pattern**
+#    - This playbook calls individual module graders
+#    - Combines all module reports into one consolidated report
+#    - Uses import_playbook to run each module grader
+#
+# 2. **Report Aggregation**
+#    - Each module creates its own report: grading_report_userN_module_01.txt
+#    - Orchestrator reads each module report
+#    - Appends module results to full lab report: grading_report_userN.txt
+#    - Final summary shows pass/fail across all modules
+#
+# 3. **Module Addition**
+#    - Copy the "Grade Module 1" block for each additional module
+#    - Update module number in filenames
+#    - Ensure import_playbook points to correct module grader
+#
+# 4. **Alternative Pattern (Recommended for Complex Labs)**
+#    Instead of import_playbook, use command module:
+#
+#    - name: Grade Module 1
+#      ansible.builtin.command:
+#        cmd: ansible-playbook grade_module_01.yml
+#        chdir: "{{ playbook_dir }}"
+#      register: r_module_01
+#      changed_when: false
+#      failed_when: false
+#
+#    This pattern:
+#    - Isolates module grader execution
+#    - Prevents variable scope issues
+#    - Allows modules to fail without stopping full lab grading
+#    - More robust for multi-module labs
+#
+# 5. **Report File Naming**
+#    - Full lab: grading_report_user1.txt
+#    - Per-module: grading_report_user1_module_01.txt
+#    - Allows students to grade individual modules without overwriting full lab report
+#
+# =============================================================================

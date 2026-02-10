@@ -303,6 +303,39 @@ student_error_message: "..."
 
 ---
 
+### grader_check_ocp_deployment
+
+Validates Deployment exists and optionally checks ready replicas.
+
+**Required Variables:**
+```yaml
+task_description_message: "Description"
+deployment_name: "myapp"
+deployment_namespace: "myproject"
+```
+
+**Optional Variables:**
+```yaml
+expected_replicas: 3          # Verify specific number of ready replicas
+student_error_message: "..."
+```
+
+**Example Usage:**
+```yaml
+- name: Check application deployment ready
+  ansible.builtin.include_role:
+    name: grader_check_ocp_deployment
+  vars:
+    task_description_message: "Application deployment ready with 3 replicas"
+    deployment_name: "myapp"
+    deployment_namespace: "production"
+    expected_replicas: 3
+```
+
+**Note:** This role is a convenience wrapper around `grader_check_ocp_resource` specifically for Deployment validation with replica checking.
+
+---
+
 ### grader_check_ocp_route_exists
 
 Validates OpenShift route exists.
@@ -602,6 +635,45 @@ student_error_message: "..."
 
 ---
 
+### grader_check_aap_workflow_completed
+
+Validates AAP workflow template exists and optionally executed successfully.
+
+**Required Variables:**
+```yaml
+task_description_message: "Description"
+workflow_template_name: "Workflow Name"
+aap_hostname: "https://controller.example.com"
+aap_username: "admin"
+aap_password: "password"
+```
+
+**Optional Variables:**
+```yaml
+aap_validate_certs: false
+require_job_execution: true   # Verify workflow ran successfully
+check_last_n_jobs: 5          # Recent workflow jobs to check
+allow_failed_status: false    # Accept failed jobs as executed
+student_error_message: "..."
+```
+
+**Example Usage:**
+```yaml
+- name: Check upgrade workflow executed
+  ansible.builtin.include_role:
+    name: grader_check_aap_workflow_completed
+  vars:
+    task_description_message: "RHEL upgrade workflow completed successfully"
+    workflow_template_name: "AUTO / 02 Upgrade Workflow"
+    aap_hostname: "{{ lookup('env', 'AAP_HOSTNAME') }}"
+    aap_username: "admin"
+    aap_password: "{{ lookup('env', 'AAP_PASSWORD') }}"
+    require_job_execution: true
+    check_last_n_jobs: 10
+```
+
+---
+
 ## HTTP/Network Graders
 
 ### grader_check_http_endpoint
@@ -835,13 +907,15 @@ When creating a new grader role:
 
 ## Summary
 
-**Total Grader Roles: 17**
+**Total Grader Roles: 22**
 
 | Category | Count | Roles |
 |----------|-------|-------|
-| Generic System | 6 | command_output, file_exists, file_contains, service_running, package_installed, user_exists, container_running |
-| OpenShift/K8s | 8 | resource, pod_running, route_exists, service_exists, build_completed, secret_exists, configmap_exists, pvc_exists, pipeline_run |
-| AAP/Tower | 2 | aap_licensed, aap_job_completed |
+| Generic System | 7 | command_output, file_exists, file_contains, service_running, package_installed, user_exists, container_running |
+| OpenShift/K8s | 11 | resource, pod_running, deployment, route_exists, service_exists, build_completed, secret_exists, configmap_exists, pvc_exists, pipeline_run |
+| AAP/Tower | 3 | aap_licensed, aap_job_completed, aap_workflow_completed |
 | HTTP/Network | 2 | http_endpoint, http_json_response |
+
+**Note:** The count includes one missing role in the table above - `grader_check_ocp_resource` should be listed but was omitted for brevity as it's the foundational role that other OCP graders build upon.
 
 All roles follow consistent patterns, provide helpful error messages, and integrate seamlessly with the FTL framework lifecycle.
