@@ -34,19 +34,24 @@
     # Pre-check: Determine if Gitea issue exists (for downstream evidence)
     # =========================================================================
     - name: "Pre-check: Query Gitea for issues (downstream evidence)"
-      ansible.builtin.shell: >
-        curl -s -u {{ gitea_user }}:{{ gitea_password }}
-        {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues
-        | jq '. | length'
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues"
+        method: GET
+        user: "{{ gitea_user }}"
+        password: "{{ gitea_password }}"
+        force_basic_auth: yes
+        validate_certs: false
+        return_content: yes
+        status_code: 200
       register: r_gitea_issues_precheck
-      changed_when: false
       ignore_errors: true
 
     - name: "Pre-check: Store Gitea issue status"
       ansible.builtin.set_fact:
         gitea_issue_created: "{{
-          r_gitea_issues_precheck.rc == 0 and
-          r_gitea_issues_precheck.stdout | regex_search('^[1-9][0-9]*$')
+          r_gitea_issues_precheck is succeeded and
+          r_gitea_issues_precheck.json is defined and
+          r_gitea_issues_precheck.json | length > 0
         }}"
 
     # =========================================================================
