@@ -44,7 +44,7 @@
         return_content: yes
         status_code: 200
       register: r_gitea_issues_precheck
-      ignore_errors: true
+      failed_when: false
 
     - name: "Pre-check: Store Gitea issue status"
       ansible.builtin.set_fact:
@@ -80,15 +80,26 @@
           - "app=agent"
       register: r_agent_pods
 
-    - name: "Exercise 2.2: Get agent pod logs"
+    - name: "Exercise 2.2: Test if agent pod logs are accessible"
       when: r_agent_pods.resources | length > 0
+      ansible.builtin.command: >
+        oc logs -n {{ agent_namespace }}
+        {{ r_agent_pods.resources[0].metadata.name }}
+        --tail=1
+      register: r_agent_logs_test
+      changed_when: false
+      failed_when: false
+
+    - name: "Exercise 2.2: Get agent pod logs"
+      when:
+        - r_agent_pods.resources | length > 0
+        - r_agent_logs_test.rc == 0
       ansible.builtin.command: >
         oc logs -n {{ agent_namespace }}
         {{ r_agent_pods.resources[0].metadata.name }}
         --tail=100
       register: r_agent_logs
       changed_when: false
-      ignore_errors: true
 
     - name: "Exercise 2.2: Evaluate MCP connection from logs"
       when:
