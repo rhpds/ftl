@@ -45,7 +45,7 @@
   become: false
 
   vars:
-    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
+    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
 
   tasks:

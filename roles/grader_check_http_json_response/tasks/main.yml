@@ -88,34 +88,20 @@
     - name: Check JSON field values
       when: json_value_checks is defined and json_value_checks | length > 0
       block:
-        - name: Build list of incorrect values
+        - name: Build list of mismatched values
           ansible.builtin.set_fact:
-            incorrect_values: >-
-              {{ json_value_checks | dict2items
-                 | selectattr('key', 'in', response_json.keys())
-                 | rejectattr('value', 'equalto', '')
-                 | list
-                 | map(attribute='key')
-                 | select('match', '.*')
-                 | list }}
-          vars:
-            _tmp: "{{ json_value_checks }}"
+            incorrect_values: []
+
+        - name: Check each value
+          ansible.builtin.set_fact:
+            incorrect_values: "{{ incorrect_values + ([item.key] if (item.key not in response_json or response_json[item.key] | string != item.value | string) else []) }}"
+          loop: "{{ json_value_checks | dict2items }}"
+          loop_control:
+            label: "{{ item.key }}"
 
         - name: Evaluate value matches
           ansible.builtin.set_fact:
-            incorrect_values: "{{ _mismatched }}"
-            all_values_match: "{{ _mismatched | length == 0 }}"
-          vars:
-            _mismatched: >-
-              {% set ns = namespace(bad=[]) %}
-              {% for key, expected in json_value_checks.items() %}
-              {%   if key in response_json and response_json[key] | string != expected | string %}
-              {%     set ns.bad = ns.bad + [key] %}
-              {%   elif key not in response_json %}
-              {%     set ns.bad = ns.bad + [key] %}
-              {%   endif %}
-              {% endfor %}
-              {{ ns.bad }}
+            all_values_match: "{{ incorrect_values | length == 0 }}"
 
 - name: Set default validation results if not checking JSON
   when: >
@@ -128,27 +114,27 @@
 - name: Determine overall success
   ansible.builtin.set_fact:
     check_passed: "{{
-      is_https and
-      http_success and
-      (all_fields_present | default(true)) and
-      (all_values_match | default(true))
+      (is_https | bool) and
+      (http_success | bool) and
+      (all_fields_present | default(true) | bool) and
+      (all_values_match | default(true) | bool)
     }}"
 
 - name: Create result message
   ansible.builtin.set_fact:
     grader_output_message: "{{
       'PASS: ' + task_description_message
-      if check_passed
+      if (check_passed | bool)
       else (student_error_message | default(default_error_message))
     }}"
   vars:
     default_error_message: "{{
       'FAIL: ' + task_description_message + ': URL must use HTTPS protocol. Current URL: ' + endpoint_url
-      if not is_https
+      if not (is_https | bool)
       else 'FAIL: ' + task_description_message + ': HTTP request failed. Status: ' + (r_http_response.status | default(0) | string) + '. URL: ' + endpoint_url
-      if not http_success
+      if not (http_success | bool)
       else 'FAIL: ' + task_description_message + ': JSON response missing required fields: ' + (missing_fields | default([]) | join(', ')) + '. URL: ' + endpoint_url
-      if not (all_fields_present | default(true))
+      if not (all_fields_present | default(true) | bool)
       else 'FAIL: ' + task_description_message + ': JSON field values incorrect for fields: ' + (incorrect_values | default([]) | join(', ')) + '. URL: ' + endpoint_url
     }}"
 

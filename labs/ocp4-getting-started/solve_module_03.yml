@@ -27,7 +27,7 @@
   become: false
 
   vars:
-    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
+    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
 
   tasks:
 

@@ -30,7 +30,7 @@
   become: false
 
   vars:
-    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
+    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
     parksmap_image: "quay.io/openshiftroadshow/parksmap:latest"
 
   tasks:
