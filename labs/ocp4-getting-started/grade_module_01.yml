@@ -12,16 +12,16 @@
 # - Service account permissions
 #
 # Environment Variables Required:
-#   - PROJECT_NAME: OpenShift project/namespace (e.g., workshop-user1)
 #   - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: Cluster apps domain
+#   - LAB_USER: Student user (e.g., user1) - sets project to workshop-<user>
 #
-# Usage:
-#   export PROJECT_NAME="workshop-user1"
+# Usage via wrapper (recommended):
+#   grade_lab ocp4-getting-started user1 1
+#
+# Or directly:
+#   export LAB_USER="user1"
 #   export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
 #   ansible-playbook grade_module_01.yml
-#
-# Or via wrapper:
-#   grade_lab ocp4-getting-started 1
 #
 # =============================================================================
 
@@ -43,7 +43,7 @@
   become: false
 
   vars:
-    project_name: "{{ lookup('env', 'PROJECT_NAME') | default('workshop-user1') }}"
+    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
     cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
 
@@ -54,16 +54,18 @@
     - name: Validate required environment variables
       ansible.builtin.assert:
         that:
-          - lookup('env', 'PROJECT_NAME') | length > 0 or 'workshop' in project_name
           - lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length > 0 or 'apps' in cluster_domain
         fail_msg: |
           Required environment variables not set:
-          - PROJECT_NAME: Your OpenShift project/namespace
           - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: Cluster ingress domain
+          - LAB_USER: Student user (e.g., user1)
 
           Example:
-            export PROJECT_NAME="workshop-user1"
+            export LAB_USER="user1"
             export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
+
+          Or use the wrapper:
+            grade_lab ocp4-getting-started user1 1
 
     # =========================================================================
     # Exercise 1.1: Project Exists

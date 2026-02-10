@@ -10,14 +10,14 @@
 # 4. Configure GitHub webhook trigger
 #
 # Environment Variables Required:
-#   - PROJECT_NAME: OpenShift project/namespace
+#   - LAB_USER: Student user (e.g., user1) - sets project to workshop-<user>
 #
-# Usage:
-#   export PROJECT_NAME="workshop-user1"
+# Usage via wrapper (recommended):
+#   solve_lab ocp4-getting-started user1 3
+#
+# Or directly:
+#   export LAB_USER="user1"
 #   ansible-playbook solve_module_03.yml
-#
-# Or via wrapper:
-#   solve_lab ocp4-getting-started 3
 #
 # =============================================================================
 
@@ -27,19 +27,9 @@
   become: false
 
   vars:
-    project_name: "{{ lookup('env', 'PROJECT_NAME') | default('workshop-user1') }}"
+    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
 
   tasks:
-    # =========================================================================
-    # Environment Variable Validation
-    # =========================================================================
-    - name: Validate required environment variables
-      ansible.builtin.assert:
-        that:
-          - lookup('env', 'PROJECT_NAME') | length > 0 or 'workshop' in project_name
-        fail_msg: |
-          Required environment variable not set:
-          - PROJECT_NAME: Your OpenShift project/namespace
 
     - name: Display solver information
       ansible.builtin.debug:

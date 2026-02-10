@@ -104,29 +104,20 @@ This lab is designed for multi-user workshop environments where multiple student
 
 **Student Self-Grading:**
 ```bash
-# Student logs into their own bastion/environment
-export PROJECT_NAME="workshop-user1"
-export LAB_USER="user1"
-grade_lab ocp4-getting-started
+grade_lab ocp4-getting-started user1
 ```
 
 **Admin Batch Grading:**
 ```bash
-# System admin grades all students from cluster-admin context
 for user in user{1..20}; do
-  export PROJECT_NAME="workshop-${user}"
-  export LAB_USER="${user}"
   echo "Grading ${user}..."
-  grade_lab ocp4-getting-started
+  grade_lab ocp4-getting-started $user
 done
 ```
 
 **Solver Multi-User:**
 ```bash
-# Solve lab for specific user (testing or recovery)
-export PROJECT_NAME="workshop-user5"
-export LAB_USER="user5"
-solve_lab ocp4-getting-started
+solve_lab ocp4-getting-started user5
 ```
 
 ---
@@ -136,19 +127,22 @@ solve_lab ocp4-getting-started
 **Required:**
 ```bash
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
-export PROJECT_NAME="workshop-user1"  # Student's project/namespace
+```
+
+**Set automatically by wrapper** (or export manually):
+```bash
+export LAB_USER="user1"  # Derives project as workshop-user1
 ```
 
 **Optional:**
 ```bash
-export LAB_USER="user1"  # For multi-user environments
 export GUID="xxxxx"      # Auto-detected from hostname if not set
 ```
 
-**Variable Priority:**
-1. Explicitly set environment variable
-2. Auto-detection (for GUID)
-3. Default values in playbooks
+**How namespace is derived:**
+- `LAB_USER=user1` → project `workshop-user1`
+- `LAB_USER=user2` → project `workshop-user2`
+- No `LAB_USER` set → defaults to `workshop-user1`
 
 ---
 
@@ -158,34 +152,22 @@ export GUID="xxxxx"      # Auto-detected from hostname if not set
 
 **Full lab (all modules):**
 ```bash
-grade_lab ocp4-getting-started
+grade_lab ocp4-getting-started user1
 ```
 
 **Specific module:**
 ```bash
-grade_lab ocp4-getting-started 1  # Module 1 only
-grade_lab ocp4-getting-started 2  # Module 2 only
-grade_lab ocp4-getting-started 3  # Module 3 only
+grade_lab ocp4-getting-started user1 1  # Module 1 only
+grade_lab ocp4-getting-started user1 2  # Module 2 only
+grade_lab ocp4-getting-started user1 3  # Module 3 only
 ```
 
 **Multi-user grading:**
 ```bash
-# Student grading their own work
-export PROJECT_NAME="workshop-user1"
-export LAB_USER="user1"
-grade_lab ocp4-getting-started
-
-# System admin grading all students
+# Each student gets isolated report
 for user in user1 user2 user3; do
-  export PROJECT_NAME="workshop-${user}"
-  export LAB_USER="${user}"
-  grade_lab ocp4-getting-started
+  grade_lab ocp4-getting-started $user
 done
-
-# Each student gets isolated report:
-# - grading_report_user1.txt
-# - grading_report_user2.txt
-# - grading_report_user3.txt
 ```
 
 ---
@@ -194,14 +176,14 @@ done
 
 **Full lab automation:**
 ```bash
-solve_lab ocp4-getting-started
+solve_lab ocp4-getting-started user1
 ```
 
 **Specific module:**
 ```bash
-solve_lab ocp4-getting-started 1  # Auto-complete Module 1
-solve_lab ocp4-getting-started 2  # Auto-complete Module 2
-solve_lab ocp4-getting-started 3  # Auto-complete Module 3
+solve_lab ocp4-getting-started user1 1  # Auto-complete Module 1
+solve_lab ocp4-getting-started user1 2  # Auto-complete Module 2
+solve_lab ocp4-getting-started user1 3  # Auto-complete Module 3
 ```
 
 **What solvers do:**
@@ -318,10 +300,10 @@ MongoDB uses ephemeral storage (EmptyDir) for workshop simplicity. Tekton pipeli
 **1. "Project not found"**
 ```bash
 # Verify project exists
-oc get project $PROJECT_NAME
+oc get project workshop-user1
 
 # Create if missing
-oc new-project $PROJECT_NAME
+oc new-project workshop-user1
 ```
 
 **2. "Build failed"**
@@ -458,7 +440,7 @@ agnosticd_user_info_enabled: true
 
 Students can then grade their work:
 ```bash
-grade_lab ocp4-getting-started
+grade_lab ocp4-getting-started user1
 ```
 
 ---
