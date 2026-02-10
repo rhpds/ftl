@@ -78,6 +78,59 @@ This lab teaches beginner developers core OpenShift concepts through hands-on ex
 
 ---
 
+## Multi-User Architecture
+
+This lab is designed for multi-user workshop environments where multiple students work simultaneously:
+
+### Isolation Model
+
+**Project-Based Isolation:**
+- Each student has their own OpenShift project/namespace
+- Projects named with user suffix: `workshop-user1`, `workshop-user2`, etc.
+- All resources isolated within student's project
+- No shared resources between students
+
+**Resource Naming:**
+- Resources use standard names within each project: `parksmap`, `nationalparks`, `mongodb`
+- Routes get unique hostnames based on project: `parksmap-workshop-user1.apps.cluster.example.com`
+- No naming conflicts between students
+
+**Report Isolation:**
+- Per-user grading reports: `grading_report_user1.txt`, `grading_report_user2.txt`
+- Students can only see their own results
+- Admins can grade all students sequentially
+
+### Multi-User Patterns
+
+**Student Self-Grading:**
+```bash
+# Student logs into their own bastion/environment
+export PROJECT_NAME="workshop-user1"
+export LAB_USER="user1"
+grade_lab ocp4-getting-started
+```
+
+**Admin Batch Grading:**
+```bash
+# System admin grades all students from cluster-admin context
+for user in user{1..20}; do
+  export PROJECT_NAME="workshop-${user}"
+  export LAB_USER="${user}"
+  echo "Grading ${user}..."
+  grade_lab ocp4-getting-started
+done
+```
+
+**Solver Multi-User:**
+```bash
+# Solve lab for specific user (testing or recovery)
+export PROJECT_NAME="workshop-user5"
+export LAB_USER="user5"
+solve_lab ocp4-getting-started
+```
+
+---
+
 ## Environment Variables
 
 **Required:**
@@ -117,12 +170,22 @@ grade_lab ocp4-getting-started 3  # Module 3 only
 
 **Multi-user grading:**
 ```bash
-# Each user grades their own project
+# Student grading their own work
 export PROJECT_NAME="workshop-user1"
+export LAB_USER="user1"
 grade_lab ocp4-getting-started
 
-export PROJECT_NAME="workshop-user2"
-grade_lab ocp4-getting-started
+# System admin grading all students
+for user in user1 user2 user3; do
+  export PROJECT_NAME="workshop-${user}"
+  export LAB_USER="${user}"
+  grade_lab ocp4-getting-started
+done
+
+# Each student gets isolated report:
+# - grading_report_user1.txt
+# - grading_report_user2.txt
+# - grading_report_user3.txt
 ```
 
 ---
