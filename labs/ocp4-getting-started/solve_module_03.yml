@@ -99,7 +99,7 @@
                 default: https://github.com/openshift-roadshow/nationalparks.git
               - name: APP_GIT_REVISION
                 type: string
-                default: main
+                default: master
             workspaces:
               - name: app-source
               - name: maven-settings
