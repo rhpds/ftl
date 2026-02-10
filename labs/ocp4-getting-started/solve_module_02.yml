@@ -78,9 +78,9 @@
       ansible.builtin.command: >
         oc create secret generic mongodb-credentials
         --from-literal=admin-usr=admin
-        --from-literal=admin-pwd=admin123
+        --from-literal=admin-pwd=secret
         --from-literal=app-usr=parksapp
-        --from-literal=app-pwd=parksapp123
+        --from-literal=app-pwd=keepsafe
         -n {{ project_name }}
       changed_when: true
 
@@ -123,22 +123,22 @@
               spec:
                 containers:
                   - name: mongodb
-                    image: "docker.io/bitnami/mongodb:5.0"
+                    image: "registry.access.redhat.com/rhscl/mongodb-36-rhel7:1"
                     ports:
                       - containerPort: 27017
                         protocol: TCP
                     env:
-                      - name: MONGODB_ROOT_PASSWORD
-                        value: admin123
-                      - name: MONGODB_USERNAME
+                      - name: MONGODB_ADMIN_PASSWORD
+                        value: secret
+                      - name: MONGODB_USER
                         value: parksapp
                       - name: MONGODB_PASSWORD
-                        value: parksapp123
+                        value: keepsafe
                       - name: MONGODB_DATABASE
                         value: parksapp
                     volumeMounts:
                       - name: mongodb-data
-                        mountPath: /bitnami/mongodb
+                        mountPath: /var/lib/mongodb/data
                 volumes:
                   - name: mongodb-data
                     emptyDir: {}
@@ -241,14 +241,35 @@
     # Step 6: Configure Nationalparks Database Environment Variables
     # =========================================================================
     - name: Configure database environment variables
-      ansible.builtin.command: >
-        oc set env deployment/nationalparks
-        MONGODB_SERVER_HOST=mongodb
-        MONGODB_DATABASE=parksapp
-        MONGODB_USER=parksapp
-        MONGODB_PASSWORD=parksapp123
-        -n {{ project_name }}
-      changed_when: true
+      kubernetes.core.k8s:
+        state: present
+        merge_type: strategic-merge
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nationalparks
+            namespace: "{{ project_name }}"
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: nationalparks
+                    env:
+                      - name: MONGODB_SERVER_HOST
+                        value: mongodb
+                      - name: MONGODB_DATABASE
+                        value: parksapp
+                      - name: MONGODB_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: app-usr
+                      - name: MONGODB_PASSWORD
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: app-pwd
 
     # =========================================================================
     # Step 7: Wait for Nationalparks to be Ready

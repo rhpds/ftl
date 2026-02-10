@@ -219,9 +219,9 @@
           Create secret:
             oc create secret generic mongodb-credentials \
               --from-literal=admin-usr=admin \
-              --from-literal=admin-pwd=admin123 \
+              --from-literal=admin-pwd=secret \
               --from-literal=app-usr=parksapp \
-              --from-literal=app-pwd=parksapp123 \
+              --from-literal=app-pwd=keepsafe \
               -n {{ project_name }}
 
           Check secret: oc describe secret mongodb-credentials -n {{ project_name }}
