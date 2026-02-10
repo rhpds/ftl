@@ -31,24 +31,21 @@
 
   vars:
     project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
-    cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
     parksmap_image: "quay.io/openshiftroadshow/parksmap:latest"
 
   tasks:
     # =========================================================================
-    # Environment Variable Validation
+    # Auto-detect cluster domain if not set
     # =========================================================================
-    - name: Validate required environment variables
-      ansible.builtin.assert:
-        that:
-          - lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length > 0 or 'apps' in cluster_domain
-        fail_msg: |
-          Required environment variables not set:
-          - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: Cluster ingress domain
-          - LAB_USER: Student user (e.g., user1)
+    - name: Get cluster ingress domain from OpenShift
+      when: lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length == 0
+      ansible.builtin.command: oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}'
+      register: r_cluster_domain
+      changed_when: false
 
-          Or use the wrapper:
-            solve_lab ocp4-getting-started user1 1
+    - name: Set cluster domain
+      ansible.builtin.set_fact:
+        cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default(r_cluster_domain.stdout | default('apps.cluster.example.com'), true) }}"
 
     - name: Display solver information
       ansible.builtin.debug:

@@ -37,7 +37,6 @@
   vars:
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}.txt"
     project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
-    cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
 
   tasks:
     # =========================================================================

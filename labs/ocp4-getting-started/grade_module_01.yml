@@ -44,28 +44,21 @@
 
   vars:
     project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
-    cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
 
   tasks:
     # =========================================================================
-    # Environment Variable Validation
+    # Auto-detect cluster domain if not set
     # =========================================================================
-    - name: Validate required environment variables
-      ansible.builtin.assert:
-        that:
-          - lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length > 0 or 'apps' in cluster_domain
-        fail_msg: |
-          Required environment variables not set:
-          - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: Cluster ingress domain
-          - LAB_USER: Student user (e.g., user1)
+    - name: Get cluster ingress domain from OpenShift
+      when: lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length == 0
+      ansible.builtin.command: oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}'
+      register: r_cluster_domain
+      changed_when: false
 
-          Example:
-            export LAB_USER="user1"
-            export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
-
-          Or use the wrapper:
-            grade_lab ocp4-getting-started user1 1
+    - name: Set cluster domain
+      ansible.builtin.set_fact:
+        cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default(r_cluster_domain.stdout | default('apps.cluster.example.com'), true) }}"
 
     # =========================================================================
     # Exercise 1.1: Project Exists
