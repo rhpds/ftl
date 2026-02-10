@@ -194,33 +194,12 @@
     # =========================================================================
     # Step 5: Grant Service Account View Permissions
     # =========================================================================
-    - name: Check if default SA has view role
-      ansible.builtin.command: >
-        oc get rolebinding -n {{ project_name }} -o json
-      register: r_rolebindings
-      changed_when: false
-
-    - name: Parse rolebindings
-      ansible.builtin.set_fact:
-        rolebindings_json: "{{ r_rolebindings.stdout | from_json }}"
-
-    - name: Check for existing view role binding
-      ansible.builtin.set_fact:
-        sa_has_view: "{{
-          rolebindings_json.items |
-          selectattr('roleRef.name', 'equalto', 'view') |
-          map(attribute='subjects') |
-          flatten |
-          selectattr('kind', 'equalto', 'ServiceAccount') |
-          selectattr('name', 'equalto', 'default') |
-          list | length > 0
-        }}"
-
     - name: Grant view permissions to default service account
-      when: not sa_has_view
       ansible.builtin.command: >
         oc policy add-role-to-user view -z default -n {{ project_name }}
-      changed_when: true
+      register: r_grant_view
+      changed_when: "'added' in r_grant_view.stdout"
+      failed_when: false
 
     # =========================================================================
     # Step 6: Wait for Application to be Ready
