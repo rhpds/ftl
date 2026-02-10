@@ -128,18 +128,27 @@
     # =========================================================================
     # Exercise 2.4: Nationalparks Pod Running
     # =========================================================================
-    - name: "Exercise 2.4: Verify nationalparks pod running"
+    - name: "Exercise 2.4: Get nationalparks deployment status"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: nationalparks
+        namespace: "{{ project_name }}"
+      register: r_np_deploy_status
+      failed_when: false
+
+    - name: "Exercise 2.4: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 2.4: Nationalparks pod running'
+          if r_np_deploy_status.resources | length > 0 and
+             (r_np_deploy_status.resources[0].status.readyReplicas | default(0) | int) >= 1
+          else 'FAIL: Exercise 2.4: Nationalparks pod not running in project ' + project_name + '. Check pods: oc get pods -n ' + project_name + ' | View logs: oc logs deployment/nationalparks -n ' + project_name
+        }}"
+
+    - name: "Exercise 2.4: Log result"
       ansible.builtin.include_role:
-        name: grader_check_ocp_pod_running
-      vars:
-        task_description_message: "Exercise 2.4: Nationalparks pod running"
-        pod_name: "nationalparks-.*"
-        pod_namespace: "{{ project_name }}"
-        min_ready_pods: 1
-        student_error_message: |
-          Nationalparks pod not found or not running in project {{ project_name }}.
-          Check pods: oc get pods -l app=nationalparks -n {{ project_name }}
-          View logs: oc logs -l app=nationalparks -n {{ project_name }}
+        name: ftl_run_log_grade_to_log
 
     # =========================================================================
     # Exercise 2.5: Nationalparks Route Exists with HTTPS
@@ -252,18 +261,27 @@
     # =========================================================================
     # Exercise 2.9: MongoDB Pod Running
     # =========================================================================
-    - name: "Exercise 2.9: Verify mongodb pod running"
+    - name: "Exercise 2.9: Get mongodb deployment status"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: mongodb
+        namespace: "{{ project_name }}"
+      register: r_mongodb_deploy_status
+      failed_when: false
+
+    - name: "Exercise 2.9: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 2.9: MongoDB pod running'
+          if r_mongodb_deploy_status.resources | length > 0 and
+             (r_mongodb_deploy_status.resources[0].status.readyReplicas | default(0) | int) >= 1
+          else 'FAIL: Exercise 2.9: MongoDB pod not running in project ' + project_name + '. Check pods: oc get pods -l app=mongodb -n ' + project_name + ' | View logs: oc logs deployment/mongodb -n ' + project_name
+        }}"
+
+    - name: "Exercise 2.9: Log result"
       ansible.builtin.include_role:
-        name: grader_check_ocp_pod_running
-      vars:
-        task_description_message: "Exercise 2.9: MongoDB pod running"
-        pod_name: "mongodb-.*"
-        pod_namespace: "{{ project_name }}"
-        min_ready_pods: 1
-        student_error_message: |
-          MongoDB pod not found or not running in project {{ project_name }}.
-          Check pods: oc get pods -l app=mongodb -n {{ project_name }}
-          View logs: oc logs -l app=mongodb -n {{ project_name }}
+        name: ftl_run_log_grade_to_log
 
     # =========================================================================
     # Exercise 2.10: MongoDB Deployment Labels

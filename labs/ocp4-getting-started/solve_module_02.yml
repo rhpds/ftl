@@ -123,17 +123,26 @@
               spec:
                 containers:
                   - name: mongodb
-                    image: "registry.access.redhat.com/rhscl/mongodb-36-rhel7:1"
+                    image: "registry.redhat.io/rhel9/mongodb-70:latest"
                     ports:
                       - containerPort: 27017
                         protocol: TCP
                     env:
                       - name: MONGODB_ADMIN_PASSWORD
-                        value: secret
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: admin-pwd
                       - name: MONGODB_USER
-                        value: parksapp
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: app-usr
                       - name: MONGODB_PASSWORD
-                        value: keepsafe
+                        valueFrom:
+                          secretKeyRef:
+                            name: mongodb-credentials
+                            key: app-pwd
                       - name: MONGODB_DATABASE
                         value: parksapp
                     volumeMounts:
@@ -178,7 +187,7 @@
       delay: 10
 
     # =========================================================================
-    # Step 4: Create Nationalparks BuildConfig and Start Build
+    # Step 3: Create Nationalparks BuildConfig and Start Build
     # =========================================================================
     - name: Check if nationalparks BuildConfig exists
       kubernetes.core.k8s_info:
@@ -342,6 +351,32 @@
         --timeout-seconds=3
         -n {{ project_name }}
       changed_when: true
+
+    # =========================================================================
+    # Step 10: Wait for Nationalparks after probe rollout
+    # =========================================================================
+    - name: Wait for nationalparks deployment to stabilize after probes
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: nationalparks
+        namespace: "{{ project_name }}"
+      register: r_np_final
+      until:
+        - r_np_final.resources | length > 0
+        - r_np_final.resources[0].status.readyReplicas | default(0) | int >= 1
+      retries: 30
+      delay: 10
+
+    - name: Wait for nationalparks application to respond after probe rollout
+      ansible.builtin.uri:
+        url: "https://{{ r_route.resources[0].spec.host }}/ws/info/"
+        validate_certs: false
+        status_code: 200
+      register: r_final_check
+      until: r_final_check is succeeded
+      retries: 30
+      delay: 10
 
     # =========================================================================
     # Summary
