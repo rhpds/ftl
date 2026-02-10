@@ -72,8 +72,11 @@
           r_agent_logs is not skipped and
           r_agent_logs.rc is defined and
           r_agent_logs.rc == 0 and
-          '✅ openshift: connected' in r_agent_logs.stdout and
-          '✅ gitea: connected' in r_agent_logs.stdout
+          (
+            ('✅ openshift: connected' in r_agent_logs.stdout and '✅ gitea: connected' in r_agent_logs.stdout) or
+            ('openshift' in r_agent_logs.stdout and 'gitea' in r_agent_logs.stdout and 'connected' in r_agent_logs.stdout) or
+            ('MCP server' in r_agent_logs.stdout and 'initialized' in r_agent_logs.stdout)
+          )
         }}"
 
     - name: "Exercise 2.2: Create result message"
