@@ -31,6 +31,25 @@
 
   tasks:
     # =========================================================================
+    # Pre-check: Determine if Gitea issue exists (for downstream evidence)
+    # =========================================================================
+    - name: "Pre-check: Query Gitea for issues (downstream evidence)"
+      ansible.builtin.command: >
+        curl -s -u {{ gitea_user }}:{{ gitea_password }}
+        {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues
+        | jq '. | length'
+      register: r_gitea_issues_precheck
+      changed_when: false
+      ignore_errors: true
+
+    - name: "Pre-check: Store Gitea issue status"
+      ansible.builtin.set_fact:
+        gitea_issue_created: "{{
+          r_gitea_issues_precheck.rc == 0 and
+          r_gitea_issues_precheck.stdout | regex_search('^[1-9][0-9]*$')
+        }}"
+
+    # =========================================================================
     # Exercise 2.1: Agent Infrastructure - Agent Pod Running
     # =========================================================================
     - name: "Exercise 2.1: Verify agent pod is deployed and running"
@@ -66,26 +85,41 @@
       changed_when: false
       ignore_errors: true
 
-    - name: "Exercise 2.2: Evaluate MCP connection success"
+    - name: "Exercise 2.2: Evaluate MCP connection from logs"
+      when:
+        - r_agent_logs is not skipped
+        - r_agent_logs.rc is defined
+        - r_agent_logs.rc == 0
       ansible.builtin.set_fact:
-        mcp_connected: "{{
-          r_agent_logs is not skipped and
-          r_agent_logs.rc is defined and
-          r_agent_logs.rc == 0 and
-          (
-            ('✅ openshift: connected' in r_agent_logs.stdout and '✅ gitea: connected' in r_agent_logs.stdout) or
-            ('openshift' in r_agent_logs.stdout and 'gitea' in r_agent_logs.stdout and 'connected' in r_agent_logs.stdout) or
-            ('MCP server' in r_agent_logs.stdout and 'initialized' in r_agent_logs.stdout)
-          )
+        mcp_connected_from_logs: "{{
+          ('✅ openshift: connected' in r_agent_logs.stdout and '✅ gitea: connected' in r_agent_logs.stdout) or
+          ('openshift' in r_agent_logs.stdout and 'gitea' in r_agent_logs.stdout and 'connected' in r_agent_logs.stdout) or
+          ('MCP server' in r_agent_logs.stdout and 'initialized' in r_agent_logs.stdout)
         }}"
+
+    - name: "Exercise 2.2: Set default for logs check"
+      when: mcp_connected_from_logs is not defined
+      ansible.builtin.set_fact:
+        mcp_connected_from_logs: false
+
+    - name: "Exercise 2.2: Store connection status for later exercises"
+      ansible.builtin.set_fact:
+        mcp_connected: "{{ mcp_connected_from_logs }}"
 
     - name: "Exercise 2.2: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
           'PASS: Exercise 2.2: Agent connected to both MCP servers (OpenShift + Gitea)'
           if mcp_connected
+          else 'PASS: Exercise 2.2: Agent connected to MCP servers (verified by successful downstream operations)'
+          if gitea_issue_created | default(false)
           else 'FAIL: Exercise 2.2: Agent connected to MCP servers: Agent logs do not show successful MCP connections. Check agent pod logs: oc logs -n ' + agent_namespace + ' <agent-pod-name>'
         }}"
+
+    - name: "Exercise 2.2: Update connection status if downstream evidence exists"
+      when: gitea_issue_created | default(false)
+      ansible.builtin.set_fact:
+        mcp_connected: true
 
     - name: "Exercise 2.2: Log result"
       ansible.builtin.include_role:
@@ -199,54 +233,60 @@
         name: ftl_run_log_grade_to_log
 
     # =========================================================================
-    # Exercise 2.7: Agent Investigated Failure
+    # Exercise 2.8: Gitea Issue Created by Agent (uses pre-check result)
+    # =========================================================================
+    - name: "Exercise 2.8: Create result message"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 2.8: Gitea issue created by agent after pipeline failure'
+          if gitea_issue_created
+          else 'FAIL: Exercise 2.8: Gitea issue creation: No issues found in Gitea repository ' + gitea_user + '/mcp. The agent should create an issue when the pipeline fails. Check Gitea: ' + gitea_url + '/' + gitea_user + '/mcp/issues'
+        }}"
+
+    - name: "Exercise 2.8: Log result"
+      ansible.builtin.include_role:
+        name: ftl_run_log_grade_to_log
+
+    # =========================================================================
+    # Exercise 2.7: Agent Investigated Failure (Use downstream evidence if logs unavailable)
     # =========================================================================
     - name: "Exercise 2.7: Check agent logs for failure investigation"
-      when: r_agent_logs is not skipped
+      when:
+        - r_agent_logs is not skipped
+        - r_agent_logs.rc is defined
+        - r_agent_logs.rc == 0
       ansible.builtin.set_fact:
-        agent_investigated: "{{
+        agent_investigated_from_logs: "{{
           'Received failure report' in r_agent_logs.stdout or
           'pods_log' in r_agent_logs.stdout or
           'Iteration' in r_agent_logs.stdout
         }}"
 
-    - name: "Exercise 2.7: Set default if logs skipped"
-      when: r_agent_logs is skipped
+    - name: "Exercise 2.7: Set default for logs check"
+      when: agent_investigated_from_logs is not defined
       ansible.builtin.set_fact:
-        agent_investigated: false
+        agent_investigated_from_logs: false
+
+    - name: "Exercise 2.7: Determine investigation success"
+      ansible.builtin.set_fact:
+        agent_investigated: "{{
+          agent_investigated_from_logs or
+          (gitea_issue_created | default(false))
+        }}"
 
     - name: "Exercise 2.7: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
-          'PASS: Exercise 2.7: Agent investigated pipeline failure (logs show analysis)'
-          if agent_investigated
-          else 'FAIL: Exercise 2.7: Agent investigation: Agent logs do not show failure investigation. Check agent pod logs for failure report handling.'
+          'PASS: Exercise 2.7: Agent investigated pipeline failure (verified by Gitea issue creation)'
+          if agent_investigated and not agent_investigated_from_logs
+          else 'PASS: Exercise 2.7: Agent investigated pipeline failure (logs show analysis)'
+          if agent_investigated and agent_investigated_from_logs
+          else 'FAIL: Exercise 2.7: Agent investigation: Agent logs do not show failure investigation and no Gitea issue was created. Check agent pod logs for failure report handling.'
         }}"
 
     - name: "Exercise 2.7: Log result"
       ansible.builtin.include_role:
         name: ftl_run_log_grade_to_log
-
-    # =========================================================================
-    # Exercise 2.8: Gitea Issue Created by Agent
-    # =========================================================================
-    - name: "Exercise 2.8: Query Gitea for issues"
-      ansible.builtin.include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Exercise 2.8: Gitea issue created by agent after pipeline failure"
-        command: >
-          curl -s -u {{ gitea_user }}:{{ gitea_password }}
-          {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues
-          | jq '. | length'
-        expected_output_regex: "^[1-9][0-9]*$"
-        student_error_message: |
-          No issues found in Gitea repository {{ gitea_user }}/mcp.
-          The agent should create an issue when the pipeline fails.
-          Verify:
-          - Pipeline run has failed (Exercise 2.5)
-          - Agent pod logs show issue creation (Exercise 2.7)
-          - Check Gitea: {{ gitea_url }}/{{ gitea_user }}/mcp/issues
 
     # =========================================================================
     # Exercise 2.9: LibreChat Can Query Infrastructure
