@@ -35,7 +35,6 @@
     project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1') }}"
     cluster_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
     nationalparks_git_repo: "https://github.com/openshift-roadshow/nationalparks.git"
-    mongodb_image: "mongo:6.0.4"
 
   tasks:
     # =========================================================================
@@ -86,7 +85,7 @@
       changed_when: true
 
     # =========================================================================
-    # Step 2: Deploy MongoDB
+    # Step 2: Deploy MongoDB using OpenShift template
     # =========================================================================
     - name: Check if mongodb deployment exists
       kubernetes.core.k8s_info:
@@ -96,102 +95,31 @@
         namespace: "{{ project_name }}"
       register: r_mongodb_deployment
 
-    - name: Deploy MongoDB
+    - name: Deploy MongoDB using oc new-app
       when: r_mongodb_deployment.resources | length == 0
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: mongodb
-            namespace: "{{ project_name }}"
-            labels:
-              app: workshop
-              component: nationalparks
-              role: database
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app: mongodb
-                deployment: mongodb
-            template:
-              metadata:
-                labels:
-                  app: mongodb
-                  deployment: mongodb
-              spec:
-                containers:
-                  - name: mongodb
-                    image: "{{ mongodb_image }}"
-                    ports:
-                      - containerPort: 27017
-                        protocol: TCP
-                    env:
-                      - name: MONGO_INITDB_ROOT_USERNAME
-                        valueFrom:
-                          secretKeyRef:
-                            name: mongodb-credentials
-                            key: admin-usr
-                      - name: MONGO_INITDB_ROOT_PASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: mongodb-credentials
-                            key: admin-pwd
-                    volumeMounts:
-                      - name: mongodb-data
-                        mountPath: /data/db
-                volumes:
-                  - name: mongodb-data
-                    emptyDir: {}
+      ansible.builtin.command: >
+        oc new-app --name=mongodb
+        --docker-image=quay.io/centos7/mongodb-36-centos7:latest
+        --env=MONGODB_ADMIN_PASSWORD=admin123
+        --env=MONGODB_USER=parksapp
+        --env=MONGODB_PASSWORD=parksapp123
+        --env=MONGODB_DATABASE=parksapp
+        --labels=app=workshop,component=nationalparks,role=database
+        -n {{ project_name }}
+      changed_when: true
 
-    - name: Create mongodb service
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: mongodb
-            namespace: "{{ project_name }}"
-            labels:
-              app: mongodb
-          spec:
-            ports:
-              - name: 27017-tcp
-                port: 27017
-                protocol: TCP
-                targetPort: 27017
-            selector:
-              app: mongodb
-              deployment: mongodb
-
-    - name: Wait for MongoDB pod to be running
+    - name: Wait for MongoDB deployment to be ready
       kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
+        api_version: apps/v1
+        kind: Deployment
+        name: mongodb
         namespace: "{{ project_name }}"
-        label_selectors:
-          - app=mongodb
-      register: r_mongodb_pods
+      register: r_mongodb_ready
       until:
-        - r_mongodb_pods.resources | length > 0
-        - r_mongodb_pods.resources[0].status.phase == "Running"
+        - r_mongodb_ready.resources | length > 0
+        - r_mongodb_ready.resources[0].status.readyReplicas | default(0) | int >= 1
       retries: 30
       delay: 10
-
-    # =========================================================================
-    # Step 3: Initialize MongoDB Database
-    # =========================================================================
-    - name: Initialize MongoDB parksapp database and user
-      ansible.builtin.command: >
-        oc exec deployment/mongodb -n {{ project_name }} --
-        mongosh -u admin -p admin123 --authenticationDatabase admin --eval
-        "db.getSiblingDB('parksapp').createUser({user: 'parksapp', pwd: 'parksapp123', roles: [{role: 'dbAdmin', db: 'parksapp'}, {role: 'readWrite', db: 'parksapp'}]})"
-      register: r_mongo_init
-      changed_when: "'Successfully added user' in r_mongo_init.stdout or '{ok: 1}' in r_mongo_init.stdout"
-      failed_when: false
 
     # =========================================================================
     # Step 4: Create Nationalparks BuildConfig and Start Build
@@ -269,17 +197,16 @@
     # =========================================================================
     # Step 7: Wait for Nationalparks to be Ready
     # =========================================================================
-    - name: Wait for nationalparks pod to be running
+    - name: Wait for nationalparks deployment to be ready
       kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
+        api_version: apps/v1
+        kind: Deployment
+        name: nationalparks
         namespace: "{{ project_name }}"
-        label_selectors:
-          - app=nationalparks
-      register: r_np_pods
+      register: r_np_ready
       until:
-        - r_np_pods.resources | length > 0
-        - r_np_pods.resources[0].status.phase == "Running"
+        - r_np_ready.resources | length > 0
+        - r_np_ready.resources[0].status.readyReplicas | default(0) | int >= 1
       retries: 30
       delay: 10
 
@@ -323,7 +250,7 @@
       ansible.builtin.command: >
         oc set probe deployment/nationalparks
         --readiness
-        --get-url=https://:8080/ws/info/
+        --get-url=http://:8080/ws/info/
         --initial-delay-seconds=10
         --timeout-seconds=3
         -n {{ project_name }}
@@ -333,7 +260,7 @@
       ansible.builtin.command: >
         oc set probe deployment/nationalparks
         --liveness
-        --get-url=https://:8080/ws/info/
+        --get-url=http://:8080/ws/info/
         --initial-delay-seconds=30
         --timeout-seconds=3
         -n {{ project_name }}
