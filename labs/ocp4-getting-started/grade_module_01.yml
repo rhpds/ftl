@@ -274,7 +274,7 @@
         name: grader_check_http_endpoint
       vars:
         task_description_message: "Exercise 1.9: Parksmap application accessible via route"
-        endpoint_url: "https://{{ r_parksmap_route.resources[0].spec.host }}"
+        url: "https://{{ r_parksmap_route.resources[0].spec.host }}"
         expected_status_code: 200
         validate_certs: false
         student_error_message: |
