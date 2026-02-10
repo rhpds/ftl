@@ -34,7 +34,7 @@
     # Pre-check: Determine if Gitea issue exists (for downstream evidence)
     # =========================================================================
     - name: "Pre-check: Query Gitea for issues (downstream evidence)"
-      ansible.builtin.command: >
+      ansible.builtin.shell: >
         curl -s -u {{ gitea_user }}:{{ gitea_password }}
         {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp/issues
         | jq '. | length'
