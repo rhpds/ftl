@@ -62,7 +62,7 @@
   ansible.builtin.set_fact:
     http_success: "{{
       r_http_response is succeeded and
-      r_http_response.status == (expected_status_code | default(200))
+      r_http_response.status | int == (expected_status_code | default(200)) | int
     }}"
 
 - name: Parse and validate JSON content if response succeeded

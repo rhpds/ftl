@@ -189,10 +189,7 @@
           - displayName
         json_value_checks:
           id: "nationalparks"
-        student_error_message: |
-          Nationalparks /ws/info/ endpoint not responding correctly.
-          Test endpoint: curl -k https://{{ r_nationalparks_route.resources[0].spec.host }}/ws/info/
-          Check pod logs: oc logs -l app=nationalparks -n {{ project_name }}
+        student_error_message: "FAIL: Exercise 2.6: Nationalparks /ws/info/ endpoint not responding correctly. Test: curl -k https://{{ r_nationalparks_route.resources[0].spec.host }}/ws/info/"
 
     - name: "Exercise 2.6: Handle missing route"
       when: r_nationalparks_route.resources | length == 0
