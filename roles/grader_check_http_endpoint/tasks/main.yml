@@ -34,7 +34,7 @@
 # Evaluate success based on status code
 - name: Evaluate success
   ansible.builtin.set_fact:
-    success: "{{ r_http_check.status == (expected_status_code | default(200)) }}"
+    success: "{{ r_http_check.status | default(0) | int == (expected_status_code | default(200)) | int }}"
 
 # Create PASS message
 - name: Create Pass message
@@ -46,9 +46,7 @@
 - name: Create Fail message
   when: not success | bool
   ansible.builtin.set_fact:
-    grader_output_message: >-
-      FAIL: {{ task_description_message }}: {{ student_error_message | default('HTTP endpoint not accessible or returned unexpected status') }}
-      (expected status={{ expected_status_code | default(200) }}, got status={{ r_http_check.status | default('unreachable') }})
+    grader_output_message: "FAIL: {{ task_description_message }}: HTTP status={{ r_http_check.status | default('unreachable') }} (expected {{ expected_status_code | default(200) }}). {{ student_error_message | default('') }}"
 
 # Log the grading result
 - name: Log grading result
