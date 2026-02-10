@@ -123,14 +123,14 @@
               spec:
                 containers:
                   - name: mongodb
-                    image: "quay.io/centos7/mongodb-36-centos7:latest"
+                    image: "docker.io/bitnami/mongodb:5.0"
                     ports:
                       - containerPort: 27017
                         protocol: TCP
                     env:
-                      - name: MONGODB_ADMIN_PASSWORD
+                      - name: MONGODB_ROOT_PASSWORD
                         value: admin123
-                      - name: MONGODB_USER
+                      - name: MONGODB_USERNAME
                         value: parksapp
                       - name: MONGODB_PASSWORD
                         value: parksapp123
@@ -138,7 +138,7 @@
                         value: parksapp
                     volumeMounts:
                       - name: mongodb-data
-                        mountPath: /var/lib/mongodb/data
+                        mountPath: /bitnami/mongodb
                 volumes:
                   - name: mongodb-data
                     emptyDir: {}
