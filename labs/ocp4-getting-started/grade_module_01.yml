@@ -75,9 +75,9 @@
         name: grader_check_ocp_resource
       vars:
         task_description_message: "Exercise 1.1: Project {{ project_name }} exists"
-        resource_kind: "Project"
+        resource_kind: "Namespace"
         resource_name: "{{ project_name }}"
-        resource_namespace: ""  # Projects are cluster-scoped
+        resource_namespace: ""  # Namespaces are cluster-scoped
         student_error_message: |
           Project {{ project_name }} not found.
           Create the project: oc new-project {{ project_name }}
