@@ -88,40 +88,34 @@
     - name: Check JSON field values
       when: json_value_checks is defined and json_value_checks | length > 0
       block:
-        - name: Compare expected values
+        - name: Build list of incorrect values
           ansible.builtin.set_fact:
-            value_mismatches: "{{
-              json_value_checks.keys() | list |
-              map('regex_replace', '^(.*)$', '\\1') |
-              select('in', response_json.keys()) |
-              select('match', '^.*$') |
-              map('extract', json_value_checks) |
-              zip(json_value_checks.keys() | map('extract', response_json)) |
-              rejectattr('0', 'equalto', '1') |
-              map(attribute='0') |
-              list
-            }}"
+            incorrect_values: >-
+              {{ json_value_checks | dict2items
+                 | selectattr('key', 'in', response_json.keys())
+                 | rejectattr('value', 'equalto', '')
+                 | list
+                 | map(attribute='key')
+                 | select('match', '.*')
+                 | list }}
+          vars:
+            _tmp: "{{ json_value_checks }}"
 
         - name: Evaluate value matches
           ansible.builtin.set_fact:
-            all_values_match: "{{
-              json_value_checks.keys() | list |
-              select('in', response_json.keys()) |
-              map('extract', response_json) |
-              zip(json_value_checks.keys() | map('extract', json_value_checks)) |
-              select('match', '^.*$') |
-              map('first') |
-              zip(json_value_checks.keys() | map('extract', json_value_checks)) |
-              select('first', 'equalto', 'last') |
-              list | length == (json_value_checks | length)
-            }}"
-            incorrect_values: "{{
-              json_value_checks.keys() | list |
-              select('in', response_json.keys()) |
-              select('match', '^.*$') |
-              reject('extract', response_json, 'equalto', json_value_checks) |
-              list
-            }}"
+            incorrect_values: "{{ _mismatched }}"
+            all_values_match: "{{ _mismatched | length == 0 }}"
+          vars:
+            _mismatched: >-
+              {% set ns = namespace(bad=[]) %}
+              {% for key, expected in json_value_checks.items() %}
+              {%   if key in response_json and response_json[key] | string != expected | string %}
+              {%     set ns.bad = ns.bad + [key] %}
+              {%   elif key not in response_json %}
+              {%     set ns.bad = ns.bad + [key] %}
+              {%   endif %}
+              {% endfor %}
+              {{ ns.bad }}
 
 - name: Set default validation results if not checking JSON
   when: >
