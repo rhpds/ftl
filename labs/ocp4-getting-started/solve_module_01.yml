@@ -204,17 +204,16 @@
     # =========================================================================
     # Step 6: Wait for Application to be Ready
     # =========================================================================
-    - name: Wait for parksmap pod to be running
+    - name: Wait for parksmap deployment to be ready
       kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
+        api_version: apps/v1
+        kind: Deployment
+        name: parksmap
         namespace: "{{ project_name }}"
-        label_selectors:
-          - app=parksmap
-      register: r_parksmap_pods
+      register: r_parksmap_ready
       until:
-        - r_parksmap_pods.resources | length > 0
-        - r_parksmap_pods.resources[0].status.phase == "Running"
+        - r_parksmap_ready.resources | length > 0
+        - r_parksmap_ready.resources[0].status.readyReplicas | default(0) | int >= 1
       retries: 30
       delay: 10
 
