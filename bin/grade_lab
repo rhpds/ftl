@@ -154,7 +154,7 @@ echo -e "${GREEN}Grading Report${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 if [ -n "${MODULE_NUM}" ]; then
-    # Single module - check its specific report
+    # Single module report
     REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}_module_$(printf "%02d" ${MODULE_NUM}).txt"
 
     if [ -f "${REPORT_FILE}" ]; then
@@ -182,16 +182,16 @@ else
     OVERALL_PASS=true
     for MODULE_FILE in ${MODULE_FILES}; do
         MOD_NUM=$(echo "${MODULE_FILE}" | sed 's/.*grade_module_//' | sed 's/.yml//')
-        REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}_module_${MOD_NUM}.txt"
-        if [ -f "${REPORT_FILE}" ]; then
-            cat "${REPORT_FILE}"
+        MOD_REPORT="/tmp/grading_dir/grading_report_${LAB_USER}_module_${MOD_NUM}.txt"
+        if [ -f "${MOD_REPORT}" ]; then
+            cat "${MOD_REPORT}"
             echo ""
-            LAST_RESULT=$(grep -E "^(SUCCESS|FAILED)" "${REPORT_FILE}" | tail -1)
+            LAST_RESULT=$(grep -E "^(SUCCESS|FAILED)" "${MOD_REPORT}" | tail -1)
             if ! echo "${LAST_RESULT}" | grep -q "SUCCESS 0 Errors"; then
                 OVERALL_PASS=false
             fi
         else
-            echo -e "${YELLOW}Warning: Report not found for module ${MOD_NUM}: ${REPORT_FILE}${NC}"
+            echo -e "${YELLOW}Warning: Report not found for module ${MOD_NUM}: ${MOD_REPORT}${NC}"
             OVERALL_PASS=false
         fi
     done
