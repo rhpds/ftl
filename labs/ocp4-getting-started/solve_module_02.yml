@@ -318,7 +318,7 @@
 
     - name: Verify data loaded
       ansible.builtin.debug:
-        msg: "Data loaded: {{ r_data_load.json }}"
+        msg: "Data loaded: {{ r_data_load.content | default(r_data_load.msg) }}"
 
     # =========================================================================
     # Step 9: Configure Health Probes
