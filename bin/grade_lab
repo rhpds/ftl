@@ -153,31 +153,54 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Grading Report${NC}"
 echo -e "${GREEN}========================================${NC}"
 
-# Determine report filename based on whether grading a specific module
 if [ -n "${MODULE_NUM}" ]; then
+    # Single module - check its specific report
     REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}_module_$(printf "%02d" ${MODULE_NUM}).txt"
-else
-    REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}.txt"
-fi
 
-if [ -f "${REPORT_FILE}" ]; then
-    cat "${REPORT_FILE}"
+    if [ -f "${REPORT_FILE}" ]; then
+        cat "${REPORT_FILE}"
 
-    # Check if passed (look at the LAST success/failed line in summary)
-    LAST_RESULT=$(grep -E "^(SUCCESS|FAILED)" "${REPORT_FILE}" | tail -1)
+        LAST_RESULT=$(grep -E "^(SUCCESS|FAILED)" "${REPORT_FILE}" | tail -1)
 
-    if echo "${LAST_RESULT}" | grep -q "SUCCESS 0 Errors"; then
-        echo ""
-        echo -e "${GREEN}✓ Lab grading PASSED!${NC}"
-        echo -e "${GREEN}Report: ${REPORT_FILE}${NC}"
-        exit 0
+        if echo "${LAST_RESULT}" | grep -q "SUCCESS 0 Errors"; then
+            echo ""
+            echo -e "${GREEN}✓ Lab grading PASSED!${NC}"
+            echo -e "${GREEN}Report: ${REPORT_FILE}${NC}"
+            exit 0
+        else
+            echo ""
+            echo -e "${YELLOW}✗ Lab grading FAILED - see report above${NC}"
+            echo -e "${YELLOW}Report: ${REPORT_FILE}${NC}"
+            exit 1
+        fi
     else
-        echo ""
-        echo -e "${YELLOW}✗ Lab grading FAILED - see report above${NC}"
-        echo -e "${YELLOW}Report: ${REPORT_FILE}${NC}"
+        echo -e "${RED}Error: Report file not found: ${REPORT_FILE}${NC}"
         exit 1
     fi
 else
-    echo -e "${RED}Error: Report file not found: ${REPORT_FILE}${NC}"
-    exit 1
+    # All modules - check each module's report
+    OVERALL_PASS=true
+    for MODULE_FILE in ${MODULE_FILES}; do
+        MOD_NUM=$(echo "${MODULE_FILE}" | sed 's/.*grade_module_//' | sed 's/.yml//')
+        REPORT_FILE="/tmp/grading_dir/grading_report_${LAB_USER}_module_${MOD_NUM}.txt"
+        if [ -f "${REPORT_FILE}" ]; then
+            cat "${REPORT_FILE}"
+            echo ""
+            LAST_RESULT=$(grep -E "^(SUCCESS|FAILED)" "${REPORT_FILE}" | tail -1)
+            if ! echo "${LAST_RESULT}" | grep -q "SUCCESS 0 Errors"; then
+                OVERALL_PASS=false
+            fi
+        else
+            echo -e "${YELLOW}Warning: Report not found for module ${MOD_NUM}: ${REPORT_FILE}${NC}"
+            OVERALL_PASS=false
+        fi
+    done
+
+    if [ "${OVERALL_PASS}" = true ]; then
+        echo -e "${GREEN}✓ All modules PASSED!${NC}"
+        exit 0
+    else
+        echo -e "${YELLOW}✗ Some modules FAILED - see reports above${NC}"
+        exit 1
+    fi
 fi
