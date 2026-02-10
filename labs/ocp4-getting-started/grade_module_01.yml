@@ -298,42 +298,20 @@
     # =========================================================================
     # Exercise 1.10: Service Account View Permissions
     # =========================================================================
-    - name: "Exercise 1.10: Check service account role binding"
+    - name: "Exercise 1.10: Check if default SA has view role"
       ansible.builtin.command: >
-        oc get rolebinding -n {{ project_name }}
-        -o json
-      register: r_rolebindings
+        oc auth can-i get pods
+        --as=system:serviceaccount:{{ project_name }}:default
+        -n {{ project_name }}
+      register: r_sa_can_view
       changed_when: false
       failed_when: false
-
-    - name: "Exercise 1.10: Parse and check for view role"
-      when: r_rolebindings.rc == 0
-      ansible.builtin.set_fact:
-        rolebindings_json: "{{ r_rolebindings.stdout | from_json }}"
-
-    - name: "Exercise 1.10: Look for default service account with view role"
-      when: r_rolebindings.rc == 0
-      ansible.builtin.set_fact:
-        sa_has_view_role: "{{
-          rolebindings_json.items |
-          selectattr('roleRef.name', 'equalto', 'view') |
-          map(attribute='subjects') |
-          flatten |
-          selectattr('kind', 'equalto', 'ServiceAccount') |
-          selectattr('name', 'equalto', 'default') |
-          list | length > 0
-        }}"
-
-    - name: "Exercise 1.10: Set default if rolebinding check failed"
-      when: r_rolebindings.rc != 0
-      ansible.builtin.set_fact:
-        sa_has_view_role: false
 
     - name: "Exercise 1.10: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
           'PASS: Exercise 1.10: Service account has view permissions'
-          if sa_has_view_role
+          if r_sa_can_view.rc == 0 and 'yes' in r_sa_can_view.stdout
           else 'FAIL: Exercise 1.10: Service account permissions: Default service account does not have view role. Grant permissions: oc policy add-role-to-user view -z default -n ' + project_name
         }}"
 
