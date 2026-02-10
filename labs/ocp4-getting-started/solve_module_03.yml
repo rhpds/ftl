@@ -106,52 +106,97 @@
             tasks:
               - name: git-clone
                 taskRef:
-                  name: git-clone
-                  kind: ClusterTask
+                  resolver: cluster
+                  params:
+                    - name: kind
+                      value: task
+                    - name: name
+                      value: git-clone
+                    - name: namespace
+                      value: openshift-pipelines
                 params:
-                  - name: url
+                  - name: URL
                     value: $(params.APP_GIT_URL)
-                  - name: revision
+                  - name: REVISION
                     value: $(params.APP_GIT_REVISION)
+                  - name: SUBMODULES
+                    value: "true"
+                  - name: DEPTH
+                    value: "1"
+                  - name: SSL_VERIFY
+                    value: "true"
+                  - name: DELETE_EXISTING
+                    value: "true"
+                  - name: VERBOSE
+                    value: "true"
                 workspaces:
                   - name: output
                     workspace: app-source
               - name: build-and-test
                 taskRef:
-                  name: maven
-                  kind: ClusterTask
+                  resolver: cluster
+                  params:
+                    - name: kind
+                      value: task
+                    - name: name
+                      value: maven
+                    - name: namespace
+                      value: openshift-pipelines
                 runAfter:
                   - git-clone
                 params:
+                  - name: MAVEN_IMAGE
+                    value: maven:3.8.3-openjdk-11
                   - name: GOALS
                     value:
-                      - clean
-                      - test
                       - package
-                      - -DskipTests
+                  - name: PROXY_PROTOCOL
+                    value: http
                 workspaces:
                   - name: source
                     workspace: app-source
-                  - name: maven-settings
+                  - name: maven_settings
                     workspace: maven-settings
               - name: build-image
                 taskRef:
-                  name: s2i-java
-                  kind: ClusterTask
+                  resolver: cluster
+                  params:
+                    - name: kind
+                      value: task
+                    - name: name
+                      value: buildah
+                    - name: namespace
+                      value: openshift-pipelines
                 runAfter:
                   - build-and-test
                 params:
                   - name: IMAGE
                     value: image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/$(params.APP_NAME):latest
-                  - name: PATH_CONTEXT
+                  - name: BUILDER_IMAGE
+                    value: registry.redhat.io/rhel8/buildah:latest
+                  - name: STORAGE_DRIVER
+                    value: vfs
+                  - name: DOCKERFILE
+                    value: ./Dockerfile
+                  - name: CONTEXT
                     value: .
+                  - name: TLSVERIFY
+                    value: "true"
+                  - name: FORMAT
+                    value: oci
                 workspaces:
                   - name: source
                     workspace: app-source
               - name: redeploy
                 taskRef:
-                  name: openshift-client
-                  kind: ClusterTask
+                  resolver: cluster
+                  params:
+                    - name: kind
+                      value: task
+                    - name: name
+                      value: openshift-client
+                    - name: namespace
+                      value: openshift-pipelines
                 runAfter:
                   - build-image
                 params:
