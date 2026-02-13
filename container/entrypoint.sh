@@ -3,8 +3,8 @@
 # Unified entrypoint for grading and solving labs
 #
 # Usage:
-#   grade <lab-name> [user] [module-number]
-#   solve <lab-name> [user] [module-number]
+#   grade <lab-name> [user] [module-number] [--debug]
+#   solve <lab-name> [user] [module-number] [--debug]
 #   list
 #   --help
 
@@ -18,6 +18,18 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 FTL_DIR="/opt/ftl"
+ANSIBLE_DEBUG=""
+
+# Strip --debug flag from arguments
+ARGS=()
+for arg in "$@"; do
+    if [ "${arg}" = "--debug" ] || [ "${arg}" = "-d" ]; then
+        ANSIBLE_DEBUG="-vvv"
+    else
+        ARGS+=("${arg}")
+    fi
+done
+set -- "${ARGS[@]}"
 
 # --- Functions ---
 
@@ -26,19 +38,23 @@ show_help() {
 FTL (Finish The Labs) - Containerized Lab Grader & Solver
 
 Usage:
-  ftl grade <lab-name> [user] [module-number]   Grade a lab
-  ftl solve <lab-name> [user] [module-number]   Solve a lab
-  ftl list                                      List available labs
-  ftl --help                                    Show this help
+  ftl grade <lab-name> [user] [module-number] [--debug]   Grade a lab
+  ftl solve <lab-name> [user] [module-number] [--debug]   Solve a lab
+  ftl list                                                List available labs
+  ftl --help                                              Show this help
 
 Arguments:
   <lab-name>       Name of the lab (e.g., ocp4-getting-started)
   [user]           Lab user override (default: $LAB_USER or "student")
   [module-number]  Specific module to grade/solve (default: all)
 
+Options:
+  --debug, -d      Run ansible-playbook with -vvv for verbose debug output
+
 Smart argument parsing:
   If the second argument is a number, it's treated as a module number.
   If it's not a number, it's treated as a user override.
+  --debug can be placed anywhere in the arguments.
 
 Authentication (for OpenShift labs):
   Method 1 - Mounted kubeconfig (highest priority):
@@ -291,6 +307,9 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "Lab:      ${BLUE}${LAB_NAME}${NC}"
 echo -e "User:     ${BLUE}${LAB_USER}${NC}"
 echo -e "GUID:     ${BLUE}${GUID}${NC}"
+if [ -n "${ANSIBLE_DEBUG}" ]; then
+    echo -e "Debug:    ${YELLOW}enabled (-vvv)${NC}"
+fi
 
 # Build inventory args
 INVENTORY_ARGS=""
@@ -317,7 +336,7 @@ if [ -n "${MODULE_NUM}" ]; then
     echo ""
 
     # shellcheck disable=SC2086
-    ansible-playbook ${INVENTORY_ARGS} "${MODULE_FILE}"
+    ansible-playbook ${ANSIBLE_DEBUG} ${INVENTORY_ARGS} "${MODULE_FILE}"
 else
     # Run all modules in order
     MODULE_FILES=$(ls -1 "labs/${LAB_NAME}/${COMMAND}_module_"*.yml 2>/dev/null | sort)
@@ -334,7 +353,7 @@ else
         MOD_NUM=$(echo "${MODULE_FILE}" | sed "s/.*${COMMAND}_module_//" | sed 's/.yml//' | sed 's/^0*//')
         echo -e "${BLUE}--- ${ACTION_VERB} Module ${MOD_NUM} ---${NC}"
         # shellcheck disable=SC2086
-        ansible-playbook ${INVENTORY_ARGS} "${MODULE_FILE}"
+        ansible-playbook ${ANSIBLE_DEBUG} ${INVENTORY_ARGS} "${MODULE_FILE}"
         echo ""
     done
 fi
