@@ -1,0 +1,62 @@
+---
+# FTL Grader Job Template
+# Usage: envsubst < deploy/grade-job.yaml | oc apply -f -
+#
+# Required env vars:
+#   LAB_NAME      - e.g. mcp-with-openshift
+#   MODULE        - e.g. 01
+#   LAB_USER      - e.g. user1
+#   PASSWORD      - student OCP/Gitea password (from Showroom ConfigMap)
+#   OPENSHIFT_CLUSTER_INGRESS_DOMAIN - apps.cluster-xxx.example.com
+#   JOB_ID        - unique ID for this run (e.g. $(date +%s))
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ftl-grade-${LAB_NAME}-module-${MODULE}-${LAB_USER}-${JOB_ID}
+  namespace: ftl-grading
+  labels:
+    app: ftl-grader
+    lab: ${LAB_NAME}
+    module: "${MODULE}"
+    user: ${LAB_USER}
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  template:
+    spec:
+      serviceAccountName: ftl-grader
+      restartPolicy: Never
+      containers:
+      - name: grader
+        image: quay.io/rhpds/ftl-grader:latest
+        command:
+        - ansible-playbook
+        - /runner/labs/${LAB_NAME}/grade_module_${MODULE}.yml
+        env:
+        - name: LAB_USER
+          value: "${LAB_USER}"
+        - name: PASSWORD
+          value: "${PASSWORD}"
+        - name: OPENSHIFT_CLUSTER_INGRESS_DOMAIN
+          value: "${OPENSHIFT_CLUSTER_INGRESS_DOMAIN}"
+        - name: ANSIBLE_FORCE_COLOR
+          value: "true"
+        - name: ANSIBLE_ROLES_PATH
+          value: /usr/share/ansible/roles
+        - name: ANSIBLE_COLLECTIONS_PATH
+          value: /usr/share/ansible/collections
+        # Optional overrides
+        - name: MCP_OPENSHIFT_NAMESPACE
+          value: "mcp-openshift-${LAB_USER}"
+        - name: MCP_GITEA_NAMESPACE
+          value: "mcp-gitea-${LAB_USER}"
+        - name: LIBRECHAT_NAMESPACE
+          value: "librechat-${LAB_USER}"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
