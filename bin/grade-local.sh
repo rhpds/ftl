@@ -1,90 +1,103 @@
 #!/usr/bin/env bash
 # =============================================================================
-# FTL Grade Runner — Local (laptop) version
-# Runs grader inside the multicloud EE container using podman/docker.
-# Mounts your local FTL repo + kubeconfig so no image build needed.
+# FTL Grade Runner — Local (laptop)
 #
 # Usage:
-#   ./bin/grade-local.sh <lab-name> <module> <lab-user> <showroom-namespace>
+#   ./bin/grade-local.sh <lab> <module|all> <user> <password> <api-url>
 #
-# Examples:
-#   ./bin/grade-local.sh mcp-with-openshift 01 user1 showroom-zz94q-1-user1
-#   ./bin/grade-local.sh ocp4-getting-started all user1 showroom-zz94q-1-user1
+# Example:
+#   ./bin/grade-local.sh mcp-with-openshift 01 user1 MyPass https://api.cluster-xxx.example.com:6443
+#   ./bin/grade-local.sh mcp-with-openshift all user1 MyPass https://api.cluster-xxx.example.com:6443
 #
-# Requirements:
-#   - podman (or docker) installed
-#   - oc logged in to the cluster (kubeconfig at ~/.kube/config)
+# Requirements: podman or docker installed
 # =============================================================================
 
 set -euo pipefail
 
-LAB_NAME="${1:?Usage: $0 <lab-name> <module|all> <lab-user> <showroom-namespace>}"
-MODULE="${2:?Module number (e.g. 01) or 'all'}"
-LAB_USER="${3:?Lab user (e.g. user1)}"
-SHOWROOM_NS="${4:?Showroom namespace (e.g. showroom-zz94q-1-user1)}"
+LAB_NAME="${1:?Usage: $0 <lab> <module|all> <user> <password> <api-url>}"
+MODULE="${2:?Module (e.g. 01) or 'all'}"
+LAB_USER="${3:?OCP username (e.g. user1)}"
+PASSWORD="${4:?OCP password}"
+API_URL="${5:?OCP API URL (e.g. https://api.cluster-xxx.example.com:6443)}"
 
 EE_IMAGE="${EE_IMAGE:-quay.io/agnosticd/ee-multicloud:chained-2026-02-16}"
-FTL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
+FTL_REPO="${FTL_REPO:-https://github.com/rhpds/ftl.git}"
+FTL_REF="${FTL_REF:-main}"
 
-# Detect podman or docker
-RUNTIME=""
+# Detect runtime
 if command -v podman &>/dev/null; then RUNTIME="podman"
 elif command -v docker &>/dev/null; then RUNTIME="docker"
 else echo "ERROR: podman or docker required"; exit 1; fi
 
-echo "Using: $RUNTIME"
-echo "EE:    $EE_IMAGE"
-echo "FTL:   $FTL_DIR"
-echo ""
+echo "Logging in as admin to discover cluster data..."
+# Login as admin to read showroom ConfigMap (admin creds come from env or default)
+ADMIN_USER="${ADMIN_USER:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-$PASSWORD}"
 
-# Read credentials from Showroom ConfigMap
-echo "Reading credentials from $SHOWROOM_NS/showroom-userdata..."
-USER_DATA=$(oc get configmap showroom-userdata -n "$SHOWROOM_NS" \
-  -o jsonpath='{.data.user_data\.yml}' 2>/dev/null || echo "")
+oc login "$API_URL" -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" --insecure-skip-tls-verify=true -q 2>/dev/null || \
+oc login "$API_URL" -u "$LAB_USER" -p "$PASSWORD" --insecure-skip-tls-verify=true -q 2>/dev/null
 
-if [ -z "$USER_DATA" ]; then
-  echo "WARNING: Could not read showroom-userdata — using env vars if set"
-  PASSWORD="${PASSWORD:-}"
-  INGRESS="${OPENSHIFT_CLUSTER_INGRESS_DOMAIN:-}"
-  GITEA_URL="${GITEA_URL:-}"
-else
-  PASSWORD=$(echo "$USER_DATA" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('password',''))")
-  INGRESS=$(echo "$USER_DATA" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('openshift_cluster_ingress_domain',''))")
-  GITEA_URL=$(echo "$USER_DATA" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('gitea_console_url',''))")
+# Find showroom ConfigMap for this user
+echo "Discovering cluster data from Showroom ConfigMap for $LAB_USER..."
+SHOWROOM_NS=$(oc get namespaces --no-headers -o name 2>/dev/null | \
+  grep "showroom" | grep "$LAB_USER" | head -1 | cut -d/ -f2)
+
+if [ -n "$SHOWROOM_NS" ]; then
+  USER_DATA=$(oc get configmap showroom-userdata -n "$SHOWROOM_NS" \
+    -o jsonpath='{.data.user_data\.yml}' 2>/dev/null || echo "")
 fi
 
-echo "User:    $LAB_USER"
-echo "Domain:  $INGRESS"
+if [ -n "${USER_DATA:-}" ]; then
+  INGRESS=$(echo "$USER_DATA" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('openshift_cluster_ingress_domain',''))")
+  GITEA_URL=$(echo "$USER_DATA" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('gitea_console_url',''))")
+  echo "Found: domain=$INGRESS  gitea=$GITEA_URL"
+else
+  # Derive from API URL
+  INGRESS=$(echo "$API_URL" | sed 's|https://api\.|apps.|;s|:6443||')
+  GITEA_URL="https://gitea.${INGRESS}"
+  echo "Derived: domain=$INGRESS  gitea=$GITEA_URL"
+fi
+
+# Write a temp kubeconfig for the student user
+TMP_KUBECONFIG=$(mktemp)
+KUBECONFIG="$TMP_KUBECONFIG" oc login "$API_URL" \
+  -u "$LAB_USER" -p "$PASSWORD" --insecure-skip-tls-verify=true -q 2>/dev/null
+trap "rm -f $TMP_KUBECONFIG" EXIT
+
 echo ""
 
 run_module() {
   local mod="$1"
-  local playbook="/runner/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
-
-  echo "=== Grading Module $mod for $LAB_USER ==="
+  echo "=== Grading: $LAB_NAME / Module $mod / $LAB_USER ==="
 
   $RUNTIME run --rm \
-    -v "$FTL_DIR:/runner/ftl:ro,z" \
-    -v "$KUBECONFIG:/home/runner/.kube/config:ro,z" \
+    -v "$TMP_KUBECONFIG:/home/runner/.kube/config:ro,z" \
     -e LAB_USER="$LAB_USER" \
     -e PASSWORD="$PASSWORD" \
     -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
     -e GITEA_URL="$GITEA_URL" \
-    -e ANSIBLE_ROLES_PATH="/runner/ftl/roles:/usr/share/ansible/roles" \
-    -e ANSIBLE_COLLECTIONS_PATH="/usr/share/ansible/collections" \
+    -e API_URL="$API_URL" \
+    -e FTL_REPO="$FTL_REPO" \
+    -e FTL_REF="$FTL_REF" \
+    -e LAB_NAME="$LAB_NAME" \
+    -e MODULE="$mod" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$EE_IMAGE" \
-    ansible-playbook "$playbook"
+    /usr/local/bin/ftl-entrypoint \
+    "/runner/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
 
   echo ""
 }
 
 if [ "$MODULE" = "all" ]; then
-  for f in "$FTL_DIR/labs/$LAB_NAME"/grade_module_*.yml; do
+  # Discover modules by pulling the repo once and listing
+  TMP_DIR=$(mktemp -d)
+  git clone --depth 1 --branch "$FTL_REF" "$FTL_REPO" "$TMP_DIR" -q 2>/dev/null
+  for f in "$TMP_DIR/labs/$LAB_NAME"/grade_module_*.yml; do
     mod=$(basename "$f" .yml | grep -oP '\d+')
     run_module "$mod"
   done
+  rm -rf "$TMP_DIR"
 else
   run_module "$MODULE"
 fi
