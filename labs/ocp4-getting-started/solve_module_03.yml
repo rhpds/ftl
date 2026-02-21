@@ -10,7 +10,7 @@
 # 4. Configure GitHub webhook trigger
 #
 # Environment Variables Required:
-#   - LAB_USER: Student user (e.g., user1) - sets project to workshop-<user>
+#   - LAB_USER: Student user (e.g., user1) - sets project to wksp-<user>
 #
 # Usage via wrapper (recommended):
 #   solve_lab ocp4-getting-started user1 3
@@ -27,7 +27,7 @@
   become: false
 
   vars:
-    project_name: "workshop-{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
+    project_name: "wksp-{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
 
   tasks:
 
