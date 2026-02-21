@@ -165,19 +165,46 @@
           oc get pods -n {{ mcp_gitea_namespace }} | grep fetch
 
     # =========================================================================
-    # Exercise 3.8: Fetch Server Accessible in LibreChat
+    # Exercise 3.8: Fetch Server Route and Connectivity
     # =========================================================================
-    - name: "Exercise 3.8: Verify Fetch server route exists"
+    - name: "Exercise 3.8a: Verify Fetch server route exists"
       ansible.builtin.include_role:
         name: grader_check_ocp_route_exists
       vars:
-        task_description_message: "Exercise 3.8: Fetch MCP Server route exists (accessible to LibreChat)"
+        task_description_message: "Exercise 3.8a: Fetch MCP Server route exists"
         route_name: "fetch"
         route_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           Fetch server route not found in {{ mcp_gitea_namespace }}.
-          ToolHive should automatically create a route for the MCPServer.
+          Create a route for the Fetch MCP server pointing to the ToolHive proxy service.
           Check routes: oc get routes -n {{ mcp_gitea_namespace }}
+
+    - name: "Exercise 3.8b: Verify Fetch route targets correct service"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 3.8b: Fetch route targets mcp-fetch-proxy service"
+        resource_kind: "Route"
+        resource_name: "fetch"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        resource_state: "mcp-fetch-proxy"
+        resource_state_path: "spec.to.name"
+        student_error_message: |
+          Fetch route does not point to the correct service.
+          ToolHive creates services named mcp-<name>-proxy (e.g. mcp-fetch-proxy).
+          Fix: oc patch route fetch -n {{ mcp_gitea_namespace }} --type=merge -p '{"spec":{"to":{"name":"mcp-fetch-proxy"},"port":{"targetPort":"http"}}}'
+
+    - name: "Exercise 3.8c: Verify Fetch MCP Server is reachable"
+      ansible.builtin.include_role:
+        name: grader_check_http_endpoint
+      vars:
+        task_description_message: "Exercise 3.8c: Fetch MCP Server responds to HTTP requests"
+        url: "https://fetch-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/health"
+        expected_status_code: 200
+        student_error_message: |
+          Fetch MCP Server route is not reachable.
+          Verify the route points to the correct service (mcp-fetch-proxy) and port (http).
+          Check: oc get route fetch -n {{ mcp_gitea_namespace }} -o jsonpath='{.spec.to.name}'
 
     # =========================================================================
     # Exercise 3.9: Yardstick MCP Server - MCPServer CR Created
@@ -209,19 +236,46 @@
           oc get pods -n {{ mcp_gitea_namespace }} | grep yardstick
 
     # =========================================================================
-    # Exercise 3.11: Yardstick Server Accessible in LibreChat
+    # Exercise 3.11: Yardstick Server Route and Connectivity
     # =========================================================================
-    - name: "Exercise 3.11: Verify Yardstick server route exists"
+    - name: "Exercise 3.11a: Verify Yardstick server route exists"
       ansible.builtin.include_role:
         name: grader_check_ocp_route_exists
       vars:
-        task_description_message: "Exercise 3.11: Yardstick MCP Server route exists (accessible to LibreChat)"
+        task_description_message: "Exercise 3.11a: Yardstick MCP Server route exists"
         route_name: "yardstick"
         route_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           Yardstick server route not found in {{ mcp_gitea_namespace }}.
-          ToolHive should automatically create a route for the MCPServer.
+          Create a route for the Yardstick MCP server pointing to the ToolHive proxy service.
           Check routes: oc get routes -n {{ mcp_gitea_namespace }}
+
+    - name: "Exercise 3.11b: Verify Yardstick route targets correct service"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 3.11b: Yardstick route targets mcp-yardstick-proxy service"
+        resource_kind: "Route"
+        resource_name: "yardstick"
+        resource_namespace: "{{ mcp_gitea_namespace }}"
+        resource_state: "mcp-yardstick-proxy"
+        resource_state_path: "spec.to.name"
+        student_error_message: |
+          Yardstick route does not point to the correct service.
+          ToolHive creates services named mcp-<name>-proxy (e.g. mcp-yardstick-proxy).
+          Fix: oc patch route yardstick -n {{ mcp_gitea_namespace }} --type=merge -p '{"spec":{"to":{"name":"mcp-yardstick-proxy"},"port":{"targetPort":"http"}}}'
+
+    - name: "Exercise 3.11c: Verify Yardstick MCP Server is reachable"
+      ansible.builtin.include_role:
+        name: grader_check_http_endpoint
+      vars:
+        task_description_message: "Exercise 3.11c: Yardstick MCP Server responds to HTTP requests"
+        url: "https://yardstick-{{ mcp_gitea_namespace }}.{{ openshift_cluster_ingress_domain }}/health"
+        expected_status_code: 200
+        student_error_message: |
+          Yardstick MCP Server route is not reachable.
+          Verify the route points to the correct service (mcp-yardstick-proxy) and port (http).
+          Check: oc get route yardstick -n {{ mcp_gitea_namespace }} -o jsonpath='{.spec.to.name}'
 
 - name: Finalize FTL Grading Session - Module 3
   hosts: localhost

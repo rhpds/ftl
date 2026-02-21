@@ -9,7 +9,11 @@
 # lab environment, so rollback functionality is disabled. This grader is
 # provided for completeness and future use when snapshots are available.
 #
-# Required environment variables:
+# Required environment variables (from Showroom lab guide):
+#   Showroom attribute → env var you must set:
+#   {controller_url}      → AAP_HOSTNAME
+#   {controller_password} → AAP_PASSWORD
+#   (username defaults to lab-user)
 #   - AAP_HOSTNAME: AAP controller URL
 #   - AAP_USERNAME: AAP username (default: lab-user)
 #   - AAP_PASSWORD: AAP password

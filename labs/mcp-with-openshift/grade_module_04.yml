@@ -56,24 +56,11 @@
           oc get pods -n {{ mcp_gitea_namespace }} | grep mcp-registry-db
 
     # =========================================================================
-    # Exercise 4.3: Server Catalog ConfigMap Created
-    # =========================================================================
-    - name: "Exercise 4.3: Verify server catalog ConfigMap exists"
-      ansible.builtin.include_role:
-        name: grader_check_ocp_resource
-      vars:
-        task_description_message: "Exercise 4.3: Server catalog ConfigMap 'mcp-servers-catalog' created"
-        resource_kind: "ConfigMap"
-        resource_api_version: "v1"
-        resource_name: "mcp-servers-catalog"
-        resource_namespace: "{{ mcp_gitea_namespace }}"
-        student_error_message: |
-          Server catalog ConfigMap 'mcp-servers-catalog' not found in {{ mcp_gitea_namespace }}.
-          Create ConfigMap with servers.yaml defining available MCP servers.
-          Check: oc get configmap -n {{ mcp_gitea_namespace }} mcp-servers-catalog
+    # Exercise 4.3 removed — mcp-servers-catalog ConfigMap not created by student in this lab.
+    # The MCPRegistry CR handles server catalog configuration directly.
 
     # =========================================================================
-    # Exercise 4.4: Registry Secrets Created
+    # Exercise 4.4: Registry Secrets Created (auto-created by CNPG operator)
     # =========================================================================
     - name: "Exercise 4.4: Verify registry database secret exists"
       ansible.builtin.include_role:
@@ -86,7 +73,8 @@
         resource_namespace: "{{ mcp_gitea_namespace }}"
         student_error_message: |
           Database secret 'mcp-registry-db-app' not found in {{ mcp_gitea_namespace }}.
-          This should be created automatically by CNPG.
+          This is auto-created by the CNPG operator when the PostgreSQL Cluster is ready.
+          If PostgreSQL is running (Exercise 4.2 passes), wait 30-60 seconds and re-run.
           Check: oc get secrets -n {{ mcp_gitea_namespace }} | grep mcp-registry-db
 
     # =========================================================================

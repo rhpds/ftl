@@ -184,9 +184,9 @@
           spec:
             to:
               kind: Service
-              name: fetch
+              name: mcp-fetch-proxy
             port:
-              targetPort: 8080
+              targetPort: http
             tls:
               termination: edge
               insecureEdgeTerminationPolicy: Redirect
@@ -203,9 +203,9 @@
           spec:
             to:
               kind: Service
-              name: yardstick
+              name: mcp-yardstick-proxy
             port:
-              targetPort: 8080
+              targetPort: http
             tls:
               termination: edge
               insecureEdgeTerminationPolicy: Redirect
