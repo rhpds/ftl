@@ -68,14 +68,24 @@
     # =========================================================================
     # Exercise 1.1: OpenShift Console Login
     # =========================================================================
-    - name: "Exercise 1.1: Verify OpenShift CLI access"
+    # Use kubernetes.core.k8s_info instead of oc CLI — works reliably across platforms
+    - name: "Exercise 1.1: Get pods in mcp-openshift namespace"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mcp_openshift_namespace }}"
+      register: r_mcp_pods
+
+    - name: "Exercise 1.1: Evaluate pod count"
+      ansible.builtin.set_fact:
+        grader_output_message: "{{
+          'PASS: Exercise 1.1: OpenShift Console accessible - ' + (r_mcp_pods.resources | length | string) + ' pod(s) running in ' + mcp_openshift_namespace
+          if r_mcp_pods.resources | length > 0
+          else 'FAIL: Exercise 1.1: OpenShift Console accessible: No pods found in ' + mcp_openshift_namespace + '. Log in to OpenShift Console and verify access.'
+        }}"
+
+    - name: "Exercise 1.1: Log result"
       ansible.builtin.include_role:
-        name: grader_check_command_output
-      vars:
-        task_description_message: "Exercise 1.1: OpenShift Console accessible - can list pods"
-        command: "oc get pods -n {{ mcp_openshift_namespace }} --no-headers | wc -l"
-        expected_output_regex: "^[1-9][0-9]*$"  # At least 1 pod exists
-        student_error_message: "Unable to access OpenShift. Log in to OpenShift Console and verify access to namespace {{ mcp_openshift_namespace }}"
+        name: ftl_run_log_grade_to_log
 
     # =========================================================================
     # Exercise 1.2: LibreChat Login and Configuration

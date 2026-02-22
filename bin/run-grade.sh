@@ -122,7 +122,13 @@ if [ ${#MODULES[@]} -eq 0 ]; then
 fi
 
 echo ""
-echo "Running: ${#USERS[@]} user(s) × ${#MODULES[@]} module(s)"
+TOTAL_JOBS=$(( ${#USERS[@]} * ${#MODULES[@]} ))
+if [ ${#USERS[@]} -eq 1 ]; then
+  echo "Mode:    Grading as ${USERS[0]}"
+else
+  echo "Mode:    Load test — grading ${#USERS[@]} users in parallel (running as admin)"
+fi
+echo "Running: ${#USERS[@]} user(s) × ${#MODULES[@]} module(s) = ${TOTAL_JOBS} job(s)"
 echo "═══════════════════════════════════════════════════════"
 
 # ── Step 5: Grade function ────────────────────────────────────────────────────
@@ -159,8 +165,14 @@ except: pass
         --insecure-skip-tls-verify=true 2>/dev/null || true; }
   trap "rm -f $admin_kube" RETURN
 
+  local context_msg
+  if [ ${#USERS[@]} -eq 1 ]; then
+    context_msg="grading as $user"
+  else
+    context_msg="load test — user $user (admin credentials)"
+  fi
   echo ""
-  echo "▶ $LAB_NAME / module $mod / $user"
+  echo "▶ $LAB_NAME / module $mod / $user  ($context_msg)"
 
   if [ "$FTL_MODE" = "--local" ]; then
     # Mount local repo over /ftl — overrides baked-in content
