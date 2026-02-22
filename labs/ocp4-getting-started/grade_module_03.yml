@@ -164,38 +164,23 @@
           View logs: oc logs -f pipelinerun/<pipelinerun-name> -n {{ project_name }}
 
     # =========================================================================
-    # Exercise 3.5: Webhook Configured on BuildConfig
+    # Exercise 3.5: Tekton Triggers EventListener Configured
     # =========================================================================
-    - name: "Exercise 3.5: Get BuildConfig to check for webhook trigger"
+    - name: "Exercise 3.5: Verify EventListener exists"
       kubernetes.core.k8s_info:
-        api_version: build.openshift.io/v1
-        kind: BuildConfig
+        api_version: triggers.tekton.dev/v1alpha1
+        kind: EventListener
         name: nationalparks
         namespace: "{{ project_name }}"
-      register: r_buildconfig
+      register: r_eventlistener
       failed_when: false
-
-    - name: "Exercise 3.5: Check for GitHub webhook trigger"
-      when: r_buildconfig.resources | length > 0
-      ansible.builtin.set_fact:
-        bc_triggers: "{{ r_buildconfig.resources[0].spec.triggers | default([]) }}"
-        has_github_webhook: "{{
-          r_buildconfig.resources[0].spec.triggers | default([]) |
-          selectattr('type', 'equalto', 'GitHub') |
-          list | length > 0
-        }}"
-
-    - name: "Exercise 3.5: Set default if BuildConfig doesn't exist"
-      when: r_buildconfig.resources | length == 0
-      ansible.builtin.set_fact:
-        has_github_webhook: false
 
     - name: "Exercise 3.5: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
-          'PASS: Exercise 3.5: GitHub webhook configured on nationalparks BuildConfig'
-          if has_github_webhook
-          else 'FAIL: Exercise 3.5: Webhook configuration: No GitHub webhook trigger found on BuildConfig. Webhooks enable automated builds when code is pushed. BuildConfig triggers should include a GitHub webhook type. Check triggers: oc describe bc nationalparks -n ' + project_name
+          'PASS: Exercise 3.5: Tekton Triggers EventListener configured for webhook automation'
+          if r_eventlistener.resources | length > 0
+          else 'FAIL: Exercise 3.5: EventListener not found in project ' + project_name + '. Create Tekton Triggers (TriggerTemplate, TriggerBinding, EventListener) for webhook-driven pipeline automation. Check: oc get eventlistener -n ' + project_name
         }}"
 
     - name: "Exercise 3.5: Log result"

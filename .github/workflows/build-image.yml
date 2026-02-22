@@ -1,0 +1,49 @@
+name: Build and Push Container Image
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '**.adoc'
+      - 'docs/**'
+      - 'bin/**'
+      - '.claude/**'
+      - '.claude*'
+      - 'CLAUDE.md'
+      - 'LICENSE'
+
+permissions:
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install qemu dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+
+      - name: Build image
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ftl
+          tags: latest ${{ github.sha }}
+          containerfiles: ./Containerfile
+          archs: amd64, arm64
+
+      - name: Push to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build.outputs.image }}
+          tags: ${{ steps.build.outputs.tags }}
+          registry: ghcr.io/${{ github.repository_owner }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}

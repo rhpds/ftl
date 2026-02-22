@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Development tools
+.venv
+.claude/
+.claude*
+
+# Documentation (not needed at runtime)
+*.md
+docs/
+FTL_LAB_INVENTORY.md
+LAB_MATRIX.md
+QUICK_STATS.md
+README.adoc
+README.md
+TEAM_REVIEW.md
+TESTING.md
+CLAUDE.md
+
+# Wrapper scripts (replaced by entrypoint.sh)
+bin/
+
+# Container build files (avoid recursive inclusion)
+Containerfile
+.containerignore
+.dockerignore
+
+# Work in progress labs
+labs/WIP/
+
+# Ansible retry files
+*.retry
+
+# Python cache
+__pycache__
+*.pyc
