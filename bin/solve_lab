@@ -9,6 +9,20 @@
 
 set -e
 
+# ── Auto-detect execution environment ────────────────────────────────────────
+if ! command -v ansible-playbook &>/dev/null; then
+  FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl:latest}"
+  KUBE="${HOME}/.kube/config"
+  echo "ansible-playbook not found — running via container ($FTL_IMAGE)"
+  ENV_ARGS=()
+  for var in LAB_USER PASSWORD OPENSHIFT_CLUSTER_INGRESS_DOMAIN AAP_HOSTNAME AAP_PASSWORD AAP_USERNAME BASTION_HOST BASTION_USER GUID GITEA_ADMIN_USER GITEA_ADMIN_PASSWORD; do
+    [ -n "${!var:-}" ] && ENV_ARGS+=(-e "$var=${!var}")
+  done
+  KUBE_ARGS=()
+  [ -f "$KUBE" ] && KUBE_ARGS=(-v "$KUBE:/home/runner/.kube/config:ro")
+  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" -e ANSIBLE_FORCE_COLOR=true "$FTL_IMAGE" solve "$@"
+fi
+
 # Configuration
 FTL_REPO="https://github.com/rhpds/ftl.git"
 FTL_DIR="${HOME}/ftl"
