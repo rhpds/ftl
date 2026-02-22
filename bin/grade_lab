@@ -12,7 +12,7 @@ set -e
 # ── Auto-detect execution environment ────────────────────────────────────────
 # If ansible-playbook is not available, run via container (laptop mode)
 if ! command -v ansible-playbook &>/dev/null; then
-  FTL_IMAGE="${FTL_IMAGE:-ghcr.io/rhpds/ftl:latest}"
+  FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl:latest}"
   KUBE="${HOME}/.kube/config"
 
   echo "ansible-playbook not found — running via container ($FTL_IMAGE)"
