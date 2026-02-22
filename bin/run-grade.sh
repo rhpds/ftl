@@ -151,31 +151,21 @@ grade_user_module() {
       -o jsonpath='{.data.user_data\.yml}' 2>/dev/null || true)
 
     if [ -n "$raw_data" ]; then
-      user_pass=$(echo "$raw_data" | python3 -c "
-import sys, json
-try:
-    d = json.loads(sys.stdin.read())
-    print(d.get('password', ''))
-except: pass
-" 2>/dev/null || true)
-      [ -z "$user_pass" ] && user_pass="$ADMIN_PASSWORD"
+      # ConfigMap uses "key": "value" format per line — grep+sed is more reliable than JSON parsing
+      extract_field() {
+        local key="$1"
+        echo "$raw_data" | grep "\"${key}\":" | head -1 | \
+          sed 's/.*"'"$key"'": *"\([^"]*\)".*/\1/' | tr -d '\r\n'
+      }
 
-      # Also extract Gitea admin credentials for API checks that need admin access
-      gitea_admin_user=$(echo "$raw_data" | python3 -c "
-import sys, json
-try:
-    d = json.loads(sys.stdin.read())
-    print(d.get('gitea_admin_username', 'mcpadmin'))
-except: pass
-" 2>/dev/null || echo "mcpadmin")
-      gitea_admin_pass=$(echo "$raw_data" | python3 -c "
-import sys, json
-try:
-    d = json.loads(sys.stdin.read())
-    print(d.get('gitea_admin_password', ''))
-except: pass
-" 2>/dev/null || true)
-      [ -z "$gitea_admin_pass" ] && gitea_admin_pass="$ADMIN_PASSWORD"
+      local extracted_pass extracted_gitea_admin_user extracted_gitea_admin_pass
+      extracted_pass=$(extract_field "password")
+      extracted_gitea_admin_user=$(extract_field "gitea_admin_username")
+      extracted_gitea_admin_pass=$(extract_field "gitea_admin_password")
+
+      [ -n "$extracted_pass" ] && user_pass="$extracted_pass"
+      [ -n "$extracted_gitea_admin_user" ] && gitea_admin_user="$extracted_gitea_admin_user"
+      [ -n "$extracted_gitea_admin_pass" ] && gitea_admin_pass="$extracted_gitea_admin_pass"
     fi
   fi
 
