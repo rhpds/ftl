@@ -1,275 +1,324 @@
-= FTL (Finish The Labs) Ansible Collection
+= FTL (Finish The Labs)
 
-An Ansible collection providing reusable grader and solver roles for automated lab validation and completion.
+Automated grading and solving for Red Hat Demo Platform (RHDP) labs.
+FTL validates that students have completed lab exercises and can automatically solve them for testing.
+
+image:https://img.shields.io/badge/image-quay.io%2Frhpds%2Fftl-blue[FTL Image, link=https://quay.io/repository/rhpds/ftl]
 
 == Overview
 
-FTL is a collection-based approach to lab grading and solving that:
+FTL provides:
 
-* Provides pre-built grader roles for common validation scenarios
-* Supports solver roles for automated lab completion
-* Integrates with AgnosticV catalogs and AgnosticD userinfo
-* Works across multiple technologies (OpenShift, Ansible, AAP, RHEL, AI, Virtualization)
+* *Grader playbooks* — validate student exercises, produce PASS/FAIL reports
+* *Solver playbooks* — automatically complete exercises for testing
+* *Container image* — `quay.io/rhpds/ftl:latest` with all dependencies built in
+* *Run script* — one command from laptop, discovers everything automatically
 
-== Quick Start
+== Running Graders
 
-=== Installation on Bastion Host
+There are two ways to run FTL graders:
+
+* *Option A (Recommended): Container from laptop* — no SSH needed, reads cluster state directly
+* *Option B: From bastion* — traditional approach, SSH to bastion and run `grade_lab`
+
+=== Option A: Container from Laptop
+
+Uses `quay.io/rhpds/ftl:latest` running via podman on your laptop.
+Reads credentials automatically from the Showroom ConfigMap — no manual env var setup.
+
+*Requirements:* `podman` and `oc` installed on your laptop.
 
 [source,bash]
 ----
-# 1. Clone FTL repository
+# Run interactively — script asks what to grade
+./bin/run-grade.sh <lab> <api-url> <admin-password>
+
+# Example — MCP lab
+./bin/run-grade.sh mcp-with-openshift \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password>
+----
+
+The script presents an interactive menu:
+
+----
+What do you want to grade?
+  1. Single user, single module
+  2. Single user, all modules
+  3. All users, single module  (load test)
+  4. All users, all modules    (full load test)
+----
+
+*The script automatically:*
+
+1. Logs into the cluster as admin
+2. Discovers all lab users from showroom namespaces
+3. Reads each user's password from the Showroom ConfigMap
+4. Reads Gitea admin credentials from the Showroom ConfigMap
+5. Runs the grader container for each user/module combination
+6. Shows PASS/FAIL summary
+
+*To use your local FTL repo* (for development — picks up uncommitted changes):
+[source,bash]
+----
+./bin/run-grade.sh mcp-with-openshift \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password> \
+  --local
+----
+
+=== Option B: From Bastion (Traditional)
+
+SSH to the lab bastion, set environment variables, run `grade_lab`.
+
+[source,bash]
+----
+ssh lab-user@bastion
+
+# Clone FTL
 git clone https://github.com/rhpds/ftl.git ~/ftl
 cd ~/ftl
-
-# 2. Run setup script (creates venv, installs Ansible + dependencies)
 ./bin/setup_ftl
 
-# 3. Add to PATH
+# Add to PATH
 echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
-
-# 4. Verify installation
-which grade_lab solve_lab
 ----
 
-=== Testing Production Labs
-
-==== MCP (Model Context Protocol) with OpenShift
-
-**Lab Info:**
-- Checkpoints: 35 (6 Module 1 + 9 Module 2 + 11 Module 3 + 9 Module 4)
-- Environment: OpenShift multi-user
-- Time: 10-15 minutes for solver
-
-**Setup:**
+*Set environment variables* (from demo.redhat.com → Your lab → User tab / Advanced Settings):
 [source,bash]
 ----
-# Set environment variables (from demo.redhat.com)
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.example.com"
-export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
+export PASSWORD="<user-password>"
 ----
 
-**Test Module 1 (Lab Setup):**
+*Run grader or solver:*
 [source,bash]
 ----
-# Grade Module 1 (should mostly pass - pre-deployed)
-grade_lab mcp-with-openshift user1 1
-
-# Expected: PASS 6 checkpoints (OpenShift, LibreChat, MCP servers, Gitea)
-----
-
-**Test Full Lab:**
-[source,bash]
-----
-# Solve all modules (automated, 10-15 minutes)
-solve_lab mcp-with-openshift user1
+# Grade a specific module
+grade_lab <lab-name> user1 1
 
 # Grade all modules
-grade_lab mcp-with-openshift user1
-
-# Expected: PASS all 35 checkpoints
-# View report
-cat /tmp/grading_dir/grading_report_user1.txt
-----
-
-==== Automating RHEL In-Place Upgrades with Ansible
-
-**Lab Info:**
-- Checkpoints: 57 (26 Module 1 + 26 Module 2 + 5 Module 3)
-- Environment: RHEL bastion + 3 nodes (RHEL 7, 8, 9)
-- Time: Module 1 (10 min) + Module 2 (30-60 min for upgrades)
-
-**Setup:**
-[source,bash]
-----
-# Set environment variables (from demo.redhat.com)
-export AAP_HOSTNAME="https://controller-xxxxx.apps.example.com"
-export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > Advanced Settings
-export AAP_USERNAME="lab-user"  # Optional
-
-# Test AAP connection (AAP 2.6)
-curl -k -u ${AAP_USERNAME}:${AAP_PASSWORD} \
-  ${AAP_HOSTNAME}/api/controller/v2/ping/
-----
-
-**Test Module 1 (Pre-upgrade Analysis):**
-[source,bash]
-----
-# Grade before solving (should fail - CaC not run)
-grade_lab automating-ripu-with-ansible 1
-# Expected: FAIL (CaC, lab init, analysis not run)
-
-# Solve Module 1 (automated, 5-10 minutes)
-solve_lab automating-ripu-with-ansible 1
-# Runs: CaC → Lab Init → Analysis → Pet App Install
-
-# Grade after solving
-grade_lab automating-ripu-with-ansible 1
-# Expected: PASS all 26 checkpoints
-
-# View report
-cat /tmp/grading_dir/grading_report_${USER}_module_01.txt
-----
-
-**Test Module 2 (Upgrade Execution):**
-[source,bash]
-----
-# WARNING: Module 2 performs actual RHEL upgrades (30-60 minutes)
-
-# Solve Module 2 (automated, non-interactive)
-solve_lab automating-ripu-with-ansible 2
-# Upgrades: node1 (7→8), node2 (8→9), node3 (9→10)
-
-# Grade after upgrades complete
-grade_lab automating-ripu-with-ansible 2
-# Expected: PASS all 26 checkpoints
-
-# View report
-cat /tmp/grading_dir/grading_report_${USER}_module_02.txt
-----
-
-**Test Full Lab:**
-[source,bash]
-----
-# Grade all completed modules
-grade_lab automating-ripu-with-ansible
-
-# Expected: PASS 52 checkpoints (Module 1 + 2), Module 3 skipped
-# View full report
-cat /tmp/grading_dir/grading_report_${USER}.txt
-----
-
-=== Development Usage
-
-Create a lab directory with grader and solver playbooks:
-
-[source,bash]
-----
-# Create lab structure
-./utils/create_new_lab.sh my-lab
-
-# Edit grade_lab.yml to add graders
-# Edit solve_lab.yml to add solvers
-
-# Test locally
-./utils/test_lab.sh my-lab grade_lab
-----
-
-=== Student Usage
-
-Students invoke grading from lab bastion:
-
-[source,bash]
-----
-# Set required environment variables (from demo.redhat.com)
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="<cluster_ingress_domain>"
-export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
-
-# Grade lab progress (pass username as argument)
 grade_lab <lab-name> user1
 
-# Solve lab automatically
+# Solve a specific module
+solve_lab <lab-name> user1 1
+
+# Solve all modules
 solve_lab <lab-name> user1
 ----
 
-== Environment Variables
+== Available Labs
 
-FTL graders and solvers require certain environment variables to be set. These are displayed in demo.redhat.com when labs are deployed.
+=== MCP (Model Context Protocol) with OpenShift
 
-=== Required Variables
-
-[cols="1,2,1"]
+[cols="1,3"]
 |===
-| Variable | Description | Example
-
-| `OPENSHIFT_CLUSTER_INGRESS_DOMAIN`
-| OpenShift cluster ingress domain
-| `apps.cluster-kg5jj.dynamic.redhatworkshops.io`
-
-| `PASSWORD`
-| User password for service authentication (Gitea, etc.)
-| From demo.redhat.com > Your lab > User tab
+| Checkpoints | 35 (6 + 9 + 11 + 9 across 4 modules)
+| Environment | OpenShift multi-user, Gitea, LibreChat, LiteMaaS
+| Lab repo | https://github.com/rhpds/lb1726-mcp-showroom
 |===
 
-NOTE: `LAB_USER` is automatically set from the username argument (e.g., `grade_lab <lab-name> user1`). No need to export it manually.
+*Option A (laptop):*
+[source,bash]
+----
+./bin/run-grade.sh mcp-with-openshift \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password>
+# → Interactive menu: choose user and module
+----
 
-=== AAP-Specific Variables (for AAP labs)
+*Option B (bastion):*
+[source,bash]
+----
+# From Showroom: user tab has OPENSHIFT_CLUSTER_INGRESS_DOMAIN and PASSWORD
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
+export PASSWORD="<user-password>"
 
-[cols="1,2,1"]
+grade_lab mcp-with-openshift user1 1   # Module 1: Lab Setup (6 checkpoints)
+grade_lab mcp-with-openshift user1     # All modules
+solve_lab mcp-with-openshift user1     # Solve all
+----
+
+*Expected result on fresh environment:* Module 1 PASS (pre-deployed infra), Modules 2-4 FAIL (student exercises pending).
+
+=== OpenShift 4 Getting Started
+
+[cols="1,3"]
 |===
-| Variable | Description | Example
-
-| `AAP_HOSTNAME`
-| AAP Controller URL
-| `https://controller-xxxxx.apps.example.com`
-
-| `AAP_PASSWORD`
-| AAP user password
-| From demo.redhat.com > Your lab > Advanced Settings
-
-| `AAP_USERNAME`
-| AAP username
-| `lab-user` (default)
-|===
-
-IMPORTANT: FTL supports *AAP 2.6* with the new gateway architecture. All AAP roles use `/api/controller/v2/` endpoints (not the legacy `/api/v2/` paths).
-
-=== Optional Variables
-
-[cols="1,2,1"]
-|===
-| Variable | Description | Default
-
-| `GUID`
-| Lab GUID identifier
-| Auto-detected from hostname
-
-| `STUDENT_NAME`
-| Student name for reports
-| Defaults to `LAB_USER`
+| Checkpoints | 50 (3 modules)
+| Environment | OpenShift multi-user, project `wksp-{user}`
+| Lab repo | https://github.com/rhpds/ocp4-getting-started-showroom
 |===
 
-=== Setting Environment Variables
+NOTE: Project namespace is `wksp-{user}` (not `workshop-{user}`). Verify in your Showroom `vars.adoc`.
 
-When using FTL from a lab bastion, set these before running graders/solvers:
+*Option A (laptop):*
+[source,bash]
+----
+./bin/run-grade.sh ocp4-getting-started \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password>
+----
+
+*Option B (bastion):*
+[source,bash]
+----
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
+export PASSWORD="<user-password>"
+
+grade_lab ocp4-getting-started user1 1
+solve_lab ocp4-getting-started user1
+grade_lab ocp4-getting-started user1
+----
+
+=== Automating RHEL In-Place Upgrades with Ansible
+
+[cols="1,3"]
+|===
+| Checkpoints | 57 (26 + 26 + 5 across 3 modules)
+| Environment | AAP 2.6, bastion + RHEL 7/8/9/10 nodes
+| Lab repo | https://github.com/rhpds/automating-ripu-with-ansible-showroom
+|===
+
+*Showroom credential mapping:*
+[source]
+----
+{controller_url}      → AAP_HOSTNAME
+{controller_password} → AAP_PASSWORD
+----
+
+*Option A (laptop):*
+[source,bash]
+----
+./bin/run-grade.sh automating-ripu-with-ansible \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password>
+----
+
+*Option B (bastion):*
+[source,bash]
+----
+export AAP_HOSTNAME="https://controller-xxxxx.apps.example.com"
+export AAP_PASSWORD="<controller-password>"
+export AAP_USERNAME="lab-user"
+
+grade_lab automating-ripu-with-ansible 1
+solve_lab automating-ripu-with-ansible 1
+grade_lab automating-ripu-with-ansible 2   # WARNING: performs real RHEL upgrades (30-60 min)
+----
+
+== Load Testing (All Users)
+
+Use Option A to grade all users at once:
 
 [source,bash]
 ----
-# Set from demo.redhat.com > Your lab > User tab
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
-export PASSWORD="<user_password>"  # From demo.redhat.com > Your lab > User tab
-
-# Run grader (username argument sets LAB_USER automatically)
-grade_lab <lab-name> user1
+./bin/run-grade.sh mcp-with-openshift \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password>
+# → Choose option 3 (all users, single module) or 4 (all users, all modules)
 ----
 
-TIP: Values for these variables are displayed in demo.redhat.com when labs are provisioned. For MCP labs, check User tab. For AAP labs, check Advanced Settings.
+Output per user:
+----
+Mode:    Load test — grading 3 users (running as admin)
+▶ mcp-with-openshift / module 01 / user1  (load test — user user1 (admin credentials))
+▶ mcp-with-openshift / module 01 / user2  (load test — user user2 (admin credentials))
+▶ mcp-with-openshift / module 01 / user3  (load test — user user3 (admin credentials))
+----
 
-=== Multi-User Grading
+== Container Image
 
-When grading as system:admin for multiple users:
+The FTL container image contains all runtime dependencies.
+FTL playbooks are cloned from GitHub at runtime — no image rebuild needed when graders change.
 
 [source,bash]
 ----
-# Set cluster-wide variables once
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxxx.dynamic.redhatworkshops.io"
-
-# Grade user1 (LAB_USER is set automatically from argument)
-export PASSWORD="<user1_password>"  # From demo.redhat.com > Your lab > User tab
-grade_lab <lab-name> user1
-
-# Grade user2 (update PASSWORD for each user)
-export PASSWORD="<user2_password>"  # From demo.redhat.com > Your lab > User tab
-grade_lab <lab-name> user2
+# Build (maintainers only)
+podman build --platform linux/amd64 -t quay.io/rhpds/ftl:latest -f Containerfile .
+podman push quay.io/rhpds/ftl:latest
 ----
 
-IMPORTANT: Each user has their own password shown in demo.redhat.com > Your lab > User tab. The PASSWORD must match the user you're grading.
+*What's in the image:*
+* UBI9 base (linux/amd64)
+* `oc` 4.18 client
+* `ansible-core`, `kubernetes`, `openshift` Python packages
+* `kubernetes.core` and `community.general` Ansible collections
+* `ftl-entrypoint.sh` — clones FTL at startup, then runs `ansible-playbook`
 
-== Documentation
+*Override with local repo:*
+[source,bash]
+----
+# --local flag mounts your local FTL repo into the container
+./bin/run-grade.sh <lab> <api-url> <password> --local
+----
 
-* link:docs/LAB_AUTHOR_GUIDE.adoc[Lab Author Guide] - Creating labs with graders/solvers
-* link:docs/GRADER_REFERENCE.adoc[Grader Reference] - Available grader roles
-* link:docs/DEPLOYMENT_GUIDE.adoc[Deployment Guide] - AgnosticV integration
+== Credential Notes
+
+=== OCP / App Password
+
+FTL Option A reads the password automatically from the Showroom ConfigMap.
+Option B: get it from demo.redhat.com → Your lab → User tab.
+
+=== Gitea Admin Token
+
+When checking Gitea repos, FTL uses the Gitea admin token (not student credentials).
+This ensures checks work even if the student hasn't logged into Gitea yet.
+
+The token is read automatically from the Showroom ConfigMap fields:
+`gitea_admin_username` and `gitea_admin_password`.
+
+=== SSO Clusters
+
+On clusters using RHSSO/Keycloak, students cannot `oc login` with username/password.
+FTL uses admin kubeconfig for all cluster checks — no student login required.
+
+== Creating New Labs
+
+[source,bash]
+----
+# Use the lab template
+cp -r labs/lab-template labs/my-new-lab
+
+# Edit the grader and solver playbooks
+vim labs/my-new-lab/grade_module_01.yml
+vim labs/my-new-lab/solve_module_01.yml
+
+# Test with container
+./bin/run-grade.sh my-new-lab \
+  https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+  <admin-password> \
+  --local
+----
+
+See link:docs/LAB_AUTHOR_GUIDE.adoc[Lab Author Guide] for grader role reference.
+
+== Repository Structure
+
+----
+ftl/
+├── Containerfile              # Container image definition (UBI9)
+├── bin/
+│   ├── run-grade.sh           # Main laptop runner script
+│   ├── grade_lab              # Bastion grade wrapper
+│   └── solve_lab              # Bastion solve wrapper
+├── deploy/
+│   ├── ftl-entrypoint.sh      # Container entrypoint (clones FTL at runtime)
+│   ├── serviceaccount.yaml    # RBAC for cluster Jobs
+│   └── grade-job.yaml         # Kubernetes Job template
+├── labs/
+│   ├── mcp-with-openshift/    # MCP lab (35 checkpoints)
+│   ├── ocp4-getting-started/  # OCP Getting Started (50 checkpoints)
+│   ├── automating-ripu-with-ansible/ # RIPU lab (57 checkpoints)
+│   └── lab-template/          # Template for new labs
+└── roles/                     # Reusable grader/solver roles
+    ├── grader_check_ocp_resource/
+    ├── grader_check_ocp_pod_running/
+    ├── grader_check_http_endpoint/
+    ├── grader_check_aap_job_completed/
+    └── ...
+----
 
 == License
 
