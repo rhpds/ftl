@@ -17,8 +17,8 @@
 
 set -euo pipefail
 
-LAB_NAME="${1:?Usage: $0 <lab> <api-url> <admin-password> [--local|--git]}"
-API_URL="${2:?API URL required}"
+LAB_NAME="${1:?Usage: $0 <lab> <api-url-or-aap-url> <admin-password> [--local|--git]}"
+API_URL="${2:?API/AAP URL required}"
 ADMIN_PASSWORD="${3:?Admin password required}"
 FTL_MODE="${4:---git}"   # --local or --git
 
@@ -42,10 +42,38 @@ case "$FTL_MODE" in
     echo "ERROR: Unknown option $FTL_MODE (use --local or --git)"; exit 1 ;;
 esac
 
+# ── Step 0.5: Ask lab infrastructure type ────────────────────────────────────
+echo ""
+echo "What type of infrastructure does this lab use?"
+echo "  1. OpenShift  (OCP cluster — MCP, ocp4-getting-started, etc.)"
+echo "  2. AAP + SSH  (Ansible Automation Platform + RHEL bastion — RIPU etc.)"
+echo "  3. RHEL / SSH only  (no OCP, no AAP)"
+read -rp "Lab type [1/2/3]: " LAB_TYPE
+
+LAB_SSH_HOST=""
+LAB_SSH_USER="lab-user"
+LAB_AAP_HOSTNAME=""
+LAB_AAP_PASSWORD=""
+
+case "$LAB_TYPE" in
+  2)
+    read -rp "AAP Controller URL (e.g. https://controller-xxx.apps.example.com): " LAB_AAP_HOSTNAME
+    read -rsp "AAP password: " LAB_AAP_PASSWORD; echo ""
+    read -rp "Bastion SSH host (or press Enter to skip): " LAB_SSH_HOST
+    [ -n "$LAB_SSH_HOST" ] && read -rp "SSH user [lab-user]: " input_user && LAB_SSH_USER="${input_user:-lab-user}"
+    ;;
+  3)
+    read -rp "Bastion SSH host (e.g. bastion.xxx.example.com): " LAB_SSH_HOST
+    read -rp "SSH user [lab-user]: " input_user && LAB_SSH_USER="${input_user:-lab-user}"
+    ;;
+esac
+
 # ── Step 1: Login as admin (OCP) ─────────────────────────────────────────────
 echo ""
-echo "Logging in as $ADMIN_USER..."
 OCP_OK=false
+if [ "$LAB_TYPE" = "1" ]; then
+  echo "Logging in as $ADMIN_USER..."
+fi
 if oc login "$API_URL" -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" \
   --insecure-skip-tls-verify=true 2>&1 | grep -v "^WARNING"; then
   OCP_OK=true
@@ -252,6 +280,10 @@ grade_user_module() {
     -e GITEA_ADMIN_PASSWORD="$gitea_admin_pass" \
     ${aap_hostname:+-e AAP_HOSTNAME="$aap_hostname"} \
     ${aap_password:+-e AAP_PASSWORD="$aap_password"} \
+    ${LAB_AAP_HOSTNAME:+-e AAP_HOSTNAME="$LAB_AAP_HOSTNAME"} \
+    ${LAB_AAP_PASSWORD:+-e AAP_PASSWORD="$LAB_AAP_PASSWORD"} \
+    ${LAB_SSH_HOST:+-e BASTION_HOST="$LAB_SSH_HOST"} \
+    ${LAB_SSH_USER:+-e BASTION_USER="$LAB_SSH_USER"} \
     -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" \
