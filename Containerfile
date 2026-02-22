@@ -44,7 +44,8 @@ RUN pip3 install --no-cache-dir \
 RUN ansible-galaxy collection install \
       kubernetes.core \
       community.general \
-    && ansible-galaxy collection list
+      --collections-path /usr/share/ansible/collections \
+    && ansible-galaxy collection list --collections-path /usr/share/ansible/collections
 
 # ── Entrypoint: clone FTL at runtime then run ansible-playbook ────────────────
 COPY deploy/ftl-entrypoint.sh /usr/local/bin/ftl-entrypoint
