@@ -23,7 +23,7 @@ ADMIN_PASSWORD="${3:?Admin password required}"
 FTL_MODE="${4:---git}"   # --local or --git
 
 ADMIN_USER="${ADMIN_USER:-admin}"
-EE_IMAGE="${EE_IMAGE:-quay.io/agnosticd/ee-multicloud:chained-2026-02-16}"
+FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl-grader:latest}"
 FTL_REPO="${FTL_REPO:-https://github.com/rhpds/ftl.git}"
 FTL_REF="${FTL_REF:-main}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -149,50 +149,39 @@ except: pass
     [ -z "$user_pass" ] && user_pass="$ADMIN_PASSWORD"
   fi
 
-  # Write user kubeconfig to temp file
-  local tmp_kube
-  tmp_kube=$(mktemp)
-  KUBECONFIG="$tmp_kube" oc login "$API_URL" \
-    -u "$user" -p "$user_pass" \
-    --insecure-skip-tls-verify=true 2>&1 | grep -v "^WARNING" || true
-  trap "rm -f $tmp_kube" RETURN
+  # Use admin kubeconfig — works for SSO users (rhsso/keycloak) too
+  # Grader checks resources as admin but uses LAB_USER for namespace targeting
+  local admin_kube
+  admin_kube=$(mktemp)
+  cp ~/.kube/config "$admin_kube" 2>/dev/null || \
+    { KUBECONFIG="$admin_kube" oc login "$API_URL" \
+        -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" \
+        --insecure-skip-tls-verify=true 2>/dev/null || true; }
+  trap "rm -f $admin_kube" RETURN
 
   echo ""
   echo "▶ $LAB_NAME / module $mod / $user"
 
-  # Build podman volume args based on mode
-  local ftl_cmd
   if [ "$FTL_MODE" = "--local" ]; then
-    # Mount local repo — instant, no clone
-    podman run --rm \
-      -v "$tmp_kube:/home/runner/.kube/config:ro" \
-      -v "$SCRIPT_DIR:/runner/ftl:ro" \
-      -e LAB_USER="$user" \
-      -e PASSWORD="$user_pass" \
-      -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
-      -e ANSIBLE_FORCE_COLOR=true \
-      "$EE_IMAGE" \
-      /bin/bash -c "
-        export ANSIBLE_ROLES_PATH=/runner/ftl/roles:/usr/share/ansible/roles
-        export ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections
-        ansible-playbook /runner/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml
-      "
+    # Mount local repo over the baked-in /ftl — use latest local changes
+    VOLUME_ARGS="-v $SCRIPT_DIR:/ftl:ro"
+    PLAYBOOK="/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
   else
-    # Clone from git at runtime — always latest
-    podman run --rm \
-      -v "$tmp_kube:/home/runner/.kube/config:ro" \
-      -e LAB_USER="$user" \
-      -e PASSWORD="$user_pass" \
-      -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
-      -e ANSIBLE_FORCE_COLOR=true \
-      "$EE_IMAGE" \
-      /bin/bash -c "
-        git clone --depth 1 --branch ${FTL_REF} ${FTL_REPO} /runner/ftl --quiet 2>/dev/null
-        export ANSIBLE_ROLES_PATH=/runner/ftl/roles:/usr/share/ansible/roles
-        export ANSIBLE_COLLECTIONS_PATH=/usr/share/ansible/collections
-        ansible-playbook /runner/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml
-      "
+    # Use the FTL content baked into the image at build time
+    VOLUME_ARGS=""
+    PLAYBOOK="/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
   fi
+
+  # Our image uses ansible-playbook directly as entrypoint — no override needed
+  podman run --rm \
+    -v "$admin_kube:/home/runner/.kube/config:ro" \
+    ${VOLUME_ARGS:+$VOLUME_ARGS} \
+    -e LAB_USER="$user" \
+    -e PASSWORD="$user_pass" \
+    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
+    -e ANSIBLE_FORCE_COLOR=true \
+    "$FTL_IMAGE" \
+    "$PLAYBOOK"
 }
 
 # ── Step 6: Run ───────────────────────────────────────────────────────────────
