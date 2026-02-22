@@ -154,14 +154,21 @@
     # =========================================================================
     # Exercise 1.5: Gitea Login
     # =========================================================================
-    - name: "Exercise 1.5: Verify Gitea repository exists"
+    # Use Gitea admin token — works even if student hasn't logged in yet
+    - name: "Exercise 1.5: Verify Gitea repository exists (admin API)"
       ansible.builtin.include_role:
         name: grader_check_command_output
       vars:
-        task_description_message: "Exercise 1.5: Gitea repository 'mcp' accessible for user {{ gitea_user }}"
-        command: "curl -s -u {{ gitea_user }}:{{ gitea_password }} {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'"
+        task_description_message: "Exercise 1.5: Gitea repository 'mcp' exists for user {{ gitea_user }}"
+        command: >
+          curl -s
+          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default('mcpadmin') }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(lookup('env', 'PASSWORD')) }}"
+          {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'
         expected_output: "mcp"
-        student_error_message: "Gitea repository '{{ gitea_user }}/mcp' not found. Log in to Gitea and verify repository exists: {{ gitea_url }}/{{ gitea_user }}/mcp"
+        student_error_message: |
+          Gitea repository '{{ gitea_user }}/mcp' not found.
+          Log in to Gitea at {{ gitea_url }} and verify the repository exists.
+          The mcp repository should be pre-initialized for your user.
 
 - name: Finalize FTL Grading Session - Module 1
   hosts: localhost

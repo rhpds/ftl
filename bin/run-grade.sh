@@ -142,17 +142,41 @@ grade_user_module() {
     | grep "showroom" | grep "${user}$" | head -1 | cut -d/ -f2 || true)
 
   user_pass="$ADMIN_PASSWORD"
+  local gitea_admin_user="mcpadmin"
+  local gitea_admin_pass="$ADMIN_PASSWORD"
+
   if [ -n "$showroom_ns" ]; then
-    user_pass=$(oc get configmap showroom-userdata -n "$showroom_ns" \
-      -o jsonpath='{.data.user_data\.yml}' 2>/dev/null | \
-      python3 -c "
+    local raw_data
+    raw_data=$(oc get configmap showroom-userdata -n "$showroom_ns" \
+      -o jsonpath='{.data.user_data\.yml}' 2>/dev/null || true)
+
+    if [ -n "$raw_data" ]; then
+      user_pass=$(echo "$raw_data" | python3 -c "
 import sys, json
 try:
     d = json.loads(sys.stdin.read())
     print(d.get('password', ''))
 except: pass
 " 2>/dev/null || true)
-    [ -z "$user_pass" ] && user_pass="$ADMIN_PASSWORD"
+      [ -z "$user_pass" ] && user_pass="$ADMIN_PASSWORD"
+
+      # Also extract Gitea admin credentials for API checks that need admin access
+      gitea_admin_user=$(echo "$raw_data" | python3 -c "
+import sys, json
+try:
+    d = json.loads(sys.stdin.read())
+    print(d.get('gitea_admin_username', 'mcpadmin'))
+except: pass
+" 2>/dev/null || echo "mcpadmin")
+      gitea_admin_pass=$(echo "$raw_data" | python3 -c "
+import sys, json
+try:
+    d = json.loads(sys.stdin.read())
+    print(d.get('gitea_admin_password', ''))
+except: pass
+" 2>/dev/null || true)
+      [ -z "$gitea_admin_pass" ] && gitea_admin_pass="$ADMIN_PASSWORD"
+    fi
   fi
 
   # Use admin kubeconfig — works for SSO users (rhsso/keycloak) too
@@ -189,6 +213,8 @@ except: pass
     ${VOLUME_ARGS:+$VOLUME_ARGS} \
     -e LAB_USER="$user" \
     -e PASSWORD="$user_pass" \
+    -e GITEA_ADMIN_USER="$gitea_admin_user" \
+    -e GITEA_ADMIN_PASSWORD="$gitea_admin_pass" \
     -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" \
