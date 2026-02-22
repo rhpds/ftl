@@ -42,66 +42,103 @@ case "$FTL_MODE" in
     echo "ERROR: Unknown option $FTL_MODE (use --local or --git)"; exit 1 ;;
 esac
 
-# ── Step 1: Login as admin ────────────────────────────────────────────────────
+# ── Step 1: Login as admin (OCP) ─────────────────────────────────────────────
 echo ""
 echo "Logging in as $ADMIN_USER..."
-oc login "$API_URL" -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" \
-  --insecure-skip-tls-verify=true 2>&1 | grep -v "^WARNING" || true
+OCP_OK=false
+if oc login "$API_URL" -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" \
+  --insecure-skip-tls-verify=true 2>&1 | grep -v "^WARNING"; then
+  OCP_OK=true
+fi
 
-INGRESS=$(oc get ingresses.config.openshift.io cluster \
-  -o jsonpath='{.spec.domain}')
-echo "Cluster domain: $INGRESS"
+INGRESS=""
+if $OCP_OK; then
+  INGRESS=$(oc get ingresses.config.openshift.io cluster \
+    -o jsonpath='{.spec.domain}' 2>/dev/null || true)
+  [ -n "$INGRESS" ] && echo "Cluster domain: $INGRESS"
+else
+  echo "OCP login failed — continuing for non-OCP lab (e.g. RIPU/AAP)"
+fi
 
-# ── Step 2: Discover users (macOS-compatible) ─────────────────────────────────
+# ── Step 2: Detect lab type and users ────────────────────────────────────────
 echo ""
 ALL_USERS=()
-while IFS= read -r ns; do
-  # macOS sed: extract trailing userN from namespace name
-  u=$(echo "$ns" | sed 's/.*-\(user[0-9]*\)$/\1/' | grep '^user' || true)
-  [ -n "$u" ] && ALL_USERS+=("$u")
-done < <(oc get namespaces --no-headers -o name \
-  | grep "showroom" | cut -d/ -f2 | grep 'user[0-9]*$')
+SHOWROOM_NS=""
+SINGLE_USER=false
 
-if [ ${#ALL_USERS[@]} -eq 0 ]; then
-  echo "ERROR: No showroom user namespaces found. Are Showroom pods deployed?"
-  exit 1
+if $OCP_OK; then
+  # Try multi-user: showroom namespaces ending in userN
+  while IFS= read -r ns; do
+    u=$(echo "$ns" | sed 's/.*-\(user[0-9]*\)$/\1/' | grep '^' || true)
+    [[ "$u" =~ ^user[0-9]+$ ]] && ALL_USERS+=("$u")
+  done < <(oc get namespaces --no-headers -o name \
+    | grep "showroom" | cut -d/ -f2 | grep 'user[0-9]*$')
+
+  # If no multi-user namespaces found — single-user lab (RIPU etc.)
+  if [ ${#ALL_USERS[@]} -eq 0 ]; then
+    SHOWROOM_NS=$(oc get namespaces --no-headers -o name \
+      | grep "showroom" | head -1 | cut -d/ -f2 || true)
+    SINGLE_USER=true
+    ALL_USERS=("student")
+    [ -n "$SHOWROOM_NS" ] && echo "Single-user lab — showroom namespace: $SHOWROOM_NS" || echo "Single-user lab (no showroom namespace)"
+  else
+    echo "Multi-user lab — found users: ${ALL_USERS[*]}"
+  fi
+else
+  # No OCP — single user, no discovery possible
+  SINGLE_USER=true
+  ALL_USERS=("student")
+  echo "Non-OCP lab — single user: student"
 fi
-echo "Found users: ${ALL_USERS[*]}"
 
 # ── Step 3: Interactive menu ──────────────────────────────────────────────────
 echo ""
-echo "What do you want to grade?"
-echo "  1. Single user, single module"
-echo "  2. Single user, all modules"
-echo "  3. All users, single module  (load test)"
-echo "  4. All users, all modules    (full load test)"
-read -rp "Choice [1-4]: " CHOICE
-
-case "$CHOICE" in
-  1)
-    echo "Users: ${ALL_USERS[*]}"
-    read -rp "Which user: " TARGET_USER
-    read -rp "Which module (e.g. 01): " TARGET_MODULE
-    USERS=("$TARGET_USER")
-    MODULES=("$TARGET_MODULE")
-    ;;
-  2)
-    echo "Users: ${ALL_USERS[*]}"
-    read -rp "Which user: " TARGET_USER
-    USERS=("$TARGET_USER")
-    MODULES=()
-    ;;
-  3)
-    read -rp "Which module (e.g. 01): " TARGET_MODULE
-    USERS=("${ALL_USERS[@]}")
-    MODULES=("$TARGET_MODULE")
-    ;;
-  4)
-    USERS=("${ALL_USERS[@]}")
-    MODULES=()
-    ;;
-  *) echo "Invalid choice"; exit 1 ;;
-esac
+if $SINGLE_USER; then
+  # Single-user lab (RIPU, AAP-only, etc.)
+  echo "What do you want to grade?"
+  echo "  1. Single module"
+  echo "  2. All modules"
+  read -rp "Choice [1/2]: " CHOICE
+  USERS=("student")
+  case "$CHOICE" in
+    1) read -rp "Which module (e.g. 01): " TARGET_MODULE; MODULES=("$TARGET_MODULE") ;;
+    2) MODULES=() ;;
+    *) echo "Invalid choice"; exit 1 ;;
+  esac
+else
+  # Multi-user lab (MCP, ocp4-getting-started, etc.)
+  echo "What do you want to grade?"
+  echo "  1. Single user, single module"
+  echo "  2. Single user, all modules"
+  echo "  3. All users, single module  (load test)"
+  echo "  4. All users, all modules    (full load test)"
+  read -rp "Choice [1-4]: " CHOICE
+  case "$CHOICE" in
+    1)
+      echo "Users: ${ALL_USERS[*]}"
+      read -rp "Which user: " TARGET_USER
+      read -rp "Which module (e.g. 01): " TARGET_MODULE
+      USERS=("$TARGET_USER")
+      MODULES=("$TARGET_MODULE")
+      ;;
+    2)
+      echo "Users: ${ALL_USERS[*]}"
+      read -rp "Which user: " TARGET_USER
+      USERS=("$TARGET_USER")
+      MODULES=()
+      ;;
+    3)
+      read -rp "Which module (e.g. 01): " TARGET_MODULE
+      USERS=("${ALL_USERS[@]}")
+      MODULES=("$TARGET_MODULE")
+      ;;
+    4)
+      USERS=("${ALL_USERS[@]}")
+      MODULES=()
+      ;;
+    *) echo "Invalid choice"; exit 1 ;;
+  esac
+fi
 
 # ── Step 4: Discover modules if needed ───────────────────────────────────────
 if [ ${#MODULES[@]} -eq 0 ]; then
@@ -144,6 +181,8 @@ grade_user_module() {
   user_pass="$ADMIN_PASSWORD"
   local gitea_admin_user="mcpadmin"
   local gitea_admin_pass="$ADMIN_PASSWORD"
+  local aap_hostname=""
+  local aap_password=""
 
   if [ -n "$showroom_ns" ]; then
     local raw_data
@@ -158,14 +197,20 @@ grade_user_module() {
           sed 's/.*"'"$key"'": *"\([^"]*\)".*/\1/' | tr -d '\r\n'
       }
 
-      local extracted_pass extracted_gitea_admin_user extracted_gitea_admin_pass
+      local extracted_pass extracted_gitea_admin_user extracted_gitea_admin_pass \
+            extracted_aap_hostname extracted_aap_password
       extracted_pass=$(extract_field "password")
       extracted_gitea_admin_user=$(extract_field "gitea_admin_username")
       extracted_gitea_admin_pass=$(extract_field "gitea_admin_password")
+      # AAP labs (RIPU etc.) — controller_url maps to AAP_HOSTNAME
+      extracted_aap_hostname=$(extract_field "controller_url")
+      extracted_aap_password=$(extract_field "controller_password")
 
       [ -n "$extracted_pass" ] && user_pass="$extracted_pass"
       [ -n "$extracted_gitea_admin_user" ] && gitea_admin_user="$extracted_gitea_admin_user"
       [ -n "$extracted_gitea_admin_pass" ] && gitea_admin_pass="$extracted_gitea_admin_pass"
+      [ -n "$extracted_aap_hostname" ] && aap_hostname="$extracted_aap_hostname"
+      [ -n "$extracted_aap_password" ] && aap_password="$extracted_aap_password"
     fi
   fi
 
@@ -205,6 +250,8 @@ grade_user_module() {
     -e PASSWORD="$user_pass" \
     -e GITEA_ADMIN_USER="$gitea_admin_user" \
     -e GITEA_ADMIN_PASSWORD="$gitea_admin_pass" \
+    ${aap_hostname:+-e AAP_HOSTNAME="$aap_hostname"} \
+    ${aap_password:+-e AAP_PASSWORD="$aap_password"} \
     -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN="$INGRESS" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" \
