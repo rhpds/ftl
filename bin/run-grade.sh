@@ -23,7 +23,7 @@ ADMIN_PASSWORD="${3:?Admin password required}"
 FTL_MODE="${4:---git}"   # --local or --git
 
 ADMIN_USER="${ADMIN_USER:-admin}"
-FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl-grader:latest}"
+FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl:latest}"
 FTL_REPO="${FTL_REPO:-https://github.com/rhpds/ftl.git}"
 FTL_REF="${FTL_REF:-main}"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,10 +33,10 @@ case "$FTL_MODE" in
   --local)
     [ -d "$SCRIPT_DIR/labs/$LAB_NAME" ] || \
       { echo "ERROR: $SCRIPT_DIR/labs/$LAB_NAME not found"; exit 1; }
-    echo "FTL source: local ($SCRIPT_DIR)"
+    echo "FTL source: local ($SCRIPT_DIR) — mounts over /ftl in container"
     ;;
   --git)
-    echo "FTL source: git ($FTL_REPO @ $FTL_REF)"
+    echo "FTL source: cloned at runtime from GitHub (always latest)"
     ;;
   *)
     echo "ERROR: Unknown option $FTL_MODE (use --local or --git)"; exit 1 ;;
@@ -163,14 +163,13 @@ except: pass
   echo "▶ $LAB_NAME / module $mod / $user"
 
   if [ "$FTL_MODE" = "--local" ]; then
-    # Mount local repo over the baked-in /ftl — use latest local changes
+    # Mount local repo over /ftl — overrides baked-in content
     VOLUME_ARGS="-v $SCRIPT_DIR:/ftl:ro"
-    PLAYBOOK="/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
   else
-    # Use the FTL content baked into the image at build time
+    # Use FTL content baked into image at build time — nothing extra needed
     VOLUME_ARGS=""
-    PLAYBOOK="/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
   fi
+  PLAYBOOK="/ftl/labs/${LAB_NAME}/grade_module_${mod}.yml"
 
   # Our image uses ansible-playbook directly as entrypoint — no override needed
   podman run --rm \

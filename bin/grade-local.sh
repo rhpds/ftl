@@ -34,8 +34,8 @@ echo "Logging in as admin to discover cluster data..."
 ADMIN_USER="${ADMIN_USER:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-$PASSWORD}"
 
-oc login "$API_URL" -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" --insecure-skip-tls-verify=true -q 2>/dev/null || \
-oc login "$API_URL" -u "$LAB_USER" -p "$PASSWORD" --insecure-skip-tls-verify=true -q 2>/dev/null
+oc login "$API_URL" -u "$ADMIN_USER" -p "$ADMIN_PASSWORD" --insecure-skip-tls-verify=true 2>/dev/null || \
+oc login "$API_URL" -u "$LAB_USER" -p "$PASSWORD" --insecure-skip-tls-verify=true 2>/dev/null
 
 # Find showroom ConfigMap for this user
 echo "Discovering cluster data from Showroom ConfigMap for $LAB_USER..."
@@ -61,7 +61,7 @@ fi
 # Write a temp kubeconfig for the student user
 TMP_KUBECONFIG=$(mktemp)
 KUBECONFIG="$TMP_KUBECONFIG" oc login "$API_URL" \
-  -u "$LAB_USER" -p "$PASSWORD" --insecure-skip-tls-verify=true -q 2>/dev/null
+  -u "$LAB_USER" -p "$PASSWORD" --insecure-skip-tls-verify=true 2>/dev/null
 trap "rm -f $TMP_KUBECONFIG" EXIT
 
 echo ""

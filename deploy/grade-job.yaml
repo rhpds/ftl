@@ -29,7 +29,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: grader
-        image: quay.io/rhpds/ftl-grader:latest
+        image: quay.io/rhpds/ftl:latest
         command:
         - ansible-playbook
         - /runner/labs/${LAB_NAME}/grade_module_${MODULE}.yml
