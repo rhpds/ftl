@@ -5,240 +5,105 @@ Automated grading and solving for Red Hat Demo Platform (RHDP) labs.
 image:https://img.shields.io/badge/image-quay.io%2Frhpds%2Fftl-blue[FTL Image, link=https://quay.io/repository/rhpds/ftl]
 image:https://img.shields.io/badge/image-ghcr.io%2Frhpds%2Fftl-green[GHCR Image, link=https://github.com/rhpds/ftl/pkgs/container/ftl]
 
-*Container Images:*
-
-* `quay.io/rhpds/ftl:latest` — manually built/pushed (link:Containerfile[Containerfile])
-* `ghcr.io/rhpds/ftl:latest` — CI-built on every push to `main` (link:.github/workflows/build-image.yml[workflow])
-
-*Detailed Documentation:*
-
-* link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] — all 22+ roles with parameters and examples
-* link:labs/mcp-with-openshift/README.md[MCP with OpenShift Lab] — 4 modules, 35 checkpoints
-* link:labs/ocp4-getting-started/README.md[OpenShift 4 Getting Started Lab] — 3 modules, 30 checkpoints
-* link:labs/automating-ripu-with-ansible/README.md[RIPU Lab] — 3 modules, 57 checkpoints
-* link:labs/lab-template/[Lab Template] — starting point for new labs
-
 == Architecture
 
 ----
-                    ┌─────────────────────────────────────────────┐
-                    │              Developer Laptop                │
-                    │                                             │
-                    │  grade_lab mcp-with-openshift user1 1       │
-                    │       │                                      │
-                    │       ▼                                      │
-                    │  ┌──────────────┐   ansible-playbook?        │
-                    │  │  grade_lab   │──────────────────────┐    │
-                    │  │  (bash)      │   No → use podman    │    │
-                    │  └──────────────┘                      │    │
-                    │       │                                 ▼    │
-                    │       │              ┌──────────────────────┐│
-                    │       │              │ quay.io/rhpds/ftl    ││
-                    │       │              │  - ansible-core      ││
-                    │       │              │  - kubernetes.core   ││
-                    │       │              │  - oc 4.18 client    ││
-                    │       │              │  - FTL from GitHub   ││
-                    │       │              └──────────────────────┘│
-                    └───────┼─────────────────────┼────────────────┘
-                            │  ~/.kube/config      │ ansible-playbook
-                            ▼                      ▼
-                    ┌───────────────┐      ┌──────────────────┐
-                    │  Bastion Host │      │  OCP / AAP APIs  │
-                    │  (Option B)   │─────▶│  (validation)    │
-                    └───────────────┘      └──────────────────┘
-
-Option A: Laptop + podman  →  container  →  cluster API
-Option B: Bastion + venv   →  ansible    →  cluster API
+  Laptop                          Bastion Host
+  ──────                          ────────────
+  export PASSWORD=...             export PASSWORD=...
+  grade_lab lab user1 --podman    grade_lab lab user1 --ansible
+       │                               │
+       ▼                               ▼
+  quay.io/rhpds/ftl           ansible-playbook
+  (container)                 (direct)
+       │                               │
+       └──────────────┬────────────────┘
+                      ▼
+              OCP / AAP APIs
 ----
 
 == Quick Start
 
 [source,bash]
 ----
-# Set credentials (from Showroom / demo.redhat.com → User tab)
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
 export PASSWORD="<user-password>"
 
-# From laptop — use --podman (runs via quay.io/rhpds/ftl container)
-grade_lab <lab-name> user1 --podman
-solve_lab <lab-name> user1 --podman
-
-# From bastion — use --ansible (runs ansible-playbook directly)
-grade_lab <lab-name> user1 --ansible
-solve_lab <lab-name> user1 --ansible
+grade_lab <lab-name> user1 --podman    # laptop (via container)
+grade_lab <lab-name> user1 --ansible   # bastion (ansible-playbook direct)
 ----
 
-No `oc login` required — just `export` your credentials and use `--podman` or `--ansible`.
+Solve then verify:
+
+[source,bash]
+----
+solve_lab <lab-name> user1 --podman
+grade_lab <lab-name> user1 --podman    # expect: SUCCESS 0 Errors
+----
 
 == Running Modes
 
-=== --podman (Laptop / Container)
+=== --podman (Laptop)
 
-Runs via `quay.io/rhpds/ftl:latest`. Requires `podman` installed.
+Requires `podman`. Pulls `quay.io/rhpds/ftl:latest` and runs FTL inside a container.
+`~/.kube/config` is mounted automatically for OCP checks.
 
 [source,bash]
 ----
-# Set credentials
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
 export PASSWORD="<user-password>"
-
-# Run
 grade_lab mcp-with-openshift user1 1 --podman
-solve_lab mcp-with-openshift user1   --podman
-grade_lab mcp-with-openshift user1   --podman
 ----
 
-The `~/.kube/config` is mounted automatically if present (for OCP resource checks).
+=== --ansible (Bastion)
 
-=== --ansible (Bastion Host)
-
-Runs `ansible-playbook` directly. No container needed.
+Requires `ansible-playbook`. Runs FTL directly on the bastion host.
 
 [source,bash]
 ----
-ssh lab-user@bastion
-
 # Install FTL (first time only)
 git clone https://github.com/rhpds/ftl.git ~/ftl
-cd ~/ftl && bash bin/setup_ftl
+bash ~/ftl/bin/setup_ftl
 echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 
-# Set credentials and run
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.example.com"
 export PASSWORD="<user-password>"
 grade_lab mcp-with-openshift user1 1 --ansible
 ----
 
-=== FTL Source: GitHub (default) vs Local Repo (development)
+=== Load Testing
 
-By default FTL is cloned from GitHub at container startup.
-Use local source when developing grader changes before pushing.
-
-[source,bash]
-----
-# Default: always pulls latest from GitHub main
-grade_lab mcp-with-openshift user1 1
-
-# Development: use local FTL checkout (mount over /ftl in container)
-podman run --rm \
-  -v ~/.kube/config:/home/runner/.kube/config:ro \
-  -v $(pwd):/ftl:ro \
-  -e LAB_USER=user1 -e PASSWORD=xxx \
-  -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxx.example.com \
-  quay.io/rhpds/ftl:latest grade mcp-with-openshift user1 1
-----
-
-== Grading Modes
-
-=== Single User, Single Module
-
-[source,bash]
-----
-grade_lab mcp-with-openshift user1 1
-----
-
-=== Single User, All Modules
-
-[source,bash]
-----
-grade_lab mcp-with-openshift user1
-----
-
-=== Load Test: All Users, Single Module (parallel)
+Run all users in parallel:
 
 [source,bash]
 ----
 for user in user1 user2 user3; do
-  LAB_USER=$user PASSWORD="<pass>" grade_lab mcp-with-openshift $user 1 &
+  LAB_USER=$user PASSWORD="<pass>" grade_lab mcp-with-openshift $user 1 --podman &
 done
 wait
 ----
-
-=== Load Test: All Users, All Modules
-
-[source,bash]
-----
-for user in user1 user2 user3; do
-  LAB_USER=$user PASSWORD="<pass>" grade_lab mcp-with-openshift $user &
-done
-wait
-----
-
-== Example Labs
-
-=== MCP with OpenShift (OCP + multi-user + Gitea + LiteMaaS)
-
-[source,bash]
-----
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
-export PASSWORD="<user-password>"          # from Showroom → User tab
-export GITEA_ADMIN_USER="mcpadmin"         # from Showroom ConfigMap
-export GITEA_ADMIN_PASSWORD="<gitea-pass>" # from Showroom ConfigMap
-
-grade_lab mcp-with-openshift user1 1      # Module 1: pre-deployed infra check
-solve_lab mcp-with-openshift user1        # Solve all modules
-grade_lab mcp-with-openshift user1        # Verify: expect SUCCESS 0 Errors
-----
-
-See link:labs/mcp-with-openshift/README.md[MCP Lab README] for full details.
-
-=== OpenShift 4 Getting Started (OCP + S2I builds + Tekton)
-
-[source,bash]
-----
-export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
-export PASSWORD="<user-password>"
-
-solve_lab ocp4-getting-started user1        # Solve (takes ~10 min — S2I build)
-grade_lab ocp4-getting-started user1        # Verify: expect 30/30 SUCCESS
-----
-
-NOTE: Module 2 runs an S2I Java build from source (~5-10 min). This is expected.
-
-See link:labs/ocp4-getting-started/README.md[OCP4 Lab README] for full details.
-
-=== Automating RHEL In-Place Upgrades (AAP)
-
-[source,bash]
-----
-export AAP_HOSTNAME="https://controller-xxx.apps.example.com"
-export AAP_PASSWORD="<aap-password>"
-export AAP_USERNAME="lab-user"
-
-
-grade_lab automating-ripu-with-ansible 1   # Grade (expect FAIL — CaC not run)
-solve_lab automating-ripu-with-ansible 1   # Solve: runs CaC, Lab Init, Analysis (~15 min)
-grade_lab automating-ripu-with-ansible 1   # Verify: expect SUCCESS
-
-# Module 2 performs actual RHEL upgrades (30-60 min)
-solve_lab automating-ripu-with-ansible 2
-grade_lab automating-ripu-with-ansible 2
-----
-
-See link:labs/automating-ripu-with-ansible/README.md[RIPU Lab README] for full details.
 
 == Available Labs
 
-[cols="1,3,1,1"]
+[cols="2,3,1,1"]
 |===
-| Lab Directory | Description | Modules | Checkpoints
+| Lab | Description | Modules | Checkpoints
 
-| `mcp-with-openshift`
-| MCP servers, LibreChat, Gitea, ToolHive, LiteMaaS, MCPRegistry
-| 4
-| 35
+| link:labs/mcp-with-openshift/README.md[mcp-with-openshift]
+| MCP servers, LibreChat, Gitea, LiteMaaS
+| 4 | 35
 
-| `ocp4-getting-started`
-| Parksmap deployment, S2I nationalparks, MongoDB, Tekton pipelines + Triggers
-| 3
-| 30
+| link:labs/ocp4-getting-started/README.md[ocp4-getting-started]
+| Parksmap, S2I builds, MongoDB, Tekton pipelines
+| 3 | 30
 
-| `automating-ripu-with-ansible`
-| RHEL 7/8/9/10 in-place upgrades via AAP 2.6, Leapp framework, pet app
-| 3
-| 57
+| link:labs/automating-ripu-with-ansible/README.md[automating-ripu-with-ansible]
+| RHEL in-place upgrades via AAP 2.6
+| 3 | 57
 
 |===
+
+Each lab README has the exact `export` + `grade_lab`/`solve_lab` commands for that specific lab.
 
 == Environment Variables
 
@@ -246,189 +111,50 @@ See link:labs/automating-ripu-with-ansible/README.md[RIPU Lab README] for full d
 |===
 | Variable | Description | Required for
 
-| `OPENSHIFT_CLUSTER_INGRESS_DOMAIN`
-| OCP cluster apps domain
-| OCP labs
-
-| `PASSWORD`
-| User password (Showroom → User tab)
-| All labs
-
-| `LAB_USER`
-| Student username (auto-set from grade_lab argument)
-| Auto
-
-| `AAP_HOSTNAME`
-| AAP Controller URL
-| RIPU
-
-| `AAP_PASSWORD`
-| AAP password
-| RIPU
-
-| `AAP_USERNAME`
-| AAP username (default: `lab-user`)
-| RIPU
-
-| `GITEA_ADMIN_USER`
-| Gitea admin username (from Showroom ConfigMap)
-| MCP
-
-| `GITEA_ADMIN_PASSWORD`
-| Gitea admin password (from Showroom ConfigMap)
-| MCP
-
-| `FTL_IMAGE`
-| Override container image (default: `quay.io/rhpds/ftl:latest`)
-| Dev only
+| `OPENSHIFT_CLUSTER_INGRESS_DOMAIN` | OCP cluster apps domain | OCP labs
+| `PASSWORD` | User password (Showroom → User tab) | All labs
+| `LAB_USER` | Student username (auto-set from arg) | Auto
+| `AAP_HOSTNAME` | AAP Controller URL | RIPU
+| `AAP_PASSWORD` | AAP password | RIPU
+| `AAP_USERNAME` | AAP username (default: `lab-user`) | RIPU
+| `GITEA_ADMIN_USER` | Gitea admin username | MCP
+| `GITEA_ADMIN_PASSWORD` | Gitea admin password | MCP
+| `FTL_IMAGE` | Override container image | Dev only
 
 |===
 
 == Developer Guide
 
-See link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] for the complete role catalog with all parameters and examples.
+* link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] — all 22+ roles with parameters and examples
+* link:labs/lab-template/[Lab Template] — starting point for new labs
 
 === Creating a New Lab
 
 [source,bash]
 ----
 cp -r labs/lab-template labs/my-new-lab
-# Edit grade_module_01.yml, solve_module_01.yml
-# Test:
-grade_lab my-new-lab student 1
+# Edit grade_module_01.yml and solve_module_01.yml
+grade_lab my-new-lab student 1 --podman
 ----
 
-=== Grader Role Catalog (Summary)
+=== Key Rules
 
-Every grader role follows the same pattern:
+* Use `kubernetes.core.k8s_info` — never `oc` CLI (crashes on arm64 emulation)
+* Provide full Deployment spec on creation — partial patches fail if object doesn't exist
+* For S2I: create ImageStream BEFORE BuildConfig
 
-[source,yaml]
-----
-- ansible.builtin.include_role:
-    name: grader_check_<type>
-  vars:
-    task_description_message: "Exercise 1.1: Pod is running"
-    student_error_message: "Pod not found. Check: oc get pods -n {{ project_name }}"
-    # role-specific vars...
-----
-
-[cols="1,2,2"]
-|===
-| Role | What it checks | Key vars
-
-| `grader_check_ocp_resource`
-| Any K8s resource exists (by name/kind)
-| `resource_kind`, `resource_name`, `resource_namespace`
-
-| `grader_check_ocp_pod_running`
-| Pod exists and is Running (regex name match)
-| `pod_name` (regex), `pod_namespace`, `min_ready_pods`
-
-| `grader_check_ocp_service_exists`
-| Service exists with correct port
-| `service_name`, `service_namespace`, `check_port`
-
-| `grader_check_ocp_route_exists`
-| Route exists (optionally with host match)
-| `route_name`, `route_namespace`, `route_host`
-
-| `grader_check_http_endpoint`
-| HTTP(S) endpoint returns expected status
-| `url`, `expected_status_code`, `validate_certs`
-
-| `grader_check_command_output`
-| Shell command output matches expected
-| `command`, `expected_output` or `expected_output_regex`
-
-| `grader_check_aap_job_completed`
-| AAP job template ran and succeeded
-| `job_template_name`, `aap_hostname`, `aap_username`, `aap_password`
-
-| `grader_check_aap_licensed`
-| AAP has valid license
-| `aap_hostname`, `aap_username`, `aap_password`
-
-| `grader_check_file_exists`
-| File exists on managed host
-| `file_path`, `host`
-
-| `grader_check_service_running`
-| Systemd service is active
-| `service_name`, `host`
-
-|===
-
-=== Three-Play Grader Pattern
-
-Every grader module follows this structure:
-
-[source,yaml]
-----
-# Play 1: Initialize
-- name: Initialize FTL Grading Session - Module N
-  hosts: localhost
-  vars:
-    lab_id: "Lab Name - Module N: Title"
-    module_number: "01"
-    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') }}_module_01.txt"
-  roles:
-    - ftl_run_init
-
-# Play 2: Grade
-- name: Grade Module N
-  hosts: localhost
-  vars:
-    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') }}_module_01.txt"
-  tasks:
-    - ansible.builtin.include_role:
-        name: grader_check_ocp_pod_running
-      vars:
-        task_description_message: "Exercise 1.1: Pod running"
-        pod_name: "myapp-.*"
-        pod_namespace: "myproject"
-        student_error_message: "Pod not found. Deploy: oc new-app ..."
-
-# Play 3: Finalize
-- name: Finalize FTL Grading Session - Module N
-  hosts: localhost
-  vars:
-    module_number: "01"
-    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') }}_module_01.txt"
-  roles:
-    - ftl_run_grade_report_generation
-    - ftl_run_finish
-----
-
-=== Rules for Graders
-
-* Use `kubernetes.core.k8s_info` — never `oc` CLI (crashes on arm64 under amd64 emulation)
-* Use `failed_when: false` on check tasks so grading continues past failures
-* Always set `grader_student_report_file` in EVERY play (init, grade, finalize)
-* Exercise numbering: `X.Y` format (module.checkpoint)
-* Error messages must tell students the exact command to fix the issue
-
-=== Rules for Solvers
-
-* Use `kubernetes.core.k8s` — never `oc` CLI for resource creation
-* Full Deployment spec required on creation (selector + labels + image) — partial strategic-merge fails if object doesn't exist
-* For S2I: create ImageStream BEFORE BuildConfig (prevents `InvalidOutputReference`)
-* Use `failed_when: false` on optional steps
-* Use `retries` + `until` for waiting on builds/deployments (not `wait_for`)
+See link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] for full details.
 
 == Container Image
 
 [source,bash]
 ----
-# Build
 podman build --platform linux/amd64 -t quay.io/rhpds/ftl:latest -f Containerfile .
-
-# Push (requires quay.io/rhpds push access)
 podman push quay.io/rhpds/ftl:latest
 ----
 
-The image is UBI9-based (linux/amd64) and contains:
-`ansible-core` + `kubernetes.core` + `community.general` + `oc` 4.18 client.
-FTL labs are cloned from `https://github.com/rhpds/ftl` at container startup.
+UBI9-based (linux/amd64): `ansible-core` + `kubernetes.core` + `oc` 4.18.
+FTL labs cloned from GitHub at container startup — no rebuild needed for grader changes.
 
 == License
 
