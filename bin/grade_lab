@@ -121,8 +121,15 @@ if [ "$RUNNER" = "podman" ]; then
   mkdir -p "$REPORT_DIR"
   REPORT_ARGS=(-v "$REPORT_DIR:/tmp/grading_dir")
 
+  # Auto-derive GUID from cluster domain if not set
+  # e.g. apps.cluster-zz94q.dynamic.redhatworkshops.io → zz94q
+  if [ -z "${GUID:-}" ] && [ -n "${OPENSHIFT_CLUSTER_INGRESS_DOMAIN:-}" ]; then
+    GUID=$(echo "$OPENSHIFT_CLUSTER_INGRESS_DOMAIN" | sed 's/.*cluster-\([^.]*\)\..*/\1/')
+  fi
+
   exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" "${REPORT_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
+    ${GUID:+-e GUID="$GUID"} \
     "$FTL_IMAGE" grade "$@"
 fi
 

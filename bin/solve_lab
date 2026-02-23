@@ -101,8 +101,13 @@ if [ "$RUNNER" = "podman" ]; then
   mkdir -p "$REPORT_DIR"
   REPORT_ARGS=(-v "$REPORT_DIR:/tmp/grading_dir")
 
+  if [ -z "${GUID:-}" ] && [ -n "${OPENSHIFT_CLUSTER_INGRESS_DOMAIN:-}" ]; then
+    GUID=$(echo "$OPENSHIFT_CLUSTER_INGRESS_DOMAIN" | sed 's/.*cluster-\([^.]*\)\..*/\1/')
+  fi
+
   exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" "${REPORT_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
+    ${GUID:+-e GUID="$GUID"} \
     "$FTL_IMAGE" solve "$@"
 fi
 
