@@ -103,7 +103,7 @@ if [ "$RUNNER" = "podman" ]; then
     oc login "$OCP_API_URL" \
       -u "${OCP_ADMIN_USER:-admin}" \
       -p "${OCP_ADMIN_PASSWORD:-}" \
-      --insecure-skip-tls-verify=true 2>&1 | grep -v "^WARNING" || true
+      --insecure-skip-tls-verify=true &>/dev/null || true
   fi
 
   # Auto-discover user PASSWORD from Showroom ConfigMap (single user path)
@@ -126,7 +126,7 @@ if [ "$RUNNER" = "podman" ]; then
       trap "rm -f $_USER_KUBE" EXIT
       KUBECONFIG="$_USER_KUBE" oc login "$OCP_API_URL" \
         -u "${_LAB_USER_ARG}" -p "${PASSWORD}" \
-        --insecure-skip-tls-verify=true 2>/dev/null && \
+        --insecure-skip-tls-verify=true &>/dev/null && \
         KUBE_ARGS=(-v "$_USER_KUBE:/home/runner/.kube/config:ro") && \
         echo "✓ Logged in as ${_LAB_USER_ARG} (OCP actions run as user)" || \
         echo "⚠ User login not available — using admin kubeconfig for OCP actions"
