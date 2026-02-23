@@ -45,6 +45,14 @@ if [ "$RUNNER" = "podman" ]; then
     shift 2  # remove lab name and 'all'
     MODULE_ARG="${1:-}"
 
+    # Log in using env vars if OCP_API_URL provided
+    if [ -n "${OCP_API_URL:-}" ]; then
+      oc login "$OCP_API_URL" \
+        -u "${OCP_ADMIN_USER:-admin}" \
+        -p "${OCP_ADMIN_PASSWORD:-${PASSWORD:-}}" \
+        --insecure-skip-tls-verify=true &>/dev/null || true
+    fi
+
     USERS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || oc get namespaces --no-headers -o name 2>/dev/null) \
       | grep "showroom" | sed 's/.*-\(user[0-9]*\)$/\1/' | grep '^user' | sort -u || true)
 
