@@ -1,491 +1,54 @@
-# FTL Lab: Automating RHEL In-Place Upgrades with Ansible
+# Automating RHEL In-Place Upgrades — FTL Lab
 
-Automated grading and solving for the RIPU (RHEL In-Place Upgrade) workshop using Ansible Automation Platform.
+Graders and solvers for the [RIPU workshop](https://github.com/rhpds/automating-ripu-with-ansible-showroom).
 
-## Lab Overview
+**Modules:** 3 | **Checkpoints:** 57 | **Type:** AAP 2.6 + RHEL bastion (no OCP for student exercises)
 
-This lab provides automated grading and solving for the [Automating RIPU with Ansible workshop](https://github.com/rhpds/automating-ripu-with-ansible-showroom). Students learn to automate RHEL in-place upgrades using Leapp and AAP across RHEL 7→8, 8→9, and 9→10.
-
-**Workshop Repository:** https://github.com/rhpds/automating-ripu-with-ansible-showroom
-**AgnosticV Catalog:** `openshift_cnv/automating-ripu-with-ansible`
-**Total Checkpoints:** 57 (26 Module 1 + 26 Module 2 + 5 Module 3)
-
-## Lab Structure
-
-### Module 1: Pre-upgrade Analysis (26 checkpoints across 6 exercises)
-
-**Exercise 1.1: Workshop Lab Environment (3 checkpoints)**
-- AAP controller accessible and licensed
-- CaC job completed (AAP configured)
-- Lab initialization job completed
-
-**Exercise 1.2: Run Pre-upgrade Jobs (2 checkpoints)**
-- Analysis job template configured
-- Pre-upgrade analysis executed successfully
-
-**Exercise 1.3: Review Pre-upgrade Reports (6 checkpoints - 2 per node)**
-- Leapp report generated (node1, node2, node3)
-- Leapp report contains risk analysis (node1, node2, node3)
-
-**Exercise 1.4: Perform Recommended Remediation (3 checkpoints - 1 per node)**
-- Leapp analysis re-run after remediation (node1, node2, node3)
-
-**Exercise 1.5: Custom Pre-upgrade Checks (3 checkpoints - 1 per node)**
-- Custom Leapp repositories directory exists (node1, node2, node3)
-
-**Exercise 1.6: Deploy a Pet App (9 checkpoints - 3 per node)**
-- Pet app database (MariaDB) running (node1, node2, node3)
-- Pet application process running (node1, node2, node3)
-- Pet app reboot cron configured (node1, node2, node3)
-
-### Module 2: Upgrade Execution (26 checkpoints across 4 exercises)
-
-**Exercise 2.1: Run OS Upgrade Jobs (2 checkpoints)**
-- Upgrade workflow template configured
-- Upgrade workflow executed successfully
-
-**Exercise 2.2: Let's Talk About Snapshots (3 checkpoints - 1 per node)**
-- Leapp log directory exists (evidence of upgrade) (node1, node2, node3)
-
-**Exercise 2.3: Check if the Upgrade Worked (12 checkpoints - 4 per node)**
-- node1 upgraded from RHEL 7 to RHEL 8
-- node2 upgraded from RHEL 8 to RHEL 9
-- node3 upgraded from RHEL 9 to RHEL 10
-- System booted successfully post-upgrade (node1, node2, node3)
-
-**Exercise 2.4: How is the Pet App Doing (9 checkpoints - 3 per node)**
-- Pet app database running post-upgrade (node1, node2, node3)
-- Pet application running post-upgrade (node1, node2, node3)
-- Pet app database accessible post-upgrade (node1, node2, node3)
-
-### Module 3: Rollback (5 checkpoints - currently disabled)
-
-**Exercise 3.2: Run Rollback Job (2 checkpoints)**
-- Rollback job template configured
-- Rollback job executed
-
-**Exercise 3.3: Check if Upgrade Undone (3 checkpoints - 1 per node)**
-- RHEL versions reverted back (node1, node2, node3)
-
-**Note:** Module 3 rollback functionality is currently disabled because snapshots are not available in the lab environment. Graders/solvers are provided for completeness.
-
-## Environment Setup
-
-### Required Environment Variables
+## Run
 
 ```bash
-# AAP Controller connection
-export AAP_HOSTNAME="https://controller-<guid>.<domain>"
-export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
-export AAP_PASSWORD="<common_password>"  # From demo.redhat.com > Your lab > Advanced Settings
-```
+# Credentials — from Showroom → User tab / demo.redhat.com
+export AAP_HOSTNAME="https://controller-xxx.apps.example.com"
+export AAP_PASSWORD="<password>"
+export AAP_USERNAME="lab-user"
 
-### Setting Up Environment
+# No oc login needed — AAP lab, not OCP
 
-1. **Get AAP hostname from user data:**
-   ```bash
-   cat ~/user_data.yaml | grep controller_url
-   ```
-
-2. **Get password from user data:**
-   ```bash
-   cat ~/user_data.yaml | grep password
-   ```
-
-3. **Set environment variables:**
-   ```bash
-   export AAP_HOSTNAME="https://controller-abc123.apps.example.com"
-   export AAP_PASSWORD="Xy9aB_1"
-   ```
-
-## Grading
-
-### Grade Individual Modules
-
-```bash
-# Module 1: Pre-upgrade Analysis (26 checkpoints)
+# Grade module 1 (expect FAIL — CaC not run)
 grade_lab automating-ripu-with-ansible 1
 
-# Module 2: Upgrade Execution (26 checkpoints)
-grade_lab automating-ripu-with-ansible 2
-
-# Module 3: Rollback (5 checkpoints - currently disabled)
-grade_lab automating-ripu-with-ansible 3
-```
-
-### Grade Full Lab
-
-```bash
-# All modules (57 checkpoints total)
-grade_lab automating-ripu-with-ansible
-```
-
-### Direct Playbook Execution
-
-```bash
-cd ~/ftl/labs/automating-ripu-with-ansible
-
-# Grade specific module
-ansible-playbook grade_module_01.yml
-ansible-playbook grade_module_02.yml
-ansible-playbook grade_module_03.yml
-
-# Grade full lab
-ansible-playbook grade_lab.yml
-```
-
-## Solving
-
-### Solve Individual Modules
-
-```bash
-# Module 1: Run CaC, lab init, analysis, and pet app install
+# Solve module 1 (runs CaC → Lab Init → Analysis — ~15 min)
 solve_lab automating-ripu-with-ansible 1
+grade_lab automating-ripu-with-ansible 1   # expect SUCCESS
 
-# Module 2: Run upgrade workflow (WARNING: takes 30-60 minutes)
+# Module 2 performs real RHEL upgrades (30-60 min)
 solve_lab automating-ripu-with-ansible 2
-
-# Module 3: Run rollback job (currently disabled)
-export ROLLBACK_NODE=node1
-solve_lab automating-ripu-with-ansible 3
-```
-
-### Direct Playbook Execution
-
-```bash
-cd ~/ftl/labs/automating-ripu-with-ansible
-
-# Solve Module 1
-ansible-playbook solve_module_01.yml
-
-# Solve Module 2 (with confirmation prompt)
-ansible-playbook solve_module_02.yml
-
-# Solve Module 3 (specify node to rollback)
-export ROLLBACK_NODE=node1
-ansible-playbook solve_module_03.yml
-```
-
-## Report Files
-
-Per-module reports:
-- `/tmp/grading_dir/grading_report_<user>_module_01.txt`
-- `/tmp/grading_dir/grading_report_<user>_module_02.txt`
-- `/tmp/grading_dir/grading_report_<user>_module_03.txt`
-
-Full lab report:
-- `/tmp/grading_dir/grading_report_<user>.txt`
-
-View reports:
-```bash
-cat /tmp/grading_dir/grading_report_${USER}_module_01.txt
-cat /tmp/grading_dir/grading_report_${USER}.txt
-```
-
-## Checkpoint Details
-
-### Module 1 Checkpoints (26 total)
-
-| Exercise | Checkpoint | Per Node | Total | Description |
-|----------|------------|----------|-------|-------------|
-| 1.1 | AAP Licensed | No | 1 | Controller accessible with valid license |
-| 1.1 | CaC Completed | No | 1 | Configuration as Code job configured AAP |
-| 1.1 | Lab Init | No | 1 | Lab initialization prepared nodes |
-| 1.2 | Analysis Template | No | 1 | Pre-upgrade analysis job template exists |
-| 1.2 | Analysis Executed | No | 1 | Leapp pre-upgrade reports generated |
-| 1.3 | Report Exists | Yes × 3 | 3 | Leapp report file exists |
-| 1.3 | Report Has Risks | Yes × 3 | 3 | Report contains risk analysis |
-| 1.4 | Report Updated | Yes × 3 | 3 | Analysis re-run after remediation |
-| 1.5 | Custom Repos | Yes × 3 | 3 | Custom Leapp repos directory exists |
-| 1.6 | MariaDB Running | Yes × 3 | 3 | Pet app database running |
-| 1.6 | App Running | Yes × 3 | 3 | Pet application process running |
-| 1.6 | Cron Configured | Yes × 3 | 3 | Reboot cron entry configured |
-
-**Module 1 Total:** 5 + 6 + 3 + 3 + 9 = **26 checkpoints**
-
-### Module 2 Checkpoints (26 total)
-
-| Exercise | Checkpoint | Per Node | Total | Description |
-|----------|------------|----------|-------|-------------|
-| 2.1 | Upgrade Template | No | 1 | Upgrade workflow template configured |
-| 2.1 | Upgrade Executed | No | 1 | Upgrade workflow completed successfully |
-| 2.2 | Leapp Logs | Yes × 3 | 3 | Leapp log directory exists |
-| 2.3 | node1 → RHEL 8 | node1 | 1 | RHEL 7 → 8 upgrade successful |
-| 2.3 | node2 → RHEL 9 | node2 | 1 | RHEL 8 → 9 upgrade successful |
-| 2.3 | node3 → RHEL 10 | node3 | 1 | RHEL 9 → 10 upgrade successful |
-| 2.3 | Booted Successfully | Yes × 3 | 3 | System booted post-upgrade |
-| 2.4 | MariaDB Post-upgrade | Yes × 3 | 3 | Database running after upgrade |
-| 2.4 | App Post-upgrade | Yes × 3 | 3 | Pet app running after upgrade |
-| 2.4 | Database Accessible | Yes × 3 | 3 | Pet app database accessible |
-
-**Module 2 Total:** 2 + 3 + 12 + 9 = **26 checkpoints**
-
-### Module 3 Checkpoints (5 total - currently disabled)
-
-| Exercise | Checkpoint | Per Node | Total | Description |
-|----------|------------|----------|-------|-------------|
-| 3.2 | Rollback Template | No | 1 | Rollback job template configured |
-| 3.2 | Rollback Executed | No | 1 | Rollback job completed |
-| 3.3 | node1 Reverted | node1 | 1 | RHEL 8 → 7 rollback successful |
-| 3.3 | node2 Reverted | node2 | 1 | RHEL 9 → 8 rollback successful |
-| 3.3 | node3 Reverted | node3 | 1 | RHEL 10 → 9 rollback successful |
-
-**Module 3 Total:** 2 + 3 = **5 checkpoints**
-
-## Testing Instructions
-
-### Initial Setup on Bastion Host
-
-```bash
-# 1. Clone FTL repository
-git clone https://github.com/rhpds/ftl.git ~/ftl
-
-# 2. Install FTL
-cd ~/ftl
-./bin/setup_ftl
-
-# 3. Add to PATH
-echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# 4. Verify installation
-which grade_lab solve_lab
-```
-
-### Set Environment Variables
-
-```bash
-# Get values from workshop or user_data.yaml
-export AAP_HOSTNAME="https://controller-k2z7h.apps.ocpv08.rhdp.net"
-export AAP_PASSWORD="MjQ3OTIw_1"
-export AAP_USERNAME="lab-user"  # Optional, defaults to lab-user
-
-# Verify AAP connection
-curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/controller/v2/ping/"
-```
-
-### Test Module 1 (Pre-upgrade Analysis)
-
-```bash
-# Grade before solving (should fail - CaC not run yet)
-grade_lab automating-ripu-with-ansible 1
-# Expected: FAIL on CaC, lab init, analysis
-
-# Solve Module 1 (automated - 5-10 minutes)
-solve_lab automating-ripu-with-ansible 1
-# Launches: CaC → Lab Init → Analysis → Pet App Install
-
-# Grade after solving (should pass)
-grade_lab automating-ripu-with-ansible 1
-# Expected: PASS all 26 checkpoints
-
-# View report
-cat /tmp/grading_dir/grading_report_${USER}_module_01.txt
-```
-
-### Test Module 2 (Upgrade Execution)
-
-**WARNING:** Module 2 performs actual RHEL upgrades and takes 30-60 minutes.
-
-```bash
-# Solve Module 2 (automated, non-interactive, 30-60 minutes)
-solve_lab automating-ripu-with-ansible 2
-# Upgrades: node1 (RHEL 7→8), node2 (RHEL 8→9), node3 (RHEL 9→10)
-
-# Grade after solving (should pass)
 grade_lab automating-ripu-with-ansible 2
-# Expected: PASS all 26 checkpoints
-
-# View report
-cat /tmp/grading_dir/grading_report_${USER}_module_02.txt
 ```
 
-### Test Full Lab
+**Expected on fresh environment:** Module 1 FAIL (CaC not run, no templates exist yet).
 
-```bash
-# Grade all modules
-grade_lab automating-ripu-with-ansible
-# Expected: 52 PASS (Module 1 + 2), Module 3 skipped
+**After solver:** SUCCESS 0 Errors per module (57/57 total checkpoints)
 
-# View full report
-cat /tmp/grading_dir/grading_report_${USER}.txt
-```
+> ⚠️  Module 2 performs actual RHEL upgrades on RHEL 7/8/9/10 nodes. Non-reversible without rollback.
 
-### Manual Verification
+## Showroom → Env Var Mapping
 
-```bash
-# Check RHEL versions after upgrade
-ssh node1
-cat /etc/redhat-release  # Should show RHEL 8
+| Showroom attribute | Set this env var |
+|---|---|
+| `{controller_url}` | `AAP_HOSTNAME` |
+| `{controller_password}` | `AAP_PASSWORD` |
 
-ssh node2
-cat /etc/redhat-release  # Should show RHEL 9
+## Modules
 
-ssh node3
-cat /etc/redhat-release  # Should show RHEL 10 (or 9 if not available)
+| Module | Description | Checkpoints |
+|---|---|---|
+| 1 | Pre-upgrade analysis — CaC, Lab Init, Leapp reports, pet app deploy | 26 |
+| 2 | Upgrade execution — RHEL 7→8, 8→9, 9→10 upgrades via AAP | 26 |
+| 3 | Post-upgrade validation — pet app accessibility, OS versions | 5 |
 
-# Check pet app
-pgrep -f spring-petclinic  # Should show process ID
-curl localhost:8080  # Should return HTML
-```
+## Notes
 
-## Troubleshooting
-
-### AAP 2.6 API Changes (IMPORTANT)
-
-This lab uses **AAP 2.6** which has different API endpoints than AAP 2.4:
-
-**AAP 2.4 (old):** `/api/v2/`
-**AAP 2.6 (new):** `/api/controller/v2/` (controller) and `/api/gateway/v1/` (gateway)
-
-All FTL graders and solvers have been updated to use the correct AAP 2.6 endpoints.
-
-### AAP Connection Issues
-
-```bash
-# Test AAP API access (AAP 2.6)
-curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/controller/v2/ping/"
-
-# Should return JSON with "instances" and "version"
-
-# Test config endpoint (license check)
-curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/controller/v2/config/" | jq .license_info
-```
-
-### Job Template Not Found
-
-```bash
-# List all job templates (AAP 2.6)
-curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/controller/v2/job_templates/" | jq '.results[].name' | sort
-
-# Verify CaC job completed
-curl -k -u "${AAP_USERNAME}:${AAP_PASSWORD}" \
-  "${AAP_HOSTNAME}/api/controller/v2/job_templates/?name=Z%20/%20CaC%20/%20Controller"
-```
-
-**Known Template Name Issues:**
-- The CaC job creates "Ansible Leapp Lab initailization" (typo: "initailization" instead of "Initialization")
-- FTL graders/solvers have been updated to match the actual template name
-
-### Survey Variables (AAP 2.6)
-
-AAP 2.6 handles survey responses differently than AAP 2.4:
-
-```bash
-# AAP 2.4 style (old - doesn't work):
-body:
-  extra_vars: {}
-  survey: "ALL_rhel"
-
-# AAP 2.6 style (correct):
-body:
-  extra_vars:
-    rhel_inventory_group: "ALL_rhel"
-```
-
-All FTL solvers pass survey variables in `extra_vars` for AAP 2.6 compatibility.
-
-### Node SSH Access Issues
-
-```bash
-# Check inventory
-ansible-inventory -i ~/ftl/labs/automating-ripu-with-ansible/inventory --list
-
-# Test node connectivity
-ansible nodes -i ~/ftl/labs/automating-ripu-with-ansible/inventory -m ping
-```
-
-### Pet App Not Running
-
-```bash
-# Check MariaDB
-systemctl status mariadb
-
-# Check pet app process
-pgrep -f spring-petclinic
-
-# Check cron entry
-crontab -l | grep petclinic
-
-# Check app logs
-tail -f ~/app.log
-```
-
-## New Grader Roles Created
-
-This lab introduced 4 new reusable grader roles:
-
-1. **grader_check_http_endpoint** - Validates HTTP/HTTPS endpoints
-   - Use case: Pet app accessibility, web services
-   - Checks: HTTP status codes, SSL validation
-
-2. **grader_check_aap_job_completed** - Validates AAP job template execution
-   - Use case: Any AAP-based workshop
-   - Checks: Template exists, job executed successfully
-
-3. **grader_check_aap_licensed** - Validates AAP license
-   - Use case: Any AAP-based workshop
-   - Checks: Valid license or subscription installed
-
-4. **grader_check_file_contains** - Validates file existence and content
-   - Use case: Leapp reports, cron entries, configuration files
-   - Checks: File exists, exact content match, regex pattern match
-
-## Known Limitations
-
-1. **Module 3 (Rollback):** Currently disabled because snapshots are not available in the lab environment. Will work when snapshots are re-enabled.
-
-2. **RHEL 10:** Workshop mentions RHEL 9→10 upgrades, but verification depends on RHEL 10 availability and Leapp support. Grader accepts RHEL 9 or 10 for node3.
-
-3. **Custom Remediation:** Exercise 1.4 validates that analysis was re-run, but specific remediation steps vary by environment.
-
-4. **Pet App Optional:** Exercises 1.6 and 2.4 are technically optional, but recommended for full lab experience.
-
-## Files
-
-```
-labs/automating-ripu-with-ansible/
-├── README.md                   # This file
-├── ansible.cfg                 # Ansible configuration
-├── inventory                   # Node inventory file
-├── grade_lab.yml               # Full lab grader (57 checkpoints)
-├── grade_module_01.yml         # Module 1 grader (26 checkpoints)
-├── grade_module_02.yml         # Module 2 grader (26 checkpoints)
-├── grade_module_03.yml         # Module 3 grader (5 checkpoints)
-├── solve_module_01.yml         # Module 1 solver
-├── solve_module_02.yml         # Module 2 solver
-└── solve_module_03.yml         # Module 3 solver
-```
-
-## Development Notes
-
-### Design Decisions
-
-1. **Comprehensive Coverage** - All 14 workshop exercises validated with 57 total checkpoints
-2. **Per-Node Validation** - Most checks run on all 3 nodes for thorough coverage
-3. **AAP API-based** - Uses AAP REST API instead of awx CLI for better portability
-4. **Modular Design** - Each module has independent grader/solver
-5. **Multi-Version Support** - Handles RHEL 7, 8, 9, and 10
-6. **Generic Roles** - All AAP roles reusable across any AAP lab
-
-### Future Enhancements
-
-- [x] Add Leapp report validation (Exercise 1.3)
-- [x] Add remediation validation (Exercise 1.4)
-- [x] Add custom modules validation (Exercise 1.5)
-- [x] Add pet app deployment/validation (Exercises 1.6, 2.4)
-- [x] Add snapshot/upgrade evidence checks (Exercise 2.2)
-- [ ] Parse Leapp reports for specific inhibitors resolved
-- [ ] Enable Module 3 when snapshots available
-- [ ] Add HTML report generation
-
-## References
-
-- **Workshop Content:** https://github.com/rhpds/automating-ripu-with-ansible-showroom
-- **Leapp Project:** https://github.com/rhpds/leapp-project
-- **AgnosticV Catalog:** `~/work/code/agnosticv/openshift_cnv/automating-ripu-with-ansible/`
-- **FTL Documentation:** `~/work/code/experiment/ftl/README.adoc`
+- **AAP version:** 2.6 with gateway architecture — uses `/api/controller/v2/` endpoints
+- **Lab Init template name:** `Ansible Leapp Lab initailization` (typo is in the actual AAP template created by CaC — match exactly)
+- **Showroom repo:** https://github.com/rhpds/automating-ripu-with-ansible-showroom
