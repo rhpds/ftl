@@ -69,10 +69,15 @@
 
     - name: Create project if it doesn't exist
       when: r_project.resources | length == 0
-      ansible.builtin.command: >
-        oc new-project {{ project_name }}
-        --description="OpenShift Getting Started Workshop"
-      changed_when: true
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ project_name }}"
+            annotations:
+              openshift.io/description: "OpenShift Getting Started Workshop"
 
     # =========================================================================
     # Step 2: Deploy Parksmap Application
@@ -192,11 +197,22 @@
     # Step 5: Grant Service Account View Permissions
     # =========================================================================
     - name: Grant view permissions to default service account
-      ansible.builtin.command: >
-        oc policy add-role-to-user view -z default -n {{ project_name }}
-      register: r_grant_view
-      changed_when: "'added' in r_grant_view.stdout"
-      failed_when: false
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: RoleBinding
+          metadata:
+            name: default-view
+            namespace: "{{ project_name }}"
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: view
+          subjects:
+          - kind: ServiceAccount
+            name: default
+            namespace: "{{ project_name }}"
 
     # =========================================================================
     # Step 6: Wait for Application to be Ready
