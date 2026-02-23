@@ -98,6 +98,14 @@ if [ "$RUNNER" = "podman" ]; then
     exit $EXIT_CODE
   fi
 
+  # Refresh kubeconfig token using OCP_API_URL if set (prevents 401 from stale tokens)
+  if [ -n "${OCP_API_URL:-}" ]; then
+    oc login "$OCP_API_URL" \
+      -u "${OCP_ADMIN_USER:-admin}" \
+      -p "${OCP_ADMIN_PASSWORD:-}" \
+      --insecure-skip-tls-verify=true 2>&1 | grep -v "^WARNING" || true
+  fi
+
   REPORT_DIR="${FTL_REPORT_DIR:-${HOME}/ftl-reports}"
   mkdir -p "$REPORT_DIR"
   REPORT_ARGS=(-v "$REPORT_DIR:/tmp/grading_dir")
