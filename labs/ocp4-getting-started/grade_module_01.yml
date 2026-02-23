@@ -291,20 +291,27 @@
     # =========================================================================
     # Exercise 1.10: Service Account View Permissions
     # =========================================================================
-    - name: "Exercise 1.10: Check if default SA has view role"
-      ansible.builtin.command: >
-        oc auth can-i get pods
-        --as=system:serviceaccount:{{ project_name }}:default
-        -n {{ project_name }}
-      register: r_sa_can_view
-      changed_when: false
+    - name: "Exercise 1.10: Check if default SA has view RoleBinding"
+      kubernetes.core.k8s_info:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: RoleBinding
+        namespace: "{{ project_name }}"
+      register: r_rolebindings
       failed_when: false
+
+    - name: "Exercise 1.10: Evaluate view permission"
+      ansible.builtin.set_fact:
+        sa_has_view: "{{ r_rolebindings.resources | selectattr('roleRef.name', 'equalto', 'view') |
+          selectattr('subjects', 'defined') | list |
+          map(attribute='subjects') | flatten |
+          selectattr('kind', 'equalto', 'ServiceAccount') |
+          selectattr('name', 'equalto', 'default') | list | length > 0 }}"
 
     - name: "Exercise 1.10: Create result message"
       ansible.builtin.set_fact:
         grader_output_message: "{{
           'PASS: Exercise 1.10: Service account has view permissions'
-          if r_sa_can_view.rc == 0 and 'yes' in r_sa_can_view.stdout
+          if sa_has_view
           else 'FAIL: Exercise 1.10: Service account permissions: Default service account does not have view role. Grant permissions: oc policy add-role-to-user view -z default -n ' + project_name
         }}"
 
