@@ -254,6 +254,86 @@
       delay: 10
 
     # =========================================================================
+    # Step 3.5: Create Tekton Triggers (TriggerTemplate, TriggerBinding, EventListener)
+    # Replicates: oc create -f {gitea_url}/{user}/nationalparks/raw/branch/master/pipeline/nationalparks-triggers.yaml
+    # =========================================================================
+    - name: Create TriggerTemplate for nationalparks
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: triggers.tekton.dev/v1alpha1
+          kind: TriggerTemplate
+          metadata:
+            name: nationalparks
+            namespace: "{{ project_name }}"
+          spec:
+            params:
+              - name: git-revision
+              - name: git-commit-message
+              - name: git-repo-url
+              - name: git-repo-name
+              - name: content-type
+              - name: pusher-name
+            resourcetemplates:
+              - apiVersion: tekton.dev/v1beta1
+                kind: PipelineRun
+                metadata:
+                  labels:
+                    tekton.dev/pipeline: nationalparks-pipeline
+                  name: nationalparks-deploy-$(uid)
+                spec:
+                  params:
+                    - name: APP_NAME
+                      value: $(tt.params.git-repo-name)
+                    - name: APP_GIT_URL
+                      value: $(tt.params.git-repo-url)
+                    - name: APP_GIT_REVISION
+                      value: $(tt.params.git-revision)
+                  pipelineRef:
+                    name: nationalparks-pipeline
+                  workspaces:
+                    - name: app-source
+                      persistentVolumeClaim:
+                        claimName: app-source-pvc
+                    - name: maven-settings
+                      emptyDir: {}
+
+    - name: Create TriggerBinding for nationalparks
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: triggers.tekton.dev/v1alpha1
+          kind: TriggerBinding
+          metadata:
+            name: nationalparks
+            namespace: "{{ project_name }}"
+          spec:
+            params:
+              - name: git-repo-url
+                value: $(body.repository.clone_url)
+              - name: git-repo-name
+                value: $(body.repository.name)
+              - name: git-revision
+                value: $(body.after)
+
+    - name: Create EventListener for nationalparks
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: triggers.tekton.dev/v1alpha1
+          kind: EventListener
+          metadata:
+            name: nationalparks
+            namespace: "{{ project_name }}"
+          spec:
+            serviceAccountName: pipeline
+            triggers:
+              - bindings:
+                  - ref: nationalparks
+                template:
+                  ref: nationalparks
+
+    # =========================================================================
     # Step 4: Configure GitHub Webhook Trigger
     # =========================================================================
     - name: Get nationalparks BuildConfig
