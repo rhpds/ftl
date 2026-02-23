@@ -8,29 +8,43 @@ image:https://img.shields.io/badge/image-ghcr.io%2Frhpds%2Fftl-green[GHCR Image,
 == Architecture
 
 ----
-  Laptop                          Bastion Host
-  ──────                          ────────────
-  export PASSWORD=...             export PASSWORD=...
-  grade_lab lab user1 --podman    grade_lab lab user1 --ansible
-       │                               │
-       ▼                               ▼
-  quay.io/rhpds/ftl           ansible-playbook
-  (container)                 (direct)
-       │                               │
-       └──────────────┬────────────────┘
+  Laptop                              Bastion Host
+  ──────                              ────────────
+  export OCP_API_URL=...              export OPENSHIFT_CLUSTER_INGRESS_DOMAIN=...
+  grade_lab lab user1 --podman        grade_lab lab user1 --ansible
+       │                                   │
+       ▼                                   ▼
+  quay.io/rhpds/ftl               ansible-playbook
+  (container)                     (direct)
+       │                                   │
+       └──────────────┬────────────────────┘
                       ▼
               OCP / AAP APIs
+
+  User passwords auto-discovered from Showroom ConfigMap — no need to set manually.
 ----
 
 == Quick Start
 
 [source,bash]
 ----
+# OCP-based labs (--podman from laptop)
+# User passwords are discovered automatically from the cluster — no PASSWORD needed
+export OCP_API_URL="https://api.cluster-xxx.dynamic.redhatworkshops.io:6443"
+export OCP_ADMIN_PASSWORD="<admin-password>"
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
-export PASSWORD="<user-password>"
 
-grade_lab <lab-name> user1 --podman    # laptop (via container)
-grade_lab <lab-name> user1 --ansible   # bastion (ansible-playbook direct)
+grade_lab <lab-name> user1 --podman    # single user
+grade_lab <lab-name> all   --podman    # all users in parallel (load test)
+----
+
+[source,bash]
+----
+# AAP-based labs (RIPU)
+export AAP_HOSTNAME="https://controller-xxx.apps.example.com"
+export AAP_PASSWORD="<aap-password>"
+
+grade_lab automating-ripu-with-ansible 1 --podman
 ----
 
 Solve then verify:
@@ -53,12 +67,11 @@ Requires `podman`. Pulls `quay.io/rhpds/ftl:latest` and runs FTL inside a contai
 git clone https://github.com/rhpds/ftl.git ~/ftl
 echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 
-# Or run directly without PATH setup
-bash ~/ftl/bin/grade_lab mcp-with-openshift user1 1 --podman
-
-# Once in PATH:
+# Set credentials — user passwords are auto-discovered, no PASSWORD needed
+export OCP_API_URL="https://api.cluster-xxx.dynamic.redhatworkshops.io:6443"
+export OCP_ADMIN_PASSWORD="<admin-password>"
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
-export PASSWORD="<user-password>"
+
 grade_lab mcp-with-openshift user1 1 --podman
 ----
 
@@ -74,7 +87,6 @@ bash ~/ftl/bin/setup_ftl
 echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.example.com"
-export PASSWORD="<user-password>"
 grade_lab mcp-with-openshift user1 1 --ansible
 ----
 
@@ -122,14 +134,16 @@ Each lab README has the exact `export` + `grade_lab`/`solve_lab` commands for th
 |===
 | Variable | Description | Required for
 
+| `OCP_API_URL` | OCP API URL — used to discover user credentials from cluster | `--podman`, OCP labs
+| `OCP_ADMIN_PASSWORD` | OCP admin password — only for credential discovery | `--podman`, OCP labs
 | `OPENSHIFT_CLUSTER_INGRESS_DOMAIN` | OCP cluster apps domain | OCP labs
-| `PASSWORD` | User password (Showroom → User tab) | All labs
+| `PASSWORD` | User password — *auto-discovered from Showroom ConfigMap* when `OCP_API_URL` is set. Only set manually for bastion (`--ansible`) mode. | Bastion only
 | `LAB_USER` | Student username (auto-set from arg) | Auto
 | `AAP_HOSTNAME` | AAP Controller URL | RIPU
 | `AAP_PASSWORD` | AAP password | RIPU
 | `AAP_USERNAME` | AAP username (default: `lab-user`) | RIPU
-| `GITEA_ADMIN_USER` | Gitea admin username | MCP
-| `GITEA_ADMIN_PASSWORD` | Gitea admin password | MCP
+| `GITEA_ADMIN_USER` | Gitea admin username — *auto-discovered from Showroom ConfigMap* | Override only
+| `GITEA_ADMIN_PASSWORD` | Gitea admin password — *auto-discovered from Showroom ConfigMap* | Override only
 | `FTL_IMAGE` | Override container image (default: `quay.io/rhpds/ftl:latest`) | Dev only
 | `FTL_REPORT_DIR` | Local directory for grading reports (default: `~/ftl-reports`) | `--podman` only
 
