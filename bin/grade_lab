@@ -147,8 +147,8 @@ if [ "$RUNNER" = "podman" ]; then
         -u "${_LAB_USER_ARG}" -p "${PASSWORD}" \
         --insecure-skip-tls-verify=true 2>/dev/null && \
         KUBE_ARGS=(-v "$_USER_KUBE:/home/runner/.kube/config:ro") && \
-        echo "Running OCP checks as ${_LAB_USER_ARG}" || \
-        echo "User login not available — using admin kubeconfig"
+        echo "✓ Logged in as ${_LAB_USER_ARG} (OCP checks run as user)" || \
+        echo "⚠ User login not available — using admin kubeconfig for OCP checks"
     fi
   fi
 
