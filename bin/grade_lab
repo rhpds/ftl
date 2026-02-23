@@ -52,7 +52,7 @@ if [ "$RUNNER" = "podman" ]; then
     MODULE_ARG="${1:-}"
 
     # Discover users from showroom namespaces
-    USERS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+    USERS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || oc get namespaces --no-headers -o name 2>/dev/null) \
       | grep "showroom" | sed 's/.*-\(user[0-9]*\)$/\1/' | grep '^user' | sort -u || true)
 
     if [ -z "$USERS" ]; then
@@ -69,7 +69,7 @@ if [ "$RUNNER" = "podman" ]; then
       (
         export LAB_USER="$user"
         # Re-read password from showroom ConfigMap for this user
-        NS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+        NS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || oc get namespaces --no-headers -o name 2>/dev/null) \
           | grep "showroom" | grep "${user}$" | head -1 | cut -d/ -f2 || true)
         if [ -n "$NS" ]; then
           USER_PASS=$(kubectl get configmap showroom-userdata -n "$NS" \

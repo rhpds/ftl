@@ -45,7 +45,7 @@ if [ "$RUNNER" = "podman" ]; then
     shift 2  # remove lab name and 'all'
     MODULE_ARG="${1:-}"
 
-    USERS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+    USERS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || oc get namespaces --no-headers -o name 2>/dev/null) \
       | grep "showroom" | sed 's/.*-\(user[0-9]*\)$/\1/' | grep '^user' | sort -u || true)
 
     if [ -z "$USERS" ]; then
@@ -60,7 +60,7 @@ if [ "$RUNNER" = "podman" ]; then
     for user in $USERS; do
       (
         export LAB_USER="$user"
-        NS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+        NS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || oc get namespaces --no-headers -o name 2>/dev/null) \
           | grep "showroom" | grep "${user}$" | head -1 | cut -d/ -f2 || true)
         if [ -n "$NS" ]; then
           USER_PASS=$(kubectl get configmap showroom-userdata -n "$NS" \
