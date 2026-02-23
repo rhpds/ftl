@@ -6,6 +6,9 @@ Graders and solvers for the [RIPU workshop](https://github.com/rhpds/automating-
 
 ## Run
 
+> **First time?** Add FTL to PATH: `echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc`  
+> Or prefix commands with `bash ~/ftl/bin/`
+
 ```bash
 # Credentials — from Showroom → User tab / demo.redhat.com
 export AAP_HOSTNAME="https://controller-xxx.apps.example.com"

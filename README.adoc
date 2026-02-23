@@ -46,10 +46,17 @@ grade_lab <lab-name> user1 --podman    # expect: SUCCESS 0 Errors
 === --podman (Laptop)
 
 Requires `podman`. Pulls `quay.io/rhpds/ftl:latest` and runs FTL inside a container.
-`~/.kube/config` is mounted automatically for OCP checks.
 
 [source,bash]
 ----
+# Clone FTL and add to PATH (first time only)
+git clone https://github.com/rhpds/ftl.git ~/ftl
+echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+
+# Or run directly without PATH setup
+bash ~/ftl/bin/grade_lab mcp-with-openshift user1 1 --podman
+
+# Once in PATH:
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
 export PASSWORD="<user-password>"
 grade_lab mcp-with-openshift user1 1 --podman

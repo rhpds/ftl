@@ -6,6 +6,9 @@ Graders and solvers for the [MCP with OpenShift workshop](https://github.com/rhp
 
 ## Run
 
+> **First time?** Add FTL to PATH: `echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc`  
+> Or prefix commands with `bash ~/ftl/bin/`
+
 ```bash
 # Credentials — from Showroom → User tab / demo.redhat.com
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
