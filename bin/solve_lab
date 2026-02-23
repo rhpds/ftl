@@ -91,7 +91,11 @@ if [ "$RUNNER" = "podman" ]; then
     exit $EXIT_CODE
   fi
 
-  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" \
+  REPORT_DIR="${FTL_REPORT_DIR:-${HOME}/ftl-reports}"
+  mkdir -p "$REPORT_DIR"
+  REPORT_ARGS=(-v "$REPORT_DIR:/tmp/grading_dir")
+
+  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" "${REPORT_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" solve "$@"
 fi
