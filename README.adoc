@@ -197,7 +197,7 @@ NOTE: Module 2 runs an S2I Java build from source (~5-10 min). This is expected.
 
 See link:labs/ocp4-getting-started/README.md[OCP4 Lab README] for full details.
 
-=== Automating RHEL In-Place Upgrades (AAP + no OCP)
+=== Automating RHEL In-Place Upgrades (AAP)
 
 [source,bash]
 ----
@@ -205,7 +205,7 @@ export AAP_HOSTNAME="https://controller-xxx.apps.example.com"
 export AAP_PASSWORD="<aap-password>"
 export AAP_USERNAME="lab-user"
 
-# AAP lab — no OCP credentials needed, only AAP_HOSTNAME/AAP_PASSWORD
+
 grade_lab automating-ripu-with-ansible 1   # Grade (expect FAIL — CaC not run)
 solve_lab automating-ripu-with-ansible 1   # Solve: runs CaC, Lab Init, Analysis (~15 min)
 grade_lab automating-ripu-with-ansible 1   # Verify: expect SUCCESS
