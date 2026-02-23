@@ -32,7 +32,6 @@
       when: item.value == ''
       loop:
         - { name: 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN', value: "{{ openshift_cluster_ingress_domain }}" }
-        - { name: 'PASSWORD', value: "{{ gitea_password }}" }
       loop_control:
         label: "{{ item.name }}"
     - name: Display Module 2 solver info

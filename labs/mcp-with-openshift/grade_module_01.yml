@@ -43,51 +43,6 @@
       loop_control:
         label: "{{ item.name }}"
 
-    # Read Gitea admin credentials from Showroom ConfigMap if not set via env
-    - name: Find Showroom ConfigMap namespace for this user
-      ansible.builtin.set_fact:
-        showroom_ns: "{{ lookup('env', 'SHOWROOM_NS') | default('', true) }}"
-
-    - name: Auto-discover Gitea admin credentials from Showroom ConfigMap
-      when: >
-        (lookup('env', 'GITEA_ADMIN_USER') == '' or
-         lookup('env', 'GITEA_ADMIN_PASSWORD') == '') and
-        showroom_ns == ''
-      block:
-        - name: Find Showroom namespace
-          kubernetes.core.k8s_info:
-            api_version: v1
-            kind: Namespace
-          register: r_all_namespaces
-          failed_when: false
-
-        - name: Set Showroom namespace
-          ansible.builtin.set_fact:
-            showroom_ns: "{{ r_all_namespaces.resources | default([]) |
-              map(attribute='metadata.name') |
-              select('match', 'showroom.*' + base_namespace_prefix + '$') |
-              list | first | default('') }}"
-
-        - name: Read Showroom ConfigMap
-          when: showroom_ns != ''
-          kubernetes.core.k8s_info:
-            api_version: v1
-            kind: ConfigMap
-            name: showroom-userdata
-            namespace: "{{ showroom_ns }}"
-          register: r_showroom_cm
-          failed_when: false
-
-        - name: Set Gitea admin credentials from ConfigMap
-          when:
-            - showroom_ns != ''
-            - r_showroom_cm.resources | length > 0
-          ansible.builtin.set_fact:
-            gitea_admin_user_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
-              regex_search('\"gitea_admin_username\": *\"([^\"]+)\"', '\\1') | first | default('mcpadmin') }}"
-            gitea_admin_pass_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
-              regex_search('\"gitea_admin_password\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
-
     # Set variables from environment
     # Allow environment variables to override defaults for flexibility
     - name: Set base namespace prefix
@@ -103,6 +58,47 @@
         mcp_openshift_namespace: "{{ lookup('env', 'MCP_OPENSHIFT_NAMESPACE') | default('mcp-openshift-' + base_namespace_prefix, true) }}"
         mcp_gitea_namespace: "{{ lookup('env', 'MCP_GITEA_NAMESPACE') | default('mcp-gitea-' + base_namespace_prefix, true) }}"
         librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat-' + base_namespace_prefix, true) }}"
+
+    # Read Gitea admin credentials from Showroom ConfigMap if not set via env
+    # Must run AFTER base_namespace_prefix is defined
+    - name: Find Showroom namespace for this user
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+      register: r_all_namespaces
+      failed_when: false
+      when: lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+
+    - name: Set Showroom namespace
+      when: lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+      ansible.builtin.set_fact:
+        showroom_ns: "{{ r_all_namespaces.resources | default([]) |
+          map(attribute='metadata.name') |
+          select('match', 'showroom.*' + base_namespace_prefix + '$') |
+          list | first | default('') }}"
+
+    - name: Read Showroom ConfigMap for Gitea admin credentials
+      when:
+        - lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+        - showroom_ns | default('') != ''
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: showroom-userdata
+        namespace: "{{ showroom_ns }}"
+      register: r_showroom_cm
+      failed_when: false
+
+    - name: Set Gitea admin credentials from ConfigMap
+      when:
+        - lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+        - showroom_ns | default('') != ''
+        - r_showroom_cm.resources | default([]) | length > 0
+      ansible.builtin.set_fact:
+        gitea_admin_user_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+          regex_search('\"gitea_admin_username\": *\"([^\"]+)\"', '\\1') | first | default('mcpadmin') }}"
+        gitea_admin_pass_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+          regex_search('\"gitea_admin_password\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
 
     - name: Set Gitea URL (env override or build from ingress domain)
       ansible.builtin.set_fact:
