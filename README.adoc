@@ -73,15 +73,19 @@ grade_lab mcp-with-openshift user1 1 --ansible
 
 === Load Testing
 
-Run all users in parallel:
+Use `all` as the user — automatically discovers users from showroom namespaces and runs in parallel:
 
 [source,bash]
 ----
-for user in user1 user2 user3; do
-  LAB_USER=$user PASSWORD="<pass>" grade_lab mcp-with-openshift $user 1 --podman &
-done
-wait
+# All users, single module
+grade_lab mcp-with-openshift all 1 --podman
+
+# All users, all modules
+grade_lab mcp-with-openshift all --podman
 ----
+
+Users are discovered from `showroom-*-userN` namespaces in the cluster.
+Each user's password is read from their `showroom-userdata` ConfigMap automatically.
 
 == Available Labs
 

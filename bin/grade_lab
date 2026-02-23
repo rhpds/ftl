@@ -40,6 +40,61 @@ if [ "$RUNNER" = "podman" ]; then
   KUBE_ARGS=()
   [ -f "${HOME}/.kube/config" ] && KUBE_ARGS=(-v "${HOME}/.kube/config:/home/runner/.kube/config:ro")
 
+  # ── 'all' user: discover users from showroom namespaces and run in parallel ──
+  # Usage: grade_lab <lab> all [module] --podman
+  FIRST_NON_FLAG_ARG=""
+  for a in "$@"; do [[ "$a" != --* ]] && { FIRST_NON_FLAG_ARG="$a"; break; }; done
+
+  # Check if the first non-flag arg after lab name is 'all'
+  REMAINING_ARGS=("$@")
+  if [ "${REMAINING_ARGS[0]:-}" = "all" ]; then
+    shift  # remove 'all' from args — remaining is [module] if any
+    MODULE_ARG="${1:-}"
+
+    # Discover users from showroom namespaces
+    USERS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+      | grep "showroom" | grep -oE 'user[0-9]+$' | sort -u || true)
+
+    if [ -z "$USERS" ]; then
+      echo "No showroom user namespaces found — ensure kubeconfig is set and cluster is accessible"
+      exit 1
+    fi
+
+    echo "Discovered users: $(echo $USERS | tr '\n' ' ')"
+    echo "Running grader in parallel for all users..."
+    echo ""
+
+    PIDS=()
+    for user in $USERS; do
+      (
+        export LAB_USER="$user"
+        # Re-read password from showroom ConfigMap for this user
+        NS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+          | grep "showroom" | grep "${user}$" | head -1 | cut -d/ -f2 || true)
+        if [ -n "$NS" ]; then
+          USER_PASS=$(kubectl get configmap showroom-userdata -n "$NS" \
+            -o jsonpath='{.data.user_data\.yml}' 2>/dev/null \
+            | grep '"password":' | head -1 \
+            | sed 's/.*"password": *"\([^"]*\)".*/\1/' || true)
+          [ -n "$USER_PASS" ] && export PASSWORD="$USER_PASS"
+        fi
+        if [ -n "$MODULE_ARG" ]; then
+          "$0" "${LAB_NAME}" "$user" "$MODULE_ARG" --podman
+        else
+          "$0" "${LAB_NAME}" "$user" --podman
+        fi
+      ) &
+      PIDS+=($!)
+    done
+
+    # Wait for all and collect results
+    EXIT_CODE=0
+    for pid in "${PIDS[@]}"; do
+      wait "$pid" || EXIT_CODE=1
+    done
+    exit $EXIT_CODE
+  fi
+
   exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" grade "$@"
