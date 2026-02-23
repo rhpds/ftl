@@ -277,9 +277,18 @@
       when:
         - r_buildconfig.resources | length > 0
         - not (has_github_webhook | default(false))
-      ansible.builtin.command: >
-        oc set triggers bc/nationalparks --from-github -n {{ project_name }}
-      changed_when: true
+      kubernetes.core.k8s_json_patch:
+        api_version: build.openshift.io/v1
+        kind: BuildConfig
+        name: nationalparks
+        namespace: "{{ project_name }}"
+        patch:
+          - op: add
+            path: /spec/triggers/-
+            value:
+              type: GitHub
+              github:
+                secret: "ftl-webhook-secret"
 
     # =========================================================================
     # Summary
