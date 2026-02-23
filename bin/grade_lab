@@ -45,10 +45,10 @@ if [ "$RUNNER" = "podman" ]; then
   FIRST_NON_FLAG_ARG=""
   for a in "$@"; do [[ "$a" != --* ]] && { FIRST_NON_FLAG_ARG="$a"; break; }; done
 
-  # Check if the first non-flag arg after lab name is 'all'
-  REMAINING_ARGS=("$@")
-  if [ "${REMAINING_ARGS[0]:-}" = "all" ]; then
-    shift  # remove 'all' from args — remaining is [module] if any
+  # Check if the user arg (2nd arg after lab name) is 'all'
+  LAB_NAME="${1:-}"
+  if [ "${2:-}" = "all" ]; then
+    shift 2  # remove lab name and 'all' — remaining is [module] if any
     MODULE_ARG="${1:-}"
 
     # Discover users from showroom namespaces
