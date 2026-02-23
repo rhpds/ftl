@@ -262,54 +262,8 @@
       delay: 10
 
     # =========================================================================
-    # Step 4b: Create Nationalparks Deployment and Service (S2I doesn't auto-create)
+    # Step 4b: Create Nationalparks Service (Deployment created in Step 6 after build)
     # =========================================================================
-    - name: Create nationalparks Deployment
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: nationalparks
-            namespace: "{{ project_name }}"
-            labels:
-              app: workshop
-              component: nationalparks
-              role: backend
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app: nationalparks
-            template:
-              metadata:
-                labels:
-                  app: nationalparks
-                  component: nationalparks
-                  role: backend
-              spec:
-                containers:
-                  - name: nationalparks
-                    image: "image-registry.openshift-image-registry.svc:5000/{{ project_name }}/nationalparks:latest"
-                    ports:
-                      - containerPort: 8080
-                    env:
-                      - name: MONGODB_SERVER_HOST
-                        value: mongodb
-                      - name: MONGODB_DATABASE
-                        value: parksapp
-                      - name: MONGODB_USER
-                        valueFrom:
-                          secretKeyRef:
-                            name: mongodb-credentials
-                            key: app-usr
-                      - name: MONGODB_PASSWORD
-                        valueFrom:
-                          secretKeyRef:
-                            name: mongodb-credentials
-                            key: app-pwd
-
     - name: Create nationalparks Service
       kubernetes.core.k8s:
         state: present
