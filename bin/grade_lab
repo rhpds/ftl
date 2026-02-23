@@ -86,6 +86,7 @@ if [ "$RUNNER" = "podman" ]; then
             | sed 's/.*"password": *"\([^"]*\)".*/\1/' || true)
           [ -n "$USER_PASS" ] && export PASSWORD="$USER_PASS"
         fi
+        echo "▶ Grading $LAB_NAME as $user ${MODULE_ARG:+(module $MODULE_ARG)}..."
         if [ -n "$MODULE_ARG" ]; then
           "$0" "${LAB_NAME}" "$user" "$MODULE_ARG" --podman
         else
@@ -100,6 +101,12 @@ if [ "$RUNNER" = "podman" ]; then
     for pid in "${PIDS[@]}"; do
       wait "$pid" || EXIT_CODE=1
     done
+    REPORT_DIR="${FTL_REPORT_DIR:-${HOME}/ftl-reports}"
+    echo ""
+    echo "═══════════════════════════════════════════════════════"
+    echo "Grading complete. Reports saved to: $REPORT_DIR"
+    ls "$REPORT_DIR"/grading_report_*_module_*.txt 2>/dev/null | sed "s|${REPORT_DIR}/||" | sed 's/^/  /'
+    echo "═══════════════════════════════════════════════════════"
     exit $EXIT_CODE
   fi
 
