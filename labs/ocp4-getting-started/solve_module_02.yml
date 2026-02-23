@@ -192,6 +192,19 @@
     # =========================================================================
     # Step 3: Create Nationalparks BuildConfig and Start Build
     # =========================================================================
+    - name: Create nationalparks ImageStream (required before BuildConfig)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: image.openshift.io/v1
+          kind: ImageStream
+          metadata:
+            name: nationalparks
+            namespace: "{{ project_name }}"
+            labels:
+              app: workshop
+              component: nationalparks
+
     - name: Check if nationalparks BuildConfig exists
       kubernetes.core.k8s_info:
         api_version: build.openshift.io/v1
