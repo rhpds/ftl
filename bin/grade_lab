@@ -80,7 +80,7 @@ if [ "$RUNNER" = "podman" ]; then
         NS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || oc get namespaces --no-headers -o name 2>/dev/null) \
           | grep "showroom" | grep "${user}$" | head -1 | cut -d/ -f2 || true)
         if [ -n "$NS" ]; then
-          USER_PASS=$((kubectl get configmap showroom-userdata -n "$NS" 2>/dev/null || oc get configmap showroom-userdata -n "$NS" 2>/dev/null) \
+          USER_PASS=$(oc get configmap showroom-userdata -n "$NS" \
             -o jsonpath='{.data.user_data\.yml}' 2>/dev/null \
             | grep '"password":' | head -1 \
             | sed 's/.*"password": *"\([^"]*\)".*/\1/' || true)
