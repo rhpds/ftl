@@ -33,17 +33,60 @@
 
           Please set the following environment variables before running the grader:
 
-          export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-kg5jj.dynamic.redhatworkshops.io"
-          export PASSWORD="<your_password_from_agv_user_data>"
+          export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
           export LAB_USER="user1"
 
           See labs/mcp-with-openshift/README.md for details.
       when: item.value == ''
       loop:
         - { name: 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN', value: "{{ openshift_cluster_ingress_domain }}" }
-        - { name: 'PASSWORD', value: "{{ gitea_password }}" }
       loop_control:
         label: "{{ item.name }}"
+
+    # Read Gitea admin credentials from Showroom ConfigMap if not set via env
+    - name: Find Showroom ConfigMap namespace for this user
+      ansible.builtin.set_fact:
+        showroom_ns: "{{ lookup('env', 'SHOWROOM_NS') | default('', true) }}"
+
+    - name: Auto-discover Gitea admin credentials from Showroom ConfigMap
+      when: >
+        (lookup('env', 'GITEA_ADMIN_USER') == '' or
+         lookup('env', 'GITEA_ADMIN_PASSWORD') == '') and
+        showroom_ns == ''
+      block:
+        - name: Find Showroom namespace
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Namespace
+          register: r_all_namespaces
+          failed_when: false
+
+        - name: Set Showroom namespace
+          ansible.builtin.set_fact:
+            showroom_ns: "{{ r_all_namespaces.resources | default([]) |
+              map(attribute='metadata.name') |
+              select('match', 'showroom.*' + base_namespace_prefix + '$') |
+              list | first | default('') }}"
+
+        - name: Read Showroom ConfigMap
+          when: showroom_ns != ''
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: ConfigMap
+            name: showroom-userdata
+            namespace: "{{ showroom_ns }}"
+          register: r_showroom_cm
+          failed_when: false
+
+        - name: Set Gitea admin credentials from ConfigMap
+          when:
+            - showroom_ns != ''
+            - r_showroom_cm.resources | length > 0
+          ansible.builtin.set_fact:
+            gitea_admin_user_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+              regex_search('\"gitea_admin_username\": *\"([^\"]+)\"', '\\1') | first | default('mcpadmin') }}"
+            gitea_admin_pass_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+              regex_search('\"gitea_admin_password\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
 
     # Set variables from environment
     # Allow environment variables to override defaults for flexibility
@@ -162,7 +205,7 @@
         task_description_message: "Exercise 1.5: Gitea repository 'mcp' exists for user {{ gitea_user }}"
         command: >
           curl -sk
-          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default('mcpadmin', true) }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(lookup('env', 'PASSWORD'), true) }}"
+          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default(gitea_admin_user_from_cm | default('mcpadmin'), true) }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(gitea_admin_pass_from_cm | default(lookup('env', 'PASSWORD')), true) }}"
           {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'
         expected_output: "mcp"
         student_error_message: |
