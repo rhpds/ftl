@@ -53,29 +53,30 @@
     # Step 1: Trigger pipeline run with broken branch
     # =========================================================================
     - name: Check if pipeline exists
-      ansible.builtin.command: >
-        oc get pipeline build-agent -n {{ agent_namespace }} -o name
+      kubernetes.core.k8s_info:
+        api_version: tekton.dev/v1
+        kind: Pipeline
+        name: build-agent
+        namespace: "{{ agent_namespace }}"
       register: r_pipeline_exists
-      changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Fail if pipeline doesn't exist
       ansible.builtin.fail:
         msg: |
           Pipeline 'build-agent' not found in namespace {{ agent_namespace }}.
           The lab environment may not be properly deployed.
-      when: r_pipeline_exists.rc != 0
+      when: r_pipeline_exists.resources | length == 0
 
     - name: Trigger pipeline run with broken branch
-      ansible.builtin.command: >
-        oc create -n {{ agent_namespace }} -f -
-      args:
-        stdin: |
+      kubernetes.core.k8s:
+        state: present
+        definition:
           apiVersion: tekton.dev/v1
           kind: PipelineRun
           metadata:
             generateName: build-agent-
-            namespace: {{ agent_namespace }}
+            namespace: "{{ agent_namespace }}"
           spec:
             pipelineRef:
               name: build-agent
@@ -83,7 +84,7 @@
               - name: GIT_REVISION
                 value: broken
               - name: GIT_REPO
-                value: {{ gitea_url }}/{{ gitea_user }}/mcp.git
+                value: "{{ gitea_url }}/{{ gitea_user }}/mcp.git"
             workspaces:
               - name: workspace
                 volumeClaimTemplate:
@@ -94,27 +95,34 @@
                       requests:
                         storage: 1Gi
       register: r_pipeline_start
-      changed_when: r_pipeline_start.rc == 0
-
-    - name: Display pipeline trigger result
-      ansible.builtin.debug:
-        msg: "Pipeline run triggered: {{ r_pipeline_start.stdout }}"
 
     - name: Extract PipelineRun name
       ansible.builtin.set_fact:
-        pipelinerun_name: "{{ r_pipeline_start.stdout | regex_search('build-agent-[a-z0-9]+') }}"
+        pipelinerun_name: "{{ r_pipeline_start.result.metadata.name }}"
+
+    - name: Display pipeline trigger result
+      ansible.builtin.debug:
+        msg: "Pipeline run triggered: {{ pipelinerun_name }}"
 
     # =========================================================================
     # Step 2: Wait for pipeline to fail
     # =========================================================================
-    - name: Wait for pipeline run to complete (will fail)
-      ansible.builtin.command: >
-        oc wait pipelinerun {{ pipelinerun_name }}
-        -n {{ agent_namespace }}
-        --for=condition=Succeeded=False
-        --timeout=10m
+    - name: Wait for pipeline run to complete (will fail with broken branch)
+      kubernetes.core.k8s_info:
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        name: "{{ pipelinerun_name }}"
+        namespace: "{{ agent_namespace }}"
       register: r_pipeline_wait
-      changed_when: false
+      until:
+        - r_pipeline_wait.resources | length > 0
+        - r_pipeline_wait.resources[0].status.conditions | default([]) |
+          selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_pipeline_wait.resources[0].status.conditions |
+          selectattr('type', 'equalto', 'Succeeded') | list |
+          first | default({}) | json_query('status') in ['True', 'False']
+      retries: 60
+      delay: 10
       ignore_errors: true
 
     - name: Display pipeline completion

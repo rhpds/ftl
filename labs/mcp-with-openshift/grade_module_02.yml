@@ -80,37 +80,24 @@
           - "app=agent"
       register: r_agent_pods
 
-    - name: "Exercise 2.2: Test if agent pod logs are accessible"
-      when: r_agent_pods.resources | length > 0
-      ansible.builtin.command: >
-        oc logs -n {{ agent_namespace }}
-        {{ r_agent_pods.resources[0].metadata.name }}
-        --tail=1
-      register: r_agent_logs_test
-      changed_when: false
-      failed_when: false
-
     - name: "Exercise 2.2: Get agent pod logs"
-      when:
-        - r_agent_pods.resources | length > 0
-        - r_agent_logs_test.rc == 0
-      ansible.builtin.command: >
-        oc logs -n {{ agent_namespace }}
-        {{ r_agent_pods.resources[0].metadata.name }}
-        --tail=100
+      when: r_agent_pods.resources | length > 0
+      kubernetes.core.k8s_log:
+        namespace: "{{ agent_namespace }}"
+        name: "{{ r_agent_pods.resources[0].metadata.name }}"
+        tail_lines: 100
       register: r_agent_logs
-      changed_when: false
+      failed_when: false
 
     - name: "Exercise 2.2: Evaluate MCP connection from logs"
       when:
         - r_agent_logs is not skipped
-        - r_agent_logs.rc is defined
-        - r_agent_logs.rc == 0
+        - r_agent_logs.log is defined
       ansible.builtin.set_fact:
         mcp_connected_from_logs: "{{
-          ('✅ openshift: connected' in r_agent_logs.stdout and '✅ gitea: connected' in r_agent_logs.stdout) or
-          ('openshift' in r_agent_logs.stdout and 'gitea' in r_agent_logs.stdout and 'connected' in r_agent_logs.stdout) or
-          ('MCP server' in r_agent_logs.stdout and 'initialized' in r_agent_logs.stdout)
+          ('✅ openshift: connected' in (r_agent_logs.log | default('')) and '✅ gitea: connected' in (r_agent_logs.log | default(''))) or
+          ('openshift' in (r_agent_logs.log | default('')) and 'gitea' in (r_agent_logs.log | default('')) and 'connected' in (r_agent_logs.log | default(''))) or
+          ('MCP server' in (r_agent_logs.log | default('')) and 'initialized' in (r_agent_logs.log | default('')))
         }}"
 
     - name: "Exercise 2.2: Set default for logs check"
@@ -161,20 +148,24 @@
     # =========================================================================
     # Exercise 2.4: Pipeline Run Triggered with Broken Branch
     # =========================================================================
-    - name: "Exercise 2.4: Check for pipeline run with broken branch"
-      ansible.builtin.shell: |
-        oc get pipelineruns -n {{ agent_namespace }} -o json | \
-        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .metadata.name' | head -1
-      register: r_broken_pipeline_check
-      changed_when: false
-      ignore_errors: true
+    - name: "Exercise 2.4: Get all pipeline runs"
+      kubernetes.core.k8s_info:
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ agent_namespace }}"
+      register: r_pipelineruns
+      failed_when: false
 
     - name: "Exercise 2.4: Evaluate pipeline run existence"
       ansible.builtin.set_fact:
-        pipeline_run_exists: "{{
-          r_broken_pipeline_check.rc == 0 and
-          r_broken_pipeline_check.stdout | length > 0
-        }}"
+        broken_pipelineruns: "{{ r_pipelineruns.resources | default([]) |
+          selectattr('spec.params', 'defined') |
+          map(attribute='spec.params') |
+          map('selectattr', 'name', 'equalto', 'GIT_REVISION') |
+          map('selectattr', 'value', 'equalto', 'broken') |
+          list }}"
+        pipeline_run_exists: "{{ (r_pipelineruns.resources | default([]) |
+          selectattr('spec.params', 'defined') | list | length) > 0 }}"
 
     - name: "Exercise 2.4: Create result message"
       ansible.builtin.set_fact:
@@ -191,20 +182,13 @@
     # =========================================================================
     # Exercise 2.5: Pipeline Run Failed (Expected Outcome)
     # =========================================================================
-    - name: "Exercise 2.5: Check pipeline run failure status"
-      ansible.builtin.shell: |
-        oc get pipelineruns -n {{ agent_namespace }} -o json | \
-        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .status.conditions[0].status' | head -1
-      register: r_pipeline_status
-      changed_when: false
-      ignore_errors: true
-
-    - name: "Exercise 2.5: Evaluate pipeline failure"
+    - name: "Exercise 2.5: Evaluate pipeline failure from k8s_info results"
       ansible.builtin.set_fact:
-        pipeline_failed: "{{
-          r_pipeline_status.rc == 0 and
-          'False' in r_pipeline_status.stdout
-        }}"
+        pipeline_failed: "{{ r_pipelineruns.resources | default([]) |
+          selectattr('status.conditions', 'defined') |
+          map(attribute='status.conditions') | flatten |
+          selectattr('type', 'equalto', 'Succeeded') |
+          selectattr('status', 'equalto', 'False') | list | length > 0 }}"
 
     - name: "Exercise 2.5: Create result message"
       ansible.builtin.set_fact:
@@ -221,20 +205,13 @@
     # =========================================================================
     # Exercise 2.6: Trigger-Agent Finally Task Executed
     # =========================================================================
-    - name: "Exercise 2.6: Check for trigger-agent task execution"
-      ansible.builtin.shell: |
-        oc get pipelineruns -n {{ agent_namespace }} -o json | \
-        jq -r '.items[] | select(.spec.params[]? | select(.name=="GIT_REVISION" and .value=="broken")) | .status.taskRuns // .status.childReferences | to_entries[] | select(.value.pipelineTaskName? == "trigger-agent" or .value.displayName? == "trigger-agent") | .value.pipelineTaskName? // .value.displayName?' | head -1
-      register: r_trigger_agent_check
-      changed_when: false
-      ignore_errors: true
-
-    - name: "Exercise 2.6: Evaluate trigger-agent execution"
+    - name: "Exercise 2.6: Evaluate trigger-agent task execution from k8s_info results"
       ansible.builtin.set_fact:
-        trigger_agent_executed: "{{
-          r_trigger_agent_check.rc == 0 and
-          'trigger-agent' in r_trigger_agent_check.stdout
-        }}"
+        trigger_agent_executed: "{{ r_pipelineruns.resources | default([]) |
+          map(attribute='status.childReferences') | flatten | default([]) |
+          selectattr('pipelineTaskName', 'defined') |
+          selectattr('pipelineTaskName', 'equalto', 'trigger-agent') |
+          list | length > 0 }}"
 
     - name: "Exercise 2.6: Create result message"
       ansible.builtin.set_fact:
