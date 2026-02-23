@@ -753,6 +753,37 @@ student_error_message: "..."
 
 ## Best Practices
 
+### 0. Never Use `oc` CLI — Use `kubernetes.core` Instead
+
+The `oc` CLI crashes under arm64/amd64 emulation (`lfstack.push` Go runtime bug).
+Always use `kubernetes.core` modules for portability across all platforms.
+
+```yaml
+# ❌ WRONG — crashes on arm64 Mac running amd64 container
+- ansible.builtin.command: >
+    oc get pods -n {{ namespace }} --no-headers | wc -l
+
+# ✅ CORRECT — works everywhere
+- kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ namespace }}"
+  register: r_pods
+- ansible.builtin.set_fact:
+    pod_count: "{{ r_pods.resources | length }}"
+```
+
+**Common replacements:**
+
+| Old `oc` command | Replacement |
+|---|---|
+| `oc get <resource>` | `kubernetes.core.k8s_info` |
+| `oc auth can-i get pods --as=SA` | `kubernetes.core.k8s_info` checking RoleBindings |
+| `oc new-project` (solver) | `kubernetes.core.k8s` with `kind: Namespace` |
+| `oc create secret` (solver) | `kubernetes.core.k8s` with `kind: Secret, stringData:` |
+| `oc policy add-role-to-user` (solver) | `kubernetes.core.k8s` with `kind: RoleBinding` |
+
+---
+
 ### 1. Error Messages
 
 Provide helpful error messages that tell students:
