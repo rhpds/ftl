@@ -5,8 +5,8 @@
 # --local run flag mounts local repo over /ftl instead.
 #
 # Build:
-#   podman build --platform linux/amd64 -t quay.io/rhpds/ftl-grader:latest .
-#   podman push quay.io/rhpds/ftl-grader:latest
+#   podman build --platform linux/amd64 -t quay.io/rhpds/ftl:latest .
+#   podman push quay.io/rhpds/ftl:latest
 #
 # Run:
 #   ./bin/run-grade.sh ocp4-getting-started https://api.xxx:6443 admin-pass

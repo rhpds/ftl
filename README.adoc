@@ -3,6 +3,20 @@
 Automated grading and solving for Red Hat Demo Platform (RHDP) labs.
 
 image:https://img.shields.io/badge/image-quay.io%2Frhpds%2Fftl-blue[FTL Image, link=https://quay.io/repository/rhpds/ftl]
+image:https://img.shields.io/badge/image-ghcr.io%2Frhpds%2Fftl-green[GHCR Image, link=https://github.com/rhpds/ftl/pkgs/container/ftl]
+
+*Container Images:*
+
+* `quay.io/rhpds/ftl:latest` — manually built/pushed (link:Containerfile[Containerfile])
+* `ghcr.io/rhpds/ftl:latest` — CI-built on every push to `main` (link:.github/workflows/build-image.yml[workflow])
+
+*Detailed Documentation:*
+
+* link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] — all 22+ roles with parameters and examples
+* link:labs/mcp-with-openshift/README.md[MCP with OpenShift Lab] — 4 modules, 35 checkpoints
+* link:labs/ocp4-getting-started/README.md[OpenShift 4 Getting Started Lab] — 3 modules, 30 checkpoints
+* link:labs/automating-ripu-with-ansible/README.md[RIPU Lab] — 3 modules, 57 checkpoints
+* link:labs/lab-template/[Lab Template] — starting point for new labs
 
 == Architecture
 
@@ -279,6 +293,8 @@ See link:labs/automating-ripu-with-ansible/README.md[RIPU Lab README] for full d
 
 == Developer Guide
 
+See link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] for the complete role catalog with all parameters and examples.
+
 === Creating a New Lab
 
 [source,bash]
@@ -289,7 +305,7 @@ cp -r labs/lab-template labs/my-new-lab
 grade_lab my-new-lab student 1
 ----
 
-=== Grader Role Catalog
+=== Grader Role Catalog (Summary)
 
 Every grader role follows the same pattern:
 
