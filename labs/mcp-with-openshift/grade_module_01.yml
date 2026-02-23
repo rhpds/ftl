@@ -201,7 +201,7 @@
         task_description_message: "Exercise 1.5: Gitea repository 'mcp' exists for user {{ gitea_user }}"
         command: >
           curl -sk
-          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default(gitea_admin_user_from_cm | default('mcpadmin'), true) }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(gitea_admin_pass_from_cm | default(lookup('env', 'PASSWORD')), true) }}"
+          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default(gitea_admin_user_from_cm | default('mcpadmin'), true) }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(gitea_admin_pass_from_cm | default(''), true) }}"
           {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'
         expected_output: "mcp"
         student_error_message: |
