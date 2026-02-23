@@ -130,7 +130,8 @@ Each lab README has the exact `export` + `grade_lab`/`solve_lab` commands for th
 | `AAP_USERNAME` | AAP username (default: `lab-user`) | RIPU
 | `GITEA_ADMIN_USER` | Gitea admin username | MCP
 | `GITEA_ADMIN_PASSWORD` | Gitea admin password | MCP
-| `FTL_IMAGE` | Override container image | Dev only
+| `FTL_IMAGE` | Override container image (default: `quay.io/rhpds/ftl:latest`) | Dev only
+| `FTL_REPORT_DIR` | Local directory for grading reports (default: `~/ftl-reports`) | `--podman` only
 
 |===
 
