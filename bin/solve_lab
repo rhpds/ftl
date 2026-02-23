@@ -40,6 +40,49 @@ if [ "$RUNNER" = "podman" ]; then
   KUBE_ARGS=()
   [ -f "${HOME}/.kube/config" ] && KUBE_ARGS=(-v "${HOME}/.kube/config:/home/runner/.kube/config:ro")
 
+  # ── 'all' user: discover from showroom namespaces, run in parallel ────────────
+  if [ "${1:-}" = "all" ]; then
+    shift  # remove 'all'
+    MODULE_ARG="${1:-}"
+
+    USERS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+      | grep "showroom" | sed 's/.*-\(user[0-9]*\)$/\1/' | grep '^user' | sort -u || true)
+
+    if [ -z "$USERS" ]; then
+      echo "No showroom user namespaces found — ensure kubeconfig is set"
+      exit 1
+    fi
+
+    echo "Discovered users: $(echo $USERS | tr '\n' ' ')"
+    echo "Running solver in parallel for all users..."
+
+    PIDS=()
+    for user in $USERS; do
+      (
+        export LAB_USER="$user"
+        NS=$(kubectl get namespaces --no-headers -o name 2>/dev/null \
+          | grep "showroom" | grep "${user}$" | head -1 | cut -d/ -f2 || true)
+        if [ -n "$NS" ]; then
+          USER_PASS=$(kubectl get configmap showroom-userdata -n "$NS" \
+            -o jsonpath='{.data.user_data\.yml}' 2>/dev/null \
+            | grep '"password":' | head -1 \
+            | sed 's/.*"password": *"\([^"]*\)".*/\1/' || true)
+          [ -n "$USER_PASS" ] && export PASSWORD="$USER_PASS"
+        fi
+        if [ -n "$MODULE_ARG" ]; then
+          "$0" "${LAB_NAME}" "$user" "$MODULE_ARG" --podman
+        else
+          "$0" "${LAB_NAME}" "$user" --podman
+        fi
+      ) &
+      PIDS+=($!)
+    done
+
+    EXIT_CODE=0
+    for pid in "${PIDS[@]}"; do wait "$pid" || EXIT_CODE=1; done
+    exit $EXIT_CODE
+  fi
+
   exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" solve "$@"
