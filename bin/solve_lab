@@ -109,15 +109,27 @@ if [ "$RUNNER" = "podman" ]; then
   # Auto-discover user PASSWORD from Showroom ConfigMap (single user path)
   _LAB_USER_ARG="${1:-}"
   [[ "$_LAB_USER_ARG" =~ ^[0-9]+$ ]] && _LAB_USER_ARG="${LAB_USER:-}"
-  if [ -z "${PASSWORD:-}" ] && [ -n "${_LAB_USER_ARG:-}" ] && [ "${_LAB_USER_ARG}" != "all" ]; then
+  if [ -n "${_LAB_USER_ARG:-}" ] && [ "${_LAB_USER_ARG}" != "all" ]; then
     _SHOW_NS=$((kubectl get namespaces --no-headers -o name 2>/dev/null || \
       oc get namespaces --no-headers -o name 2>/dev/null) \
       | grep "showroom" | grep "${_LAB_USER_ARG}$" | head -1 | cut -d/ -f2 || true)
-    if [ -n "$_SHOW_NS" ]; then
+    if [ -n "$_SHOW_NS" ] && [ -z "${PASSWORD:-}" ]; then
       _v=$(oc get configmap showroom-userdata -n "$_SHOW_NS" \
         -o jsonpath='{.data.user_data\.yml}' 2>/dev/null \
         | grep '"password":' | head -1 | sed 's/.*"password": *"\([^"]*\)".*/\1/' || true)
       [ -n "$_v" ] && export PASSWORD="$_v"
+    fi
+
+    # Create user-specific kubeconfig so OCP actions run as userX, not admin
+    if [ -n "${OCP_API_URL:-}" ] && [ -n "${PASSWORD:-}" ]; then
+      _USER_KUBE=$(mktemp)
+      trap "rm -f $_USER_KUBE" EXIT
+      KUBECONFIG="$_USER_KUBE" oc login "$OCP_API_URL" \
+        -u "${_LAB_USER_ARG}" -p "${PASSWORD}" \
+        --insecure-skip-tls-verify=true 2>/dev/null && \
+        KUBE_ARGS=(-v "$_USER_KUBE:/home/runner/.kube/config:ro") && \
+        echo "Running OCP actions as ${_LAB_USER_ARG}" || \
+        echo "User login not available — using admin kubeconfig"
     fi
   fi
 
