@@ -41,6 +41,7 @@ if [ "$RUNNER" = "podman" ]; then
   [ -f "${HOME}/.kube/config" ] && KUBE_ARGS=(-v "${HOME}/.kube/config:/home/runner/.kube/config:ro")
 
   # ── 'all' user: discover from showroom namespaces, run in parallel ────────────
+  LAB_NAME="${1:-}"
   if [ "${2:-}" = "all" ]; then
     shift 2  # remove lab name and 'all'
     MODULE_ARG="${1:-}"
