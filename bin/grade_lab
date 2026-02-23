@@ -1,23 +1,34 @@
 #!/bin/bash
 # FTL Grade Lab Wrapper
-# Usage: grade_lab <lab-name> [user] [module-number]
+# Usage: grade_lab <lab-name> [user] [module-number] [--podman|--ansible]
 # Examples:
-#   grade_lab mcp-with-openshift              # Grade all modules for $LAB_USER
-#   grade_lab mcp-with-openshift 1            # Grade module 1 for $LAB_USER
-#   grade_lab mcp-with-openshift user2        # Grade all modules for user2
-#   grade_lab mcp-with-openshift user2 1      # Grade module 1 for user2
+#   grade_lab mcp-with-openshift user1 1 --podman   # Run via container (laptop)
+#   grade_lab mcp-with-openshift user1 1 --ansible  # Run via ansible-playbook (bastion)
+#   grade_lab mcp-with-openshift user1              # Defaults to --ansible if available, else --podman
 
 set -e
 
-# ── Auto-detect execution environment ────────────────────────────────────────
-# If ansible-playbook is not available, run via container (laptop mode)
-if ! command -v ansible-playbook &>/dev/null; then
+# ── Extract --podman / --ansible flag from args ───────────────────────────────
+RUNNER=""
+CLEAN_ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --podman)  RUNNER="podman" ;;
+    --ansible) RUNNER="ansible" ;;
+    *)         CLEAN_ARGS+=("$arg") ;;
+  esac
+done
+set -- "${CLEAN_ARGS[@]}"
+
+# Default: ansible if available, podman otherwise
+if [ -z "$RUNNER" ]; then
+  command -v ansible-playbook &>/dev/null && RUNNER="ansible" || RUNNER="podman"
+fi
+
+# ── Podman / container mode ───────────────────────────────────────────────────
+if [ "$RUNNER" = "podman" ]; then
   FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl:latest}"
-  KUBE="${HOME}/.kube/config"
 
-  echo "ansible-playbook not found — running via container ($FTL_IMAGE)"
-
-  # Build env var list from current environment (pass all FTL-relevant vars)
   ENV_ARGS=()
   for var in LAB_USER PASSWORD OPENSHIFT_CLUSTER_INGRESS_DOMAIN \
              AAP_HOSTNAME AAP_PASSWORD AAP_USERNAME \
@@ -27,12 +38,14 @@ if ! command -v ansible-playbook &>/dev/null; then
   done
 
   KUBE_ARGS=()
-  [ -f "$KUBE" ] && KUBE_ARGS=(-v "$KUBE:/home/runner/.kube/config:ro")
+  [ -f "${HOME}/.kube/config" ] && KUBE_ARGS=(-v "${HOME}/.kube/config:/home/runner/.kube/config:ro")
 
   exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
     "$FTL_IMAGE" grade "$@"
 fi
+
+# ── Ansible / bastion mode (continues below) ──────────────────────────────────
 
 # Configuration
 FTL_REPO="https://github.com/rhpds/ftl.git"

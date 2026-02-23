@@ -1,27 +1,51 @@
 #!/bin/bash
 # FTL Solve Lab Wrapper
-# Usage: solve_lab <lab-name> [user] [module-number]
+# Usage: solve_lab <lab-name> [user] [module-number] [--podman|--ansible]
 # Examples:
-#   solve_lab mcp-with-openshift              # Solve all modules for $LAB_USER
-#   solve_lab mcp-with-openshift 1            # Solve module 1 for $LAB_USER
-#   solve_lab mcp-with-openshift user2        # Solve all modules for user2
-#   solve_lab mcp-with-openshift user2 1      # Solve module 1 for user2
+#   solve_lab mcp-with-openshift user1 1 --podman   # Run via container (laptop)
+#   solve_lab mcp-with-openshift user1 1 --ansible  # Run via ansible-playbook (bastion)
+#   solve_lab mcp-with-openshift user1              # Defaults to --ansible if available, else --podman
 
 set -e
 
-# ── Auto-detect execution environment ────────────────────────────────────────
-if ! command -v ansible-playbook &>/dev/null; then
+# ── Extract --podman / --ansible flag from args ───────────────────────────────
+RUNNER=""
+CLEAN_ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --podman)  RUNNER="podman" ;;
+    --ansible) RUNNER="ansible" ;;
+    *)         CLEAN_ARGS+=("$arg") ;;
+  esac
+done
+set -- "${CLEAN_ARGS[@]}"
+
+# Default: ansible if available, podman otherwise
+if [ -z "$RUNNER" ]; then
+  command -v ansible-playbook &>/dev/null && RUNNER="ansible" || RUNNER="podman"
+fi
+
+# ── Podman / container mode ───────────────────────────────────────────────────
+if [ "$RUNNER" = "podman" ]; then
   FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl:latest}"
-  KUBE="${HOME}/.kube/config"
-  echo "ansible-playbook not found — running via container ($FTL_IMAGE)"
+
   ENV_ARGS=()
-  for var in LAB_USER PASSWORD OPENSHIFT_CLUSTER_INGRESS_DOMAIN AAP_HOSTNAME AAP_PASSWORD AAP_USERNAME BASTION_HOST BASTION_USER GUID GITEA_ADMIN_USER GITEA_ADMIN_PASSWORD; do
+  for var in LAB_USER PASSWORD OPENSHIFT_CLUSTER_INGRESS_DOMAIN \
+             AAP_HOSTNAME AAP_PASSWORD AAP_USERNAME \
+             BASTION_HOST BASTION_USER GUID \
+             GITEA_ADMIN_USER GITEA_ADMIN_PASSWORD; do
     [ -n "${!var:-}" ] && ENV_ARGS+=(-e "$var=${!var}")
   done
+
   KUBE_ARGS=()
-  [ -f "$KUBE" ] && KUBE_ARGS=(-v "$KUBE:/home/runner/.kube/config:ro")
-  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" -e ANSIBLE_FORCE_COLOR=true "$FTL_IMAGE" solve "$@"
+  [ -f "${HOME}/.kube/config" ] && KUBE_ARGS=(-v "${HOME}/.kube/config:/home/runner/.kube/config:ro")
+
+  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" \
+    -e ANSIBLE_FORCE_COLOR=true \
+    "$FTL_IMAGE" solve "$@"
 fi
+
+# ── Ansible / bastion mode (continues below) ──────────────────────────────────
 
 # Configuration
 FTL_REPO="https://github.com/rhpds/ftl.git"
