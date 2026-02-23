@@ -41,6 +41,16 @@ done && wait
 | 2 | Nationalparks S2I build + MongoDB + data loading + probes + route label | 15 |
 | 3 | Tekton pipeline — PVC, pipeline tasks, PipelineRun, Triggers EventListener | 5 |
 
+
+## Credential Architecture
+
+FTL uses **per-user credentials** (not `system:admin`) to grade this multi-user lab:
+
+- **OCP resource checks** — Admin kubeconfig with `kubernetes.core.k8s_info` scoped to each user's project (`wksp-user1`, `wksp-user2`, etc.). Resources are verified from the user's namespace perspective — if a resource exists in the right namespace with the right labels, the check passes.
+- **Service account permission checks** — Verified by querying RoleBindings directly (`kubernetes.core.k8s_info`), not by running `oc auth can-i` which would require the `oc` binary (crashes on arm64 emulation).
+- **Load test (`all` user)** — Each user's password is read from their `showroom-userdata` ConfigMap automatically. Reports saved to `~/ftl-reports/grading_report_<user>_module_<N>.txt`.
+- **User passwords** — Retrieved automatically from each user's `showroom-userdata` ConfigMap (`showroom-<guid>-<n>-<user>` namespace). No manual password lookup needed.
+
 ## Notes
 
 - **Project namespace:** `wksp-{user}` (NOT `workshop-{user}`) — always verify from Showroom `vars.adoc`

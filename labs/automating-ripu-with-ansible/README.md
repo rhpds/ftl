@@ -35,6 +35,15 @@ grade_lab automating-ripu-with-ansible 2
 
 > ⚠️  Module 2 performs actual RHEL upgrades on RHEL 7/8/9/10 nodes. Non-reversible without rollback.
 
+
+## Credential Architecture
+
+FTL grades this lab using **AAP user credentials** (`lab-user`), not admin:
+
+- **AAP job checks** — All AAP API calls use `AAP_USERNAME` (default: `lab-user`) and `AAP_PASSWORD`. This matches exactly what the student uses in the lab, ensuring the grader validates from the student's perspective.
+- **No OCP checks** — This is an AAP + RHEL lab. No Kubernetes/OCP resource checks are performed. No kubeconfig needed.
+- **Single-user lab** — One AAP controller per environment. The `all` user mode is not applicable here.
+
 ## Showroom → Env Var Mapping
 
 | Showroom attribute | Set this env var |

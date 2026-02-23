@@ -42,6 +42,16 @@ done && wait
 | 3 | MCP Server Administration — MCPToolConfig, ServiceMonitor, metrics | 11 |
 | 4 | MCP Registry — PostgreSQL (CNPG), MCPRegistry CR | 9 |
 
+
+## Credential Architecture
+
+FTL uses **per-user credentials** (not `system:admin`) to grade this multi-user lab:
+
+- **OCP resource checks** — Admin kubeconfig with `kubernetes.core.k8s_info` scoped to each user's namespace (`mcp-openshift-user1`, etc.). SSO/Keycloak clusters don't allow `oc login user1 -p password`, so admin access is used but namespace-scoped per user.
+- **Gitea repo checks** — Uses the Gitea admin token (`mcpadmin`) from the `showroom-userdata` ConfigMap. Student may not have logged into Gitea yet (lazy initialization), so admin token ensures consistent results.
+- **User passwords** — Each user's OCP/app password is retrieved automatically from their `showroom-userdata` ConfigMap in the `showroom-<guid>-<n>-<user>` namespace. No need to look up passwords manually.
+- **Load test (`all` user)** — Each user's password is read from their `showroom-userdata` ConfigMap automatically. Reports saved to `~/ftl-reports/grading_report_<user>_module_<N>.txt`.
+
 ## Notes
 
 - **Namespace pattern:** `mcp-openshift-{user}`, `mcp-gitea-{user}`, `agent-{user}`, `librechat-{user}`
