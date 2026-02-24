@@ -1,67 +1,81 @@
-# FTL (Finish The Labs) Grader/Solver Image
-# Lightweight UBI9-based for linux/amd64.
+# FTL (Finish The Labs) Container Image
+# Packages the Ansible-based grading/solving framework for portable execution
 #
-# FTL content is cloned at runtime (latest always) — no rebuild needed for changes.
-# --local run flag mounts local repo over /ftl instead.
-#
-# Build:
-#   podman build --platform linux/amd64 -t quay.io/rhpds/ftl:latest .
-#   podman push quay.io/rhpds/ftl:latest
-#
-# Run:
-#   ./bin/run-grade.sh ocp4-getting-started https://api.xxx:6443 admin-pass
+# Build:  podman build -t rhpds/ftl -f Containerfile .
+# Run:    podman run --rm -it rhpds/ftl grade ocp4-getting-started user1
 
-FROM --platform=linux/amd64 registry.access.redhat.com/ubi9/ubi:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-ARG OC_VERSION=4.18
+LABEL name="rhpds/ftl" \
+      summary="FTL - Finish The Labs" \
+      description="Automated grading and solving for hands-on technical labs" \
+      maintainer="Red Hat Demo Platform"
 
-# ── System packages ───────────────────────────────────────────────────────────
-RUN dnf install -y --allowerasing \
-      python3 \
-      python3-pip \
-      git \
-      curl \
-      tar \
-      jq \
-    && dnf clean all
+# System packages
+RUN microdnf install -y --nodocs \
+        python3.11 \
+        python3.11-pip \
+        git \
+        jq \
+        openssh-clients \
+        sshpass \
+        tar \
+        gzip \
+    && microdnf clean all \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && ln -sf /usr/bin/pip3.11 /usr/bin/pip3
 
-# ── oc client (x86_64) ────────────────────────────────────────────────────────
-RUN curl -sL \
-    "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${OC_VERSION}/openshift-client-linux.tar.gz" \
-    | tar -xz -C /usr/local/bin oc kubectl \
-    && echo "oc installed: $(ls -lh /usr/local/bin/oc)"
+# OpenShift CLI (oc + kubectl) — detect architecture for multi-arch support
+RUN ARCH=$(uname -m) \
+    && if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+         OC_URL="https://mirror.openshift.com/pub/openshift-v4/aarch64/clients/ocp/stable-4.14/openshift-client-linux.tar.gz"; \
+       else \
+         OC_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-4.14/openshift-client-linux.tar.gz"; \
+       fi \
+    && curl -sL "$OC_URL" | tar xzf - -C /usr/local/bin oc kubectl \
+    && chmod +x /usr/local/bin/oc /usr/local/bin/kubectl
 
-# ── Python dependencies ───────────────────────────────────────────────────────
+# Python packages (no venv — the container IS the isolation)
 RUN pip3 install --no-cache-dir \
-      ansible-core \
-      kubernetes \
-      openshift \
-      requests \
-      PyYAML \
-      jmespath
+        ansible-core \
+        kubernetes \
+        jmespath
 
-# ── Ansible collections ───────────────────────────────────────────────────────
-RUN ansible-galaxy collection install \
-      kubernetes.core \
-      community.general \
-      --collections-path /usr/share/ansible/collections \
-    && ansible-galaxy collection list --collections-path /usr/share/ansible/collections
+# Ansible collections
+COPY requirements.yml /tmp/requirements.yml
+RUN ansible-galaxy collection install -r /tmp/requirements.yml -p /usr/share/ansible/collections \
+    && rm /tmp/requirements.yml
 
-# ── Entrypoint: clone FTL at runtime then run ansible-playbook ────────────────
-COPY deploy/ftl-entrypoint.sh /usr/local/bin/ftl-entrypoint
-RUN chmod +x /usr/local/bin/ftl-entrypoint
+# Non-root user (UID 1001 works with OpenShift arbitrary UID)
+RUN microdnf install -y --nodocs shadow-utils \
+    && useradd -u 1001 -g 0 -m runner \
+    && microdnf remove -y shadow-utils \
+    && microdnf clean all \
+    && mkdir -p /home/runner/.kube /tmp/grading_dir \
+    && chown -R 1001:0 /home/runner /tmp/grading_dir \
+    && chmod -R g=u /home/runner /tmp/grading_dir
 
-# ── Permissions for OpenShift (random UID, GID 0) ─────────────────────────────
-RUN mkdir -p /home/runner/.kube /ftl /tmp/grading \
-    && chmod -R g+rwx /home/runner /tmp/grading /ftl \
-    && chgrp -R root /home/runner /tmp/grading /ftl
+WORKDIR /opt/ftl
 
-ENV HOME=/home/runner
-ENV ANSIBLE_ROLES_PATH=/ftl/roles
-ENV ANSIBLE_COLLECTIONS_PATH=/home/runner/.ansible/collections:/usr/share/ansible/collections
-ENV FTL_REPO=https://github.com/rhpds/ftl.git
-ENV FTL_REF=main
+# Copy framework files (ansible.cfg uses relative paths: ./roles, ./plugins)
+COPY ansible.cfg main.yml galaxy.yml ./
+COPY vars/ vars/
+COPY roles/ roles/
+COPY plugins/ plugins/
+COPY labs/ labs/
 
-WORKDIR /ftl
+# Entrypoint script
+COPY container/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-ENTRYPOINT ["/usr/local/bin/ftl-entrypoint"]
+# Fix ownership for non-root execution
+RUN chown -R 1001:0 /opt/ftl && chmod -R g=u /opt/ftl
+
+ENV ANSIBLE_CONFIG=/opt/ftl/ansible.cfg \
+    ANSIBLE_FORCE_COLOR=1 \
+    PYTHONUNBUFFERED=1
+
+USER 1001
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["--help"]
