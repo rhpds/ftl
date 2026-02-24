@@ -23,7 +23,7 @@ else
   echo "FTL: $(git -C /ftl log --oneline -1)"
 fi
 
-export ANSIBLE_ROLES_PATH=/ftl/roles
+export ANSIBLE_ROLES_PATH=/usr/share/ansible/roles:/ftl/roles
 export ANSIBLE_COLLECTIONS_PATH=/home/runner/.ansible/collections:/usr/share/ansible/collections
 
 COMMAND="${1:-}"
