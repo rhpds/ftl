@@ -10,11 +10,13 @@ set -e
 
 # ── Extract --podman / --ansible flag from args ───────────────────────────────
 RUNNER=""
+LOCAL_MOUNT=""
 CLEAN_ARGS=()
 for arg in "$@"; do
   case "$arg" in
     --podman)  RUNNER="podman" ;;
     --ansible) RUNNER="ansible" ;;
+    --local)   LOCAL_MOUNT="yes" ;;
     *)         CLEAN_ARGS+=("$arg") ;;
   esac
 done
@@ -141,7 +143,14 @@ if [ "$RUNNER" = "podman" ]; then
     GUID=$(echo "$OPENSHIFT_CLUSTER_INGRESS_DOMAIN" | sed 's/.*cluster-\([^.]*\)\..*/\1/')
   fi
 
-  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" "${REPORT_ARGS[@]}" \
+  LOCAL_ARGS=()
+  if [ "${LOCAL_MOUNT:-}" = "yes" ]; then
+    FTL_ROOT="$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel 2>/dev/null || dirname "$(dirname "$0")")"
+    LOCAL_ARGS=(-v "${FTL_ROOT}:/ftl:ro")
+    echo "⚙ Using local FTL repo: ${FTL_ROOT}"
+  fi
+
+  exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" "${REPORT_ARGS[@]}" "${LOCAL_ARGS[@]}" \
     -e ANSIBLE_FORCE_COLOR=true \
     ${GUID:+-e GUID="$GUID"} \
     "$FTL_IMAGE" solve "$@"
