@@ -26,7 +26,14 @@ ansible-playbook labs/mcp-with-openshift/grade_module_01.yml
 # Test cycle: grade (expect FAIL) → solve → grade (expect PASS)
 ```
 
-Required environment variables: `LAB_USER`, `GUID`, `OPENSHIFT_CLUSTER_INGRESS_DOMAIN`, `PASSWORD` (lab-dependent).
+Required environment variables (must use `export` — variables without export are not passed into the podman container):
+
+```bash
+export OCP_API_URL="https://api.cluster-xxxx.dynamic.redhatworkshops.io:6443"
+export OCP_ADMIN_PASSWORD="<admin-password>"
+export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxx.dynamic.redhatworkshops.io"
+# PASSWORD is auto-discovered from Showroom ConfigMap when OCP_API_URL is set
+```
 
 CI/CD: GitHub Actions builds and pushes the container image to `ghcr.io/rhpds/ftl` on push to `main`.
 
