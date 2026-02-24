@@ -1,0 +1,128 @@
+---
+# =============================================================================
+# Lab Metadata - Build Secure, Streamlined Developer Workflows with RHADS
+# =============================================================================
+
+lab_name: "Build Secure, Streamlined Developer Workflows with Red Hat Advanced Developer Suite"
+lab_short_name: "build-secure-dev-workflow-rhads"
+lab_description: |
+  Hands-on lab deploying the Red Hat Advanced Developer Suite (RHADS) stack:
+  RHTPA (Trusted Profile Analyzer), RHTAS (Trusted Artifact Signer), RHDH
+  (Developer Hub), and RHACS on OpenShift. Students act as platform engineers
+  in Modules 1-3, then switch to developer (user1) persona in Module 4.
+
+technology_stack:
+  - "OpenShift"
+  - "Red Hat Trusted Profile Analyzer (RHTPA)"
+  - "Red Hat Trusted Artifact Signer (RHTAS)"
+  - "Red Hat Developer Hub (RHDH)"
+  - "Red Hat Advanced Cluster Security (RHACS)"
+  - "Red Hat Build of Keycloak (RHBK)"
+  - "Tekton / OpenShift Pipelines"
+  - "GitLab"
+  - "Quay"
+  - "OpenShift Dev Spaces"
+  - "Enterprise Contract"
+
+difficulty: "advanced"
+estimated_duration_minutes: 100
+
+modules:
+  - number: 1
+    name: "Establish Software Composition Trust with SBOMs"
+    checkpoints: 5
+    description: |
+      Student deploys RHTPA: imports TPA Keycloak realm, creates CLI client
+      secret, deploys TrustedProfileAnalyzer CR, waits for server pod, and
+      uploads an SBOM via the RHTPA REST API.
+
+  - number: 2
+    name: "Sign and Verify All Artifacts With RHTAS"
+    checkpoints: 8
+    description: |
+      Student creates Keycloak realms/clients for RHTAS, deploys the Securesign
+      CR, deploys the OIDC refresher app, patches Tekton Chains, and runs a
+      smoke test TaskRun to verify keyless image signing end-to-end.
+
+  - number: 3
+    name: "Developer Workflow Without Developer Friction"
+    checkpoints: 5
+    description: |
+      Student creates user1 in Keycloak sso realm, hydrates RHDH via GitLab
+      config commits (plugins, auth, catalog), creates the tas-git-config
+      ConfigMap for Dev Spaces, and creates pipeline auth secrets.
+
+  - number: 4
+    name: "Enforce Policy and Promote Safely"
+    checkpoints: 5
+    description: |
+      Student (as user1) configures ACS-Quay integration, executes the
+      Software Template in RHDH to scaffold a Quarkus app, signs a commit via
+      gitsign in Dev Spaces, and creates a release tag to trigger the
+      promote-to-stage pipeline with Enterprise Contract validation.
+
+total_modules: 4
+total_checkpoints: 23
+
+required_environment_variables:
+  - name: "OPENSHIFT_CLUSTER_INGRESS_DOMAIN"
+    description: "OCP cluster apps domain (e.g., apps.cluster-xxxx.dynamic.redhatworkshops.io)"
+    example: "apps.cluster-xxxx.dynamic.redhatworkshops.io"
+
+optional_environment_variables:
+  - name: "LAB_USER"
+    description: "Student username (for report naming only — no namespace derivation)"
+    example: "student"
+    default: "$USER"
+  - name: "OCP_API_URL"
+    description: "OCP API URL — used by grade_lab wrapper to auto-login and discover credentials"
+    example: "https://api.cluster-xxxx.dynamic.redhatworkshops.io:6443"
+  - name: "OCP_ADMIN_PASSWORD"
+    description: "OCP admin password — used by grade_lab wrapper for auto-login"
+    example: "your-admin-password"
+
+multi_user_support: false
+per_user_isolation: "none"
+
+grader_roles_used:
+  - "grader_check_ocp_secret_exists"
+  - "grader_check_ocp_resource"
+  - "grader_check_ocp_pod_running"
+  - "grader_check_ocp_deployment"
+  - "grader_check_ocp_configmap_exists"
+  - "grader_check_http_json_response"
+  - "ftl_run_log_grade_to_log"
+
+solver_available: true
+solver_type: "automated"
+
+agnosticv_integration:
+  catalog_item: "agd_v2/build-secure-dev-workflow-rhads"
+  post_software_hook: false
+  user_info_reporting: false
+
+testing_status:
+  fresh_environment: "untested"
+  multi_user: "not-applicable"
+  production_validated: false
+
+maintainer: "psrivastw@redhat.com"
+last_updated: "2026-02-24"
+version: "1.0.0"
+
+notes: |
+  Single-user lab — all namespaces are fixed (tssc-tpa, tssc-tas, tssc-keycloak,
+  backstage, openshift-pipelines, etc.). No LAB_USER namespace derivation.
+
+  Modules 1-3: student acts as platform engineer (admin kubeconfig).
+  Module 4: student acts as user1 (developer persona via RHDH/DevSpaces).
+
+  Keycloak admin user is "temp-admin" (confirmed from cluster — NOT "admin").
+  Graders read Keycloak admin credentials from the Showroom ConfigMap.
+
+  Run with --podman using OCP_API_URL + OCP_ADMIN_PASSWORD so the wrapper
+  auto-discovers PASSWORD from the Showroom ConfigMap:
+    OCP_API_URL="https://api.cluster-xxxx.dynamic.redhatworkshops.io:6443" \
+    OCP_ADMIN_PASSWORD="<admin-pass>" \
+    OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxx.dynamic.redhatworkshops.io" \
+    grade_lab build-secure-dev-workflow-rhads student 1 --podman

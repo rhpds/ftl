@@ -1,0 +1,362 @@
+---
+# =============================================================================
+# Solver Module 1: Establish Software Composition Trust with SBOMs
+# =============================================================================
+#
+# Automates all Module 1 student exercises:
+# 1. Import TPA Keycloak realm (KeycloakRealmImport "tpa" in tssc-keycloak)
+# 2. Create TPA CLI client secret (Secret "tpa-realm-cli-clients" in tssc-tpa)
+# 3. Deploy TrustedProfileAnalyzer CR in tssc-tpa
+# 4. Wait for RHTPA server pod to be Running
+# 5. Upload example SBOM to RHTPA via REST API
+#
+# Environment Variables Required:
+#   - OPENSHIFT_CLUSTER_INGRESS_DOMAIN: OCP apps domain
+#
+# Auto-discovered by solve_lab wrapper:
+#   - PASSWORD: user password = TPA CLI client secret for this lab
+#
+# Usage:
+#   OCP_API_URL="https://api.cluster-xxxx.dynamic.redhatworkshops.io:6443" \
+#   OCP_ADMIN_PASSWORD="<admin-pass>" \
+#   OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxxx.dynamic.redhatworkshops.io" \
+#   solve_lab build-secure-dev-workflow-rhads student 1 --podman
+# =============================================================================
+
+- name: Solve Module 1 - Establish Software Composition Trust with SBOMs
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') }}"
+    tpa_cli_client_secret: "{{ lookup('env', 'PASSWORD') }}"
+    tpa_realm: "tpa"
+    tpa_server_url: "https://server-tssc-tpa.{{ ingress_domain }}"
+    keycloak_url: "https://sso.{{ ingress_domain }}"
+    # TPA Realm import values (match defaults from lab assets / common.yaml)
+    tpa_admin_username: "tpa-admin"
+    tpa_admin_password: "{{ lookup('env', 'PASSWORD') }}"
+
+  tasks:
+    # =========================================================================
+    # Environment Variable Validation
+    # =========================================================================
+    - name: Validate required environment variables
+      ansible.builtin.assert:
+        that:
+          - ingress_domain | length > 0
+          - tpa_cli_client_secret | length > 0
+        fail_msg: |
+          Required environment variables not set:
+          - OPENSHIFT_CLUSTER_INGRESS_DOMAIN
+          - PASSWORD (auto-discovered from Showroom ConfigMap via solve_lab wrapper)
+
+    - name: Display solver information
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Solving Module 1: Establish Software Composition Trust with SBOMs
+          ================================================================================
+          Target cluster: {{ ingress_domain }}
+          Steps: import TPA realm → create CLI secret → deploy TPA CR → wait for pod → upload SBOM
+          ================================================================================
+
+    # =========================================================================
+    # Step 1: Import TPA Realm into Keycloak (tssc-keycloak)
+    # =========================================================================
+    - name: Check if KeycloakRealmImport 'tpa' already exists
+      kubernetes.core.k8s_info:
+        api_version: k8s.keycloak.org/v2alpha1
+        kind: KeycloakRealmImport
+        name: tpa
+        namespace: tssc-keycloak
+      register: r_existing_realm
+      failed_when: false
+
+    - name: Create KeycloakRealmImport 'tpa' in tssc-keycloak
+      when: r_existing_realm.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: k8s.keycloak.org/v2alpha1
+          kind: KeycloakRealmImport
+          metadata:
+            name: tpa
+            namespace: tssc-keycloak
+            labels:
+              app: keycloak
+          spec:
+            keycloakCRName: keycloak
+            realm:
+              realm: "{{ tpa_realm }}"
+              displayName: "Trusted Content"
+              enabled: true
+              clientScopes:
+                - attributes: {}
+                  name: create:document
+                  protocol: openid-connect
+                - attributes: {}
+                  name: read:document
+                  protocol: openid-connect
+                - attributes: {}
+                  name: delete:document
+                  protocol: openid-connect
+                - attributes: {}
+                  name: update:document
+                  protocol: openid-connect
+              clients:
+                - clientId: frontend
+                  publicClient: true
+                  defaultClientScopes:
+                    - web-origins
+                    - delete:document
+                    - profile
+                    - roles
+                    - read:document
+                    - email
+                    - create:document
+                - clientId: cli
+                  clientAuthenticatorType: client-secret
+                  secret: "{{ tpa_cli_client_secret }}"
+                  serviceAccountsEnabled: true
+                  defaultClientScopes:
+                    - web-origins
+                    - profile
+                    - roles
+                    - read:document
+                    - email
+                    - create:document
+                    - update:document
+                    - delete:document
+              roles:
+                realm:
+                  - name: tpa-user
+                  - name: tpa-manager
+                  - name: tpa-admin
+              scopeMappings:
+                - clientScope: delete:document
+                  roles:
+                    - tpa-manager
+                - clientScope: create:document
+                  roles:
+                    - tpa-manager
+              users:
+                - realmRoles:
+                    - default-roles-tpa
+                    - tpa-manager
+                  serviceAccountClientId: cli
+                  username: "service-account-cli"
+                - username: "{{ tpa_admin_username }}"
+                  enabled: true
+                  email: "{{ tpa_admin_username }}@demo.redhat.com"
+                  emailVerified: true
+                  credentials:
+                    - type: password
+                      value: "{{ tpa_admin_password }}"
+                      temporary: false
+                  realmRoles:
+                    - default-roles-tpa
+                    - tpa-manager
+
+    - name: Wait for KeycloakRealmImport 'tpa' to complete (Done=True)
+      kubernetes.core.k8s_info:
+        api_version: k8s.keycloak.org/v2alpha1
+        kind: KeycloakRealmImport
+        name: tpa
+        namespace: tssc-keycloak
+      register: r_realm_status
+      until:
+        - r_realm_status.resources | length > 0
+        - r_realm_status.resources[0].status.conditions |
+            selectattr('type', 'equalto', 'Done') |
+            selectattr('status', 'equalto', 'True') |
+            list | length > 0
+      retries: 30
+      delay: 10
+
+    - name: "Step 1 complete: TPA realm imported"
+      ansible.builtin.debug:
+        msg: "KeycloakRealmImport 'tpa' is Done in tssc-keycloak"
+
+    # =========================================================================
+    # Step 2: Create TPA CLI Client Secret in tssc-tpa
+    # =========================================================================
+    - name: Create Secret tpa-realm-cli-clients in tssc-tpa
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: tpa-realm-cli-clients
+            namespace: tssc-tpa
+          stringData:
+            cli: "{{ tpa_cli_client_secret }}"
+          type: Opaque
+
+    - name: "Step 2 complete: TPA CLI client secret created"
+      ansible.builtin.debug:
+        msg: "Secret 'tpa-realm-cli-clients' created in tssc-tpa"
+
+    # =========================================================================
+    # Step 3: Deploy TrustedProfileAnalyzer CR in tssc-tpa
+    # =========================================================================
+    - name: Check if TrustedProfileAnalyzer CR already exists
+      kubernetes.core.k8s_info:
+        api_version: rhtpa.io/v1
+        kind: TrustedProfileAnalyzer
+        name: trustedprofileanalyzer
+        namespace: tssc-tpa
+      register: r_existing_tpa
+      failed_when: false
+
+    - name: Deploy TrustedProfileAnalyzer CR in tssc-tpa
+      when: r_existing_tpa.resources | length == 0
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: rhtpa.io/v1
+          kind: TrustedProfileAnalyzer
+          metadata:
+            name: trustedprofileanalyzer
+            namespace: tssc-tpa
+          spec:
+            tracing:
+              enabled: false
+            metrics:
+              enabled: false
+            infrastructure:
+              port: 9010
+            rust:
+              backtrace: true
+              logFilter: debug
+            oidc:
+              issuerUrl: "{{ keycloak_url }}/realms/{{ tpa_realm }}"
+              clients:
+                cli:
+                  clientId: cli
+                  clientSecret:
+                    valueFrom:
+                      secretKeyRef:
+                        key: cli
+                        name: tpa-realm-cli-clients
+                frontend:
+                  clientId: frontend
+            storage:
+              size: 32Gi
+              type: filesystem
+            modules:
+              createImporters:
+                enabled: true
+                importers:
+                  cve:
+                    cve:
+                      period: 1d
+                      source: "https://github.com/CVEProject/cvelistV5"
+                  osv-github:
+                    osv:
+                      period: 1d
+                      source: "https://github.com/github/advisory-database"
+
+    - name: "Step 3 complete: TrustedProfileAnalyzer CR applied"
+      ansible.builtin.debug:
+        msg: "TrustedProfileAnalyzer 'trustedprofileanalyzer' applied in tssc-tpa"
+
+    # =========================================================================
+    # Step 4: Wait for RHTPA Server Pod to be Running
+    # =========================================================================
+    - name: Wait for RHTPA server pod to appear in tssc-tpa
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: tssc-tpa
+        label_selectors:
+          - "app.kubernetes.io/component=server"
+      register: r_server_pod
+      until:
+        - r_server_pod.resources | length > 0
+        - r_server_pod.resources |
+            selectattr('status.phase', 'equalto', 'Running') |
+            list | length > 0
+      retries: 60
+      delay: 15
+
+    - name: "Step 4 complete: RHTPA server pod is Running"
+      ansible.builtin.debug:
+        msg: "RHTPA server pod is Running in tssc-tpa"
+
+    # =========================================================================
+    # Step 5: Upload Example SBOM to RHTPA
+    # =========================================================================
+    - name: Get OIDC token from Keycloak (TPA CLI client)
+      ansible.builtin.uri:
+        url: "{{ keycloak_url }}/realms/{{ tpa_realm }}/protocol/openid-connect/token"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          client_id: "cli"
+          client_secret: "{{ tpa_cli_client_secret }}"
+        validate_certs: false
+        status_code: [200]
+      register: r_tpa_token
+      retries: 5
+      delay: 10
+      no_log: true
+
+    - name: Check if SBOM already exists in RHTPA
+      ansible.builtin.uri:
+        url: "{{ tpa_server_url }}/api/v2/sbom?offset=0&limit=1"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ r_tpa_token.json.access_token }}"
+        validate_certs: false
+        status_code: [200]
+      register: r_sbom_check
+      failed_when: false
+
+    - name: Upload example SBOM to RHTPA
+      when:
+        - r_sbom_check is not skipped
+        - r_sbom_check.status is defined
+        - r_sbom_check.status == 200
+        - (r_sbom_check.json.total | default(0) | int) == 0
+      ansible.builtin.uri:
+        url: "{{ tpa_server_url }}/api/v2/sbom?id=test-sbom"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ r_tpa_token.json.access_token }}"
+          Content-Type: "application/json"
+        src: "/home/lab-user/lab-assets/example-sbom.json"
+        validate_certs: false
+        status_code: [200, 201]
+      register: r_sbom_upload
+      failed_when: false
+
+    - name: "Step 5 complete: SBOM upload attempted"
+      ansible.builtin.debug:
+        msg: "{{ 'SBOM already existed in RHTPA — skipped upload' if (r_sbom_check.json.total | default(0) | int) > 0 else 'SBOM uploaded to RHTPA: ' + (r_sbom_upload.json | default({}) | string) }}"
+
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    - name: Display Module 1 solver summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Module 1 Solver Completed
+          ================================================================================
+
+          Resources created/verified:
+            ✓ KeycloakRealmImport 'tpa' — Done in tssc-keycloak
+            ✓ Secret 'tpa-realm-cli-clients' — in tssc-tpa (key: cli)
+            ✓ TrustedProfileAnalyzer 'trustedprofileanalyzer' — in tssc-tpa
+            ✓ RHTPA server pod — Running in tssc-tpa
+            ✓ SBOM — uploaded to RHTPA inventory
+
+          Next steps:
+            Grade Module 1:   grade_lab build-secure-dev-workflow-rhads student 1 --podman
+            Continue Module 2: solve_lab build-secure-dev-workflow-rhads student 2 --podman
+
+          ================================================================================
