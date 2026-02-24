@@ -10,14 +10,27 @@
 
 set -e
 
+FTL_DIR="/opt/ftl"
+FTL_REPO="${FTL_REPO:-https://github.com/rhpds/ftl.git}"
+FTL_REF="${FTL_REF:-main}"
+
+# Clone labs/ at runtime if not already present (handles --local mount too)
+if [ ! -d "${FTL_DIR}/labs" ]; then
+    echo "FTL: cloning labs from ${FTL_REPO}@${FTL_REF}..."
+    git clone --depth 1 --branch "$FTL_REF" --no-checkout "$FTL_REPO" /tmp/ftl-clone --quiet
+    git -C /tmp/ftl-clone sparse-checkout set labs
+    git -C /tmp/ftl-clone checkout --quiet
+    cp -r /tmp/ftl-clone/labs "${FTL_DIR}/labs"
+    rm -rf /tmp/ftl-clone
+    echo "FTL: labs ready"
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
-
-FTL_DIR="/opt/ftl"
 ANSIBLE_DEBUG=""
 
 # Strip --debug flag from arguments

@@ -173,14 +173,24 @@ See link:docs/GRADER_ROLES_REFERENCE.md[Grader Roles Reference] for full details
 
 == Container Image
 
+Based on `ubi9/ubi-minimal` with multi-arch `oc` client support (amd64 + arm64).
+
+*What's baked in:* Generic grader/solver roles (`roles/`), plugins, ansible config.
+
+*What's cloned at runtime:* Lab content (`labs/`) — no image rebuild needed when graders change.
+
 [source,bash]
 ----
-podman build --platform linux/amd64 -t quay.io/rhpds/ftl:latest -f Containerfile .
+# Build and push
+podman build -t quay.io/rhpds/ftl:latest .
 podman push quay.io/rhpds/ftl:latest
-----
 
-UBI9-based (linux/amd64): `ansible-core` + `kubernetes.core` + `oc` 4.18.
-FTL labs cloned from GitHub at container startup — no rebuild needed for grader changes.
+# Test with local labs (no push needed)
+grade_lab <lab> user1 1 --podman --local
+
+# Use a specific image
+FTL_IMAGE=quay.io/rhpds/ftl:my-tag grade_lab <lab> user1 --podman
+----
 
 == License
 

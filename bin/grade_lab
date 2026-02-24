@@ -168,8 +168,8 @@ if [ "$RUNNER" = "podman" ]; then
   LOCAL_ARGS=()
   if [ "${LOCAL_MOUNT:-}" = "yes" ]; then
     FTL_ROOT="$(git -C "$(dirname "$0")/.." rev-parse --show-toplevel 2>/dev/null || dirname "$(dirname "$0")")"
-    LOCAL_ARGS=(-v "${FTL_ROOT}:/ftl:ro")
-    echo "⚙ Using local FTL repo: ${FTL_ROOT}"
+    LOCAL_ARGS=(-v "${FTL_ROOT}/labs:/opt/ftl/labs:ro")
+    echo "⚙ Using local labs: ${FTL_ROOT}/labs"
   fi
 
   exec podman run --rm "${KUBE_ARGS[@]}" "${ENV_ARGS[@]}" "${REPORT_ARGS[@]}" "${LOCAL_ARGS[@]}" \
