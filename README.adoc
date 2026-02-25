@@ -57,43 +57,48 @@ grade_lab <lab-name> user1 --podman    # expect: SUCCESS 0 Errors
 
 == Running Modes
 
-=== Direct podman run
+=== Option 1: Direct podman run (no setup required)
 
-Run the container directly without the wrapper scripts — useful for simple cases or when you don't have the FTL repo cloned:
+No FTL repo needed — just `podman` and your cluster credentials:
 
 [source,bash]
 ----
-# Username/password auth
-podman run --rm \
-    -e OPENSHIFT_USERNAME=user1 \
-    -e OPENSHIFT_PASSWORD=secret \
-    -e OPENSHIFT_API_URL=https://api.cluster-xxxxx.example.com:6443 \
-    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxxxx.example.com \
-    ghcr.io/rhpds/ftl grade ocp4-getting-started user1
-
-# Token auth
-podman run --rm \
-    -e OCP_TOKEN=sha256~xxx \
-    -e OPENSHIFT_API_URL=https://api.cluster-xxxxx.example.com:6443 \
-    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxxxx.example.com \
-    ghcr.io/rhpds/ftl grade ocp4-getting-started user1
-
-# Mounted kubeconfig (admin access)
-podman run --rm \
-    -v ~/.kube/config:/home/runner/.kube/config:ro \
-    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxxxx.example.com \
-    ghcr.io/rhpds/ftl grade ocp4-getting-started user1
-
-# List available labs
+# See available labs
 podman run --rm ghcr.io/rhpds/ftl list
 
-# Show help
+# Show help and auth options
 podman run --rm ghcr.io/rhpds/ftl --help
+
+# Grade with username/password
+podman run --rm \
+    -e OPENSHIFT_API_URL=https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+    -e OPENSHIFT_USERNAME=admin \
+    -e OPENSHIFT_PASSWORD=<admin-password> \
+    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxxxx.dynamic.redhatworkshops.io \
+    -v ~/ftl-reports:/tmp/grading_dir \
+    ghcr.io/rhpds/ftl grade mcp-with-openshift user1 1
+
+# Grade with mounted kubeconfig
+podman run --rm \
+    -v ~/.kube/config:/home/runner/.kube/config:ro \
+    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxxxx.dynamic.redhatworkshops.io \
+    -v ~/ftl-reports:/tmp/grading_dir \
+    ghcr.io/rhpds/ftl grade mcp-with-openshift user1 1
+
+# Grade with token
+podman run --rm \
+    -e OPENSHIFT_API_URL=https://api.cluster-xxxxx.dynamic.redhatworkshops.io:6443 \
+    -e OCP_TOKEN=sha256~xxx \
+    -e OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxxxx.dynamic.redhatworkshops.io \
+    -v ~/ftl-reports:/tmp/grading_dir \
+    ghcr.io/rhpds/ftl grade mcp-with-openshift user1 1
 ----
 
-=== --podman (Laptop wrapper)
+Reports are saved to `~/ftl-reports/` on your laptop via the `-v` mount.
 
-Uses the `grade_lab`/`solve_lab` wrapper scripts — handles credential discovery, multi-user, and report saving automatically.
+=== Option 2: Wrapper scripts (multi-user + auto credential discovery)
+
+Uses the `grade_lab`/`solve_lab` wrapper scripts — handles credential discovery from Showroom ConfigMaps, multi-user parallel grading, and report saving automatically.
 
 [source,bash]
 ----
@@ -101,7 +106,7 @@ Uses the `grade_lab`/`solve_lab` wrapper scripts — handles credential discover
 git clone https://github.com/rhpds/ftl.git ~/ftl
 echo 'export PATH="$HOME/ftl/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 
-# Set credentials — user passwords are auto-discovered, no PASSWORD needed
+# Set credentials — user passwords are auto-discovered from Showroom ConfigMaps
 export OCP_API_URL="https://api.cluster-xxx.dynamic.redhatworkshops.io:6443"
 export OCP_ADMIN_PASSWORD="<admin-password>"
 export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
