@@ -5,8 +5,8 @@
 # Lab content (labs/) is cloned at runtime from GitHub — no rebuild needed for lab changes.
 # Use --local to mount local labs/ instead: -v /path/to/ftl/labs:/opt/ftl/labs:ro
 #
-# Build:  podman build -t quay.io/rhpds/ftl:latest .
-#         podman push quay.io/rhpds/ftl:latest
+# Build:  podman build -t ghcr.io/rhpds/ftl:latest .
+#         podman push ghcr.io/rhpds/ftl:latest
 # Run:    ./bin/grade_lab <lab> <user> <module> --podman
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest

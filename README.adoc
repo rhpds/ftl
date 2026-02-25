@@ -14,7 +14,7 @@ image:https://img.shields.io/badge/image-ghcr.io%2Frhpds%2Fftl-green[GHCR Image,
   grade_lab lab user1 --podman        grade_lab lab user1 --ansible
        │                                   │
        ▼                                   ▼
-  quay.io/rhpds/ftl               ansible-playbook
+  ghcr.io/rhpds/ftl               ansible-playbook
   (container)                     (direct)
        │                                   │
        └──────────────┬────────────────────┘
@@ -178,7 +178,7 @@ Each lab README has the exact `export` + `grade_lab`/`solve_lab` commands for th
 | `AAP_USERNAME` | AAP username (default: `lab-user`) | RIPU
 | `GITEA_ADMIN_USER` | Gitea admin username — *auto-discovered from Showroom ConfigMap* | Override only
 | `GITEA_ADMIN_PASSWORD` | Gitea admin password — *auto-discovered from Showroom ConfigMap* | Override only
-| `FTL_IMAGE` | Override container image (default: `quay.io/rhpds/ftl:latest`) | Dev only
+| `FTL_IMAGE` | Override container image (default: `ghcr.io/rhpds/ftl:latest`) | Dev only
 | `FTL_REPORT_DIR` | Local directory for grading reports (default: `~/ftl-reports`) | `--podman` only
 
 |===
@@ -213,10 +213,7 @@ Based on `ubi9/ubi-minimal` with multi-arch `oc` client support (amd64 + arm64).
 
 *What's cloned at runtime:* Lab content (`labs/`) — no image rebuild needed when graders change.
 
-Available on both registries:
-
-* `ghcr.io/rhpds/ftl:latest`
-* `quay.io/rhpds/ftl:latest`
+Primary registry: `ghcr.io/rhpds/ftl` — also mirrored to `quay.io/rhpds/ftl`.
 
 Images are tagged with both `latest` and a date tag (e.g. `2026-02-25`) on every release.
 
@@ -224,13 +221,13 @@ Images are tagged with both `latest` and a date tag (e.g. `2026-02-25`) on every
 ----
 # Build and push to both registries with latest + date tag
 DATE_TAG=$(date +%Y-%m-%d)
-podman build -t quay.io/rhpds/ftl:latest -t quay.io/rhpds/ftl:${DATE_TAG} \
-             -t ghcr.io/rhpds/ftl:latest  -t ghcr.io/rhpds/ftl:${DATE_TAG} .
+podman build -t ghcr.io/rhpds/ftl:latest  -t ghcr.io/rhpds/ftl:${DATE_TAG} \
+             -t quay.io/rhpds/ftl:latest  -t quay.io/rhpds/ftl:${DATE_TAG} .
 
-podman push quay.io/rhpds/ftl:latest
-podman push quay.io/rhpds/ftl:${DATE_TAG}
 podman push ghcr.io/rhpds/ftl:latest
 podman push ghcr.io/rhpds/ftl:${DATE_TAG}
+podman push quay.io/rhpds/ftl:latest
+podman push quay.io/rhpds/ftl:${DATE_TAG}
 
 # Test with local labs (no push needed)
 grade_lab <lab> user1 1 --podman --local

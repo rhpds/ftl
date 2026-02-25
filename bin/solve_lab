@@ -29,7 +29,7 @@ fi
 
 # ── Podman / container mode ───────────────────────────────────────────────────
 if [ "$RUNNER" = "podman" ]; then
-  FTL_IMAGE="${FTL_IMAGE:-quay.io/rhpds/ftl:latest}"
+  FTL_IMAGE="${FTL_IMAGE:-ghcr.io/rhpds/ftl:latest}"
 
   ENV_ARGS=()
   for var in LAB_USER PASSWORD OPENSHIFT_CLUSTER_INGRESS_DOMAIN \
