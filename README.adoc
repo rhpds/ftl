@@ -218,18 +218,25 @@ Available on both registries:
 * `ghcr.io/rhpds/ftl:latest`
 * `quay.io/rhpds/ftl:latest`
 
+Images are tagged with both `latest` and a date tag (e.g. `2026-02-25`) on every release.
+
 [source,bash]
 ----
-# Build and push to both registries
-podman build -t quay.io/rhpds/ftl:latest -t ghcr.io/rhpds/ftl:latest .
+# Build and push to both registries with latest + date tag
+DATE_TAG=$(date +%Y-%m-%d)
+podman build -t quay.io/rhpds/ftl:latest -t quay.io/rhpds/ftl:${DATE_TAG} \
+             -t ghcr.io/rhpds/ftl:latest  -t ghcr.io/rhpds/ftl:${DATE_TAG} .
+
 podman push quay.io/rhpds/ftl:latest
+podman push quay.io/rhpds/ftl:${DATE_TAG}
 podman push ghcr.io/rhpds/ftl:latest
+podman push ghcr.io/rhpds/ftl:${DATE_TAG}
 
 # Test with local labs (no push needed)
 grade_lab <lab> user1 1 --podman --local
 
-# Use a specific image
-FTL_IMAGE=ghcr.io/rhpds/ftl:latest grade_lab <lab> user1 --podman
+# Pin to a specific date tag
+FTL_IMAGE=ghcr.io/rhpds/ftl:2026-02-25 grade_lab <lab> user1 --podman
 ----
 
 == License
