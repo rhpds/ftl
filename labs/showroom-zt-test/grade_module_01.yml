@@ -1,0 +1,118 @@
+---
+# =============================================================================
+# Grade Module 1: Deploy a Test Application
+# =============================================================================
+#
+# Validates that the student (or ZT solve script) has completed module 1:
+#   1.1 - Student namespace exists
+#   1.2 - ConfigMap "zt-test-config" exists in student namespace
+#   1.3 - Deployment "zt-test-app" is running in student namespace
+#
+# Environment Variables Required:
+#   OPENSHIFT_CLUSTER_INGRESS_DOMAIN - OCP ingress domain
+#
+# Optional:
+#   LAB_USER - username (user1, user2, user3) — defaults to $USER
+#
+# Usage:
+#   export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.example.com"
+#   bash bin/grade_lab showroom-zt-test user1 1 --podman
+# =============================================================================
+
+# =============================================================================
+# Play 1: Initialize
+# =============================================================================
+- name: Initialize FTL Grading - Showroom ZT Test Module 1
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "Showroom ZT Test - Module 1: Deploy a Test Application"
+    module_number: "01"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
+  roles:
+    - ftl_run_init
+
+# =============================================================================
+# Play 2: Grade
+# =============================================================================
+- name: Grade Module 1 - Deploy a Test Application
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_user: "{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}"
+    student_namespace: "zt-test-{{ lab_user }}"
+    grader_student_report_file: "grading_report_{{ lab_user }}_module_01.txt"
+
+  tasks:
+    # =========================================================================
+    # Environment validation
+    # =========================================================================
+    - name: Validate OPENSHIFT_CLUSTER_INGRESS_DOMAIN is set
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length > 0
+        fail_msg: |
+          OPENSHIFT_CLUSTER_INGRESS_DOMAIN is not set.
+          export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.example.com"
+
+    # =========================================================================
+    # Exercise 1.1: Student namespace exists
+    # =========================================================================
+    - name: "Exercise 1.1: Verify student namespace exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_resource
+      vars:
+        task_description_message: "Exercise 1.1: Namespace {{ student_namespace }} exists"
+        resource_api_version: v1
+        resource_kind: Namespace
+        resource_name: "{{ student_namespace }}"
+        student_error_message: |
+          Namespace {{ student_namespace }} not found.
+          The setup script should have created this namespace.
+          Check: oc get namespace {{ student_namespace }}
+
+    # =========================================================================
+    # Exercise 1.2: ConfigMap exists
+    # =========================================================================
+    - name: "Exercise 1.2: Verify ConfigMap zt-test-config exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_configmap_exists
+      vars:
+        task_description_message: "Exercise 1.2: ConfigMap zt-test-config exists in {{ student_namespace }}"
+        configmap_name: "zt-test-config"
+        configmap_namespace: "{{ student_namespace }}"
+        student_error_message: |
+          ConfigMap zt-test-config not found in namespace {{ student_namespace }}.
+          Run the setup script or create it manually:
+          oc create configmap zt-test-config --from-literal=env=test -n {{ student_namespace }}
+
+    # =========================================================================
+    # Exercise 1.3: Deployment is running
+    # =========================================================================
+    - name: "Exercise 1.3: Verify zt-test-app Deployment is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "Exercise 1.3: zt-test-app pod is running in {{ student_namespace }}"
+        pod_name: "zt-test-app"
+        pod_namespace: "{{ student_namespace }}"
+        student_error_message: |
+          Pod for zt-test-app not found or not running in {{ student_namespace }}.
+          Check deployment: oc get deployment zt-test-app -n {{ student_namespace }}
+          Check pods:       oc get pods -n {{ student_namespace }}
+
+# =============================================================================
+# Play 3: Finalize
+# =============================================================================
+- name: Finalize FTL Grading - Showroom ZT Test Module 1
+  hosts: localhost
+  gather_facts: false
+  vars:
+    module_number: "01"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_01.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish

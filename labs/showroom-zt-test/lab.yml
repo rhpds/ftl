@@ -1,0 +1,70 @@
+---
+# =============================================================================
+# Lab Metadata - Showroom Zero Touch CI Test
+# =============================================================================
+
+lab_name: "Showroom Zero Touch CI Test"
+lab_short_name: "showroom-zt-test"
+lab_description: |
+  CI test lab validating Zero Touch showroom integration on OCP/CNV.
+  Students deploy a simple application in their namespace.
+  Tests the zerotouch-automation setup/validation/solve pipeline end-to-end.
+
+technology_stack:
+  - OpenShift
+  - Zero Touch Showroom
+  - zerotouch-automation
+
+difficulty: "beginner"
+estimated_duration_minutes: 15
+
+modules:
+  - number: 1
+    name: "Deploy a Test Application"
+    checkpoints: 3
+    description: |
+      Student creates a ConfigMap and a Deployment in their namespace.
+      Validates that the Zero Touch validation and solve pipeline works correctly.
+
+total_modules: 1
+total_checkpoints: 3
+
+required_environment_variables:
+  - name: "OPENSHIFT_CLUSTER_INGRESS_DOMAIN"
+    description: "OCP cluster ingress domain"
+    example: "apps.cluster-xxx.example.com"
+
+optional_environment_variables:
+  - name: "LAB_USER"
+    description: "Username for multi-user environments (user1, user2, user3)"
+    example: "user1"
+    default: "$USER"
+
+multi_user_support: true
+per_user_isolation: "namespace"
+
+grader_roles_used:
+  - "grader_check_ocp_resource"
+  - "grader_check_ocp_pod_running"
+  - "grader_check_ocp_configmap_exists"
+
+solver_available: true
+solver_type: "automated"
+
+agnosticv_integration:
+  catalog_item: "tests/showroom-zt-test"
+  post_software_hook: false
+  user_info_reporting: false
+
+testing_status:
+  fresh_environment: "tested"
+  multi_user: "tested"
+  production_validated: false
+
+maintainer: "psrivast@redhat.com"
+last_updated: "2026-03"
+version: "1.0.0"
+
+notes: |
+  CI test for Zero Touch showroom. Not a real student lab.
+  Max 3 concurrent users. Namespace pattern: zt-test-{user}

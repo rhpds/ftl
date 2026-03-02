@@ -1,0 +1,107 @@
+---
+# =============================================================================
+# Solve Module 1: Deploy a Test Application
+# =============================================================================
+#
+# Creates everything the student should have created in Module 1:
+#   - Namespace zt-test-{user}
+#   - ConfigMap zt-test-config
+#   - Deployment zt-test-app (nginx)
+#
+# After running this, grade_module_01.yml should report all PASS.
+#
+# Usage:
+#   export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.example.com"
+#   bash bin/solve_lab showroom-zt-test user1 1 --podman
+# =============================================================================
+
+- name: Solve Module 1 - Deploy a Test Application
+  hosts: localhost
+  gather_facts: false
+  become: false
+
+  vars:
+    lab_user: "{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}"
+    student_namespace: "zt-test-{{ lab_user }}"
+
+  tasks:
+    - name: Validate OPENSHIFT_CLUSTER_INGRESS_DOMAIN is set
+      ansible.builtin.assert:
+        that:
+          - lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | length > 0
+        fail_msg: "export OPENSHIFT_CLUSTER_INGRESS_DOMAIN=apps.cluster-xxx.example.com"
+
+    # ── Exercise 1.1: Create namespace ──────────────────────────────────────
+    - name: "Solve 1.1: Create namespace {{ student_namespace }}"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ student_namespace }}"
+            labels:
+              lab-user: "{{ lab_user }}"
+              managed-by: ftl-solver
+
+    # ── Exercise 1.2: Create ConfigMap ──────────────────────────────────────
+    - name: "Solve 1.2: Create ConfigMap zt-test-config"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: zt-test-config
+            namespace: "{{ student_namespace }}"
+          data:
+            env: test
+            lab-user: "{{ lab_user }}"
+
+    # ── Exercise 1.3: Create Deployment ─────────────────────────────────────
+    - name: "Solve 1.3: Create Deployment zt-test-app"
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: zt-test-app
+            namespace: "{{ student_namespace }}"
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: zt-test-app
+            template:
+              metadata:
+                labels:
+                  app: zt-test-app
+              spec:
+                containers:
+                  - name: app
+                    image: registry.access.redhat.com/ubi9/nginx-122:latest
+                    ports:
+                      - containerPort: 8080
+
+    - name: "Solve 1.3: Wait for zt-test-app pod to be running"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ student_namespace }}"
+        label_selectors:
+          - app=zt-test-app
+      register: r_pod
+      retries: 30
+      delay: 10
+      until:
+        - r_pod.resources | length > 0
+        - r_pod.resources[0].status.phase == "Running"
+
+    - name: Solver complete
+      ansible.builtin.debug:
+        msg: |
+          ✓ Namespace {{ student_namespace }} created
+          ✓ ConfigMap zt-test-config created
+          ✓ Deployment zt-test-app running
+          Run grade_module_01.yml to verify all checks pass.
