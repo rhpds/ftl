@@ -37,7 +37,7 @@
 - name: Launch E2E Readiness Check for all users in parallel
   when: ftl_e2e_readiness_check | default(false) | bool
   ansible.builtin.command:
-    cmd: "ansible-playbook {{ ftl_lab_path }}/grade_e2e_readiness.yml"
+    cmd: "ansible-playbook -i localhost, {{ ftl_lab_path }}/grade_e2e_readiness.yml"
   environment:
     ANSIBLE_ROLES_PATH: "{{ ftl_roles_path }}"
     LAB_USER: "{{ item }}"
@@ -76,10 +76,10 @@
   when: ftl_e2e_full_lab_check | default(false) | bool
   ansible.builtin.shell: |
     for f in $(ls {{ ftl_lab_path }}/solve_module_*.yml | sort); do
-      ANSIBLE_ROLES_PATH={{ ftl_roles_path }} ansible-playbook $f || exit 1
+      ANSIBLE_ROLES_PATH={{ ftl_roles_path }} ansible-playbook -i localhost, $f || exit 1
     done
     for f in $(ls {{ ftl_lab_path }}/grade_module_*.yml | sort); do
-      ANSIBLE_ROLES_PATH={{ ftl_roles_path }} ansible-playbook $f || exit 1
+      ANSIBLE_ROLES_PATH={{ ftl_roles_path }} ansible-playbook -i localhost, $f || exit 1
     done
   environment:
     LAB_USER: "{{ item }}"
