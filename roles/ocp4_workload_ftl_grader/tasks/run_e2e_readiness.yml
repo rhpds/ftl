@@ -48,9 +48,8 @@
 
 - name: Surface E2E Readiness results to RHDP platform
   agnosticd_user_info:
-    user: "{{ ftl_target_user }}"
     msg: |
-      E2E Readiness Check — {{ ocp4_workload_ftl_grader_lab_id }}
+      E2E Readiness Check — {{ ocp4_workload_ftl_grader_lab_id }} ({{ ftl_target_user }})
       PASS: {{ ftl_e2e_pass_count }} | FAIL: {{ ftl_e2e_fail_count }}
       STATUS: {{ 'Environment ready' if ftl_e2e_fail_count | int == 0 else 'Environment has issues' }}
     data:
