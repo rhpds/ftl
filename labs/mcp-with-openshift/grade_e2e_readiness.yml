@@ -137,14 +137,28 @@
         student_error_message: "LibreChat route not found in {{ librechat_namespace }}. Check: oc get routes -n {{ librechat_namespace }}"
 
     # =========================================================================
-    # HC-5: LibreChat HTTP
+    # HC-5: LibreChat HTTP — discover URL from Route, not constructed
     # =========================================================================
+    - name: "HC-5: Discover LibreChat route host"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: librechat
+        namespace: "{{ librechat_namespace }}"
+      register: r_librechat_route
+      failed_when: false
+
+    - name: "HC-5: Set LibreChat URL from route"
+      ansible.builtin.set_fact:
+        librechat_url: "https://{{ r_librechat_route.resources[0].spec.host }}"
+      when: r_librechat_route.resources | default([]) | length > 0
+
     - name: "HC-5: Verify LibreChat UI is accessible via HTTP"
       ansible.builtin.include_role:
         name: grader_check_http_endpoint
       vars:
         task_description_message: "HC-5: LibreChat UI is accessible via HTTP"
-        url: "https://librechat-{{ librechat_namespace }}.{{ openshift_cluster_ingress_domain }}"
+        url: "{{ librechat_url | default('https://librechat-' + librechat_namespace + '.' + openshift_cluster_ingress_domain) }}"
         expected_status_code: 200
         student_error_message: "LibreChat is not responding. Pod may be running but application not healthy."
 
