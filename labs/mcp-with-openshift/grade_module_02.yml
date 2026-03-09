@@ -59,8 +59,7 @@
         - showroom_ns | default('') != ''
         - r_showroom_cm.resources | default([]) | length > 0
       ansible.builtin.set_fact:
-        gitea_url_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
-          regex_search('\"gitea_url\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
+        gitea_url_from_cm: "{{ (r_showroom_cm.resources[0].data['user_data.yml'] | from_yaml).get('gitea_url', '') }}"
 
     - name: Set Gitea URL (env > ConfigMap > constructed fallback)
       ansible.builtin.set_fact:

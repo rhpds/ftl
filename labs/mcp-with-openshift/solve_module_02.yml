@@ -61,8 +61,7 @@
     - name: Set Gitea URL (env > ConfigMap > constructed fallback)
       ansible.builtin.set_fact:
         gitea_url: "{{ lookup('env', 'GITEA_URL') or
-          (r_showroom_cm.resources[0].data['user_data.yml'] |
-           regex_search('\"gitea_url\": *\"([^\"]+)\"', '\\1') | first | default(''))
+          (r_showroom_cm.resources[0].data['user_data.yml'] | from_yaml).get('gitea_url', '')
           if (showroom_ns | default('') != '' and r_showroom_cm.resources | default([]) | length > 0)
           else ('https://gitea.' + openshift_cluster_ingress_domain) }}"
 
