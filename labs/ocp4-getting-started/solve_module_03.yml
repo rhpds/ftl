@@ -4,19 +4,23 @@
 # =============================================================================
 #
 # Automatically completes Module 3 tasks:
-# 1. Create Tekton pipeline definition
-# 2. Create PersistentVolumeClaim for pipeline workspace
-# 3. Execute pipeline run
-# 4. Configure GitHub webhook trigger
+# 1. Create PersistentVolumeClaim for pipeline workspace
+# 2. Create Tekton pipeline definition
+# 3. Create Tekton Triggers (TriggerTemplate, TriggerBinding, EventListener)
+# 4. Create Gitea webhook via API pointing to EventListener
+# 5. Clone repo from Gitea, make code change, push to trigger pipeline
+# 6. Wait for webhook-triggered pipeline run to complete
 #
 # Environment Variables Required:
 #   - LAB_USER: Student user (e.g., user1) - sets project to wksp-<user>
+#   - PASSWORD: User password (used for Gitea auth)
 #
 # Usage via wrapper (recommended):
 #   solve_lab ocp4-getting-started user1 3
 #
 # Or directly:
 #   export LAB_USER="user1"
+#   export PASSWORD="secret"
 #   ansible-playbook solve_module_03.yml
 #
 # =============================================================================
@@ -28,8 +32,40 @@
 
   vars:
     project_name: "wksp-{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
+    lab_user: "{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
+    lab_password: "{{ lookup('env', 'PASSWORD') | default(lookup('env', 'OPENSHIFT_PASSWORD'), true) }}"
+    gitea_admin_user: "gitea"
+    gitea_admin_password: "{{ lookup('env', 'PASSWORD') | default(lookup('env', 'OPENSHIFT_PASSWORD'), true) }}"
 
   tasks:
+
+    # =========================================================================
+    # Discover Gitea URL
+    # =========================================================================
+    - name: Get Gitea route hostname
+      ansible.builtin.command: oc get route -n gitea -o jsonpath='{.items[0].spec.host}'
+      register: r_gitea_route
+      changed_when: false
+      failed_when: false
+
+    - name: Set Gitea URL from route discovery
+      when: r_gitea_route.rc == 0 and r_gitea_route.stdout | length > 0
+      ansible.builtin.set_fact:
+        gitea_host: "{{ r_gitea_route.stdout }}"
+        gitea_url: "https://{{ r_gitea_route.stdout }}"
+
+    - name: Fallback - construct Gitea URL from cluster domain
+      when: r_gitea_route.rc != 0 or r_gitea_route.stdout | length == 0
+      block:
+        - name: Get cluster ingress domain
+          ansible.builtin.command: oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}'
+          register: r_cluster_domain
+          changed_when: false
+
+        - name: Set Gitea URL from cluster domain
+          ansible.builtin.set_fact:
+            gitea_host: "gitea-gitea.{{ r_cluster_domain.stdout }}"
+            gitea_url: "https://gitea-gitea.{{ r_cluster_domain.stdout }}"
 
     - name: Display solver information
       ansible.builtin.debug:
@@ -38,6 +74,7 @@
           Solving Module 3: CI/CD with Tekton Pipelines
           ================================================================================
           Project: {{ project_name }}
+          Gitea:   {{ gitea_url }}
           ================================================================================
 
     # =========================================================================
@@ -96,7 +133,7 @@
                 default: nationalparks
               - name: APP_GIT_URL
                 type: string
-                default: https://github.com/openshift-roadshow/nationalparks.git
+                default: "{{ gitea_url }}/{{ lab_user }}/nationalparks.git"
               - name: APP_GIT_REVISION
                 type: string
                 default: master
@@ -124,7 +161,7 @@
                   - name: DEPTH
                     value: "1"
                   - name: SSL_VERIFY
-                    value: "true"
+                    value: "false"
                   - name: DELETE_EXISTING
                     value: "true"
                   - name: VERBOSE
@@ -204,60 +241,9 @@
                     value: oc rollout restart deployment/$(params.APP_NAME)
 
     # =========================================================================
-    # Step 3: Execute Pipeline Run
+    # Step 3: Create Tekton Triggers
     # =========================================================================
-    - name: Check if recent pipeline run exists
-      kubernetes.core.k8s_info:
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        namespace: "{{ project_name }}"
-        label_selectors:
-          - tekton.dev/pipeline=nationalparks-pipeline
-      register: r_pipelineruns
-
-    - name: Create pipeline run
-      when: r_pipelineruns.resources | length == 0
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: tekton.dev/v1
-          kind: PipelineRun
-          metadata:
-            generateName: nationalparks-pipeline-run-
-            namespace: "{{ project_name }}"
-            labels:
-              tekton.dev/pipeline: nationalparks-pipeline
-          spec:
-            pipelineRef:
-              name: nationalparks-pipeline
-            workspaces:
-              - name: app-source
-                persistentVolumeClaim:
-                  claimName: app-source-pvc
-              - name: maven-settings
-                emptyDir: {}
-      register: r_pipeline_run
-
-    - name: Wait for pipeline run to complete
-      when: r_pipeline_run is changed
-      kubernetes.core.k8s_info:
-        api_version: tekton.dev/v1
-        kind: PipelineRun
-        name: "{{ r_pipeline_run.result.metadata.name }}"
-        namespace: "{{ project_name }}"
-      register: r_pipeline_status
-      until:
-        - r_pipeline_status.resources[0].status.conditions is defined
-        - r_pipeline_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
-        - r_pipeline_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | first | json_query('status') in ['True', 'False']
-      retries: 120
-      delay: 10
-
-    # =========================================================================
-    # Step 3.5: Create Tekton Triggers (TriggerTemplate, TriggerBinding, EventListener)
-    # Replicates: oc create -f {gitea_url}/{user}/nationalparks/raw/branch/master/pipeline/nationalparks-triggers.yaml
-    # =========================================================================
-    - name: Create TriggerTemplate for nationalparks
+    - name: Create TriggerTemplate
       kubernetes.core.k8s:
         state: present
         definition:
@@ -298,7 +284,7 @@
                     - name: maven-settings
                       emptyDir: {}
 
-    - name: Create TriggerBinding for nationalparks
+    - name: Create TriggerBinding
       kubernetes.core.k8s:
         state: present
         definition:
@@ -316,7 +302,7 @@
               - name: git-revision
                 value: $(body.after)
 
-    - name: Create EventListener for nationalparks
+    - name: Create EventListener
       kubernetes.core.k8s:
         state: present
         definition:
@@ -333,51 +319,184 @@
                 template:
                   ref: nationalparks
 
+    - name: Create EventListener Route
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: route.openshift.io/v1
+          kind: Route
+          metadata:
+            name: el-nationalparks
+            namespace: "{{ project_name }}"
+            labels:
+              app.kubernetes.io/managed-by: EventListener
+              app.kubernetes.io/part-of: Triggers
+              eventlistener: nationalparks
+          spec:
+            port:
+              targetPort: http-listener
+            to:
+              kind: Service
+              name: el-nationalparks
+              weight: 100
+
     # =========================================================================
-    # Step 4: Configure GitHub Webhook Trigger
+    # Step 4: Wait for EventListener and Create Gitea Webhook
     # =========================================================================
-    - name: Get nationalparks BuildConfig
+    - name: Wait for EventListener deployment to be ready
       kubernetes.core.k8s_info:
-        api_version: build.openshift.io/v1
-        kind: BuildConfig
-        name: nationalparks
+        api_version: apps/v1
+        kind: Deployment
+        name: el-nationalparks
         namespace: "{{ project_name }}"
-      register: r_buildconfig
+      register: r_el_deploy
+      until:
+        - r_el_deploy.resources | length > 0
+        - r_el_deploy.resources[0].status.readyReplicas | default(0) | int >= 1
+      retries: 30
+      delay: 10
 
-    - name: Check if GitHub webhook trigger exists
-      when: r_buildconfig.resources | length > 0
+    - name: Get EventListener route URL
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: el-nationalparks
+        namespace: "{{ project_name }}"
+      register: r_el_route
+
+    - name: Set EventListener URL
       ansible.builtin.set_fact:
-        has_github_webhook: "{{
-          r_buildconfig.resources[0].spec.triggers | default([]) |
-          selectattr('type', 'equalto', 'GitHub') |
-          list | length > 0
-        }}"
+        el_webhook_url: "http://{{ r_el_route.resources[0].spec.host }}/"
 
-    - name: Add GitHub webhook trigger to BuildConfig
-      when:
-        - r_buildconfig.resources | length > 0
-        - not (has_github_webhook | default(false))
-      kubernetes.core.k8s_json_patch:
-        api_version: build.openshift.io/v1
-        kind: BuildConfig
-        name: nationalparks
+    - name: Display webhook info
+      ansible.builtin.debug:
+        msg: "EventListener webhook URL: {{ el_webhook_url }}"
+
+    - name: Check if Gitea webhook already exists
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ lab_user }}/nationalparks/hooks"
+        method: GET
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        status_code: 200
+      register: r_existing_hooks
+      failed_when: false
+
+    - name: Create Gitea webhook
+      when: >-
+        r_existing_hooks.json is not defined or
+        r_existing_hooks.json | selectattr('config.url', 'defined') |
+        selectattr('config.url', 'equalto', el_webhook_url) | list | length == 0
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/repos/{{ lab_user }}/nationalparks/hooks"
+        method: POST
+        user: "{{ gitea_admin_user }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          type: gitea
+          config:
+            url: "{{ el_webhook_url }}"
+            content_type: json
+            secret: ""
+          events:
+            - push
+          active: true
+        status_code: [201]
+        validate_certs: false
+      register: r_webhook
+
+    # =========================================================================
+    # Step 5: Clone Repo, Make Code Change, Push to Trigger Pipeline
+    # =========================================================================
+    - name: Remove temp directory if exists
+      ansible.builtin.file:
+        path: /tmp/nationalparks-solver
+        state: absent
+
+    - name: Clone nationalparks from Gitea
+      ansible.builtin.command: >
+        git clone
+        https://{{ gitea_admin_user }}:{{ gitea_admin_password | urlencode }}@{{ gitea_host }}/{{ lab_user }}/nationalparks.git
+        /tmp/nationalparks-solver
+      environment:
+        GIT_SSL_NO_VERIFY: "true"
+      changed_when: true
+
+    - name: Update display name in BackendController.java
+      ansible.builtin.replace:
+        path: /tmp/nationalparks-solver/src/main/java/com/openshift/evg/roadshow/parks/rest/BackendController.java
+        regexp: '"National Parks"'
+        replace: '"Amazing National Parks"'
+      register: r_code_change
+
+    - name: Configure git user
+      when: r_code_change is changed
+      ansible.builtin.shell: |
+        cd /tmp/nationalparks-solver
+        git config user.email "{{ lab_user }}@example.com"
+        git config user.name "{{ lab_user }}"
+      changed_when: false
+
+    - name: Commit and push code change
+      when: r_code_change is changed
+      ansible.builtin.shell: |
+        cd /tmp/nationalparks-solver
+        git add -A
+        git commit -m "Update display name to Amazing National Parks"
+        git push
+      environment:
+        GIT_SSL_NO_VERIFY: "true"
+
+    # =========================================================================
+    # Step 6: Wait for Webhook-Triggered Pipeline Run
+    # =========================================================================
+    - name: Wait for webhook-triggered PipelineRun to appear
+      kubernetes.core.k8s_info:
+        api_version: tekton.dev/v1
+        kind: PipelineRun
         namespace: "{{ project_name }}"
-        patch:
-          - op: add
-            path: /spec/triggers/-
-            value:
-              type: GitHub
-              github:
-                secret: "ftl-webhook-secret"
+        label_selectors:
+          - tekton.dev/pipeline=nationalparks-pipeline
+      register: r_pipelineruns
+      until:
+        - r_pipelineruns.resources | length > 0
+      retries: 30
+      delay: 10
+
+    - name: Wait for pipeline run to complete
+      kubernetes.core.k8s_info:
+        api_version: tekton.dev/v1
+        kind: PipelineRun
+        namespace: "{{ project_name }}"
+        label_selectors:
+          - tekton.dev/pipeline=nationalparks-pipeline
+      register: r_pipeline_status
+      until:
+        - r_pipeline_status.resources | length > 0
+        - r_pipeline_status.resources[-1].status.conditions is defined
+        - r_pipeline_status.resources[-1].status.conditions | selectattr('type', 'equalto', 'Succeeded') | list | length > 0
+        - r_pipeline_status.resources[-1].status.conditions | selectattr('type', 'equalto', 'Succeeded') | first | json_query('status') in ['True', 'False']
+      retries: 120
+      delay: 10
+
+    # =========================================================================
+    # Cleanup
+    # =========================================================================
+    - name: Remove temp directory
+      ansible.builtin.file:
+        path: /tmp/nationalparks-solver
+        state: absent
 
     # =========================================================================
     # Summary
     # =========================================================================
-    - name: Display pipeline run status
-      when: r_pipeline_run is changed
-      ansible.builtin.debug:
-        msg: |
-          Pipeline run status: {{ r_pipeline_status.resources[0].status.conditions | selectattr('type', 'equalto', 'Succeeded') | first | json_query('reason') }}
+    - name: Get pipeline run result
+      ansible.builtin.set_fact:
+        pipeline_result: "{{ r_pipeline_status.resources[-1].status.conditions | selectattr('type', 'equalto', 'Succeeded') | first | json_query('reason') }}"
 
     - name: Display completion summary
       ansible.builtin.debug:
@@ -387,20 +506,23 @@
           ================================================================================
 
           Resources created:
-            ✓ PVC: app-source-pvc (1Gi for pipeline workspace)
-            ✓ Pipeline: nationalparks-pipeline
-            ✓ PipelineRun: {{ r_pipeline_run.result.metadata.name if r_pipeline_run is changed else 'Already exists' }}
-            ✓ GitHub webhook configured on BuildConfig
+            - PVC: app-source-pvc (1Gi for pipeline workspace)
+            - Pipeline: nationalparks-pipeline
+            - TriggerTemplate: nationalparks
+            - TriggerBinding: nationalparks
+            - EventListener: nationalparks
+            - Route: el-nationalparks
+            - Gitea webhook: {{ el_webhook_url }}
 
-          Pipeline tasks:
-            1. git-clone: Clone source from Git
-            2. build-and-test: Maven build and test
-            3. build-image: S2I image build
-            4. redeploy: Rollout restart deployment
+          Code change:
+            - Updated "National Parks" to "Amazing National Parks" in BackendController.java
+            - Pushed to Gitea, triggered webhook pipeline run
+
+          Pipeline run result: {{ pipeline_result }}
 
           Next steps:
             - View pipeline runs: oc get pipelineruns -n {{ project_name }}
-            - Monitor pipeline: Developer Perspective → Pipelines → nationalparks-pipeline
+            - Verify change: curl -k https://nationalparks-{{ project_name }}.{{ gitea_host.split('.', 1)[1] | default('') }}/ws/info/
             - Grade Module 3: grade_lab ocp4-getting-started 3
             - Grade full lab: grade_lab ocp4-getting-started
 
