@@ -19,7 +19,7 @@
 
 - name: "FTL Solve — {{ ftl_target_user }}"
   ansible.builtin.command:
-    cmd: "ansible-playbook -i localhost, {{ item.path }}"
+    cmd: "ansible-playbook -i localhost, -c local {{ item.path }}"
   environment:
     ANSIBLE_ROLES_PATH: "{{ role_path | dirname }}"
     LAB_USER: "{{ ftl_target_user }}"
@@ -34,7 +34,7 @@
 
 - name: "FTL Grade — {{ ftl_target_user }}"
   ansible.builtin.command:
-    cmd: "ansible-playbook -i localhost, {{ item.path }}"
+    cmd: "ansible-playbook -i localhost, -c local {{ item.path }}"
   environment:
     ANSIBLE_ROLES_PATH: "{{ role_path | dirname }}"
     LAB_USER: "{{ ftl_target_user }}"

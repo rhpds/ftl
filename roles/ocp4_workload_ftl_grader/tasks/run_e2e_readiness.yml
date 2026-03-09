@@ -4,7 +4,7 @@
 - name: "FTL E2E Readiness Check — {{ ftl_target_user }}"
   ansible.builtin.command:
     cmd: >
-      ansible-playbook -i localhost,
+      ansible-playbook -i localhost, -c local
       {{ role_path | dirname | dirname }}/labs/{{ ocp4_workload_ftl_grader_lab_id }}/grade_e2e_readiness.yml
   environment:
     ANSIBLE_ROLES_PATH: "{{ role_path | dirname }}"
