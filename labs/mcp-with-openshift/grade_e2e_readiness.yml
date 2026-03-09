@@ -44,7 +44,6 @@
         mcp_openshift_namespace: "{{ lookup('env', 'MCP_OPENSHIFT_NAMESPACE') | default('mcp-openshift-' + base_namespace_prefix, true) }}"
         mcp_gitea_namespace: "{{ lookup('env', 'MCP_GITEA_NAMESPACE') | default('mcp-gitea-' + base_namespace_prefix, true) }}"
         librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat-' + base_namespace_prefix, true) }}"
-        gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.' + openshift_cluster_ingress_domain, true) }}"
         gitea_user: "{{ base_namespace_prefix }}"
 
     - name: Find Showroom namespace for this user
@@ -53,20 +52,16 @@
         kind: Namespace
       register: r_all_namespaces
       failed_when: false
-      when: lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
 
     - name: Set Showroom namespace
-      when: lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
       ansible.builtin.set_fact:
         showroom_ns: "{{ r_all_namespaces.resources | default([]) |
           map(attribute='metadata.name') |
           select('match', 'showroom.*' + base_namespace_prefix + '$') |
           list | first | default('') }}"
 
-    - name: Read Showroom ConfigMap for Gitea admin credentials
-      when:
-        - lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
-        - showroom_ns | default('') != ''
+    - name: Read Showroom ConfigMap for credentials and URLs
+      when: showroom_ns | default('') != ''
       kubernetes.core.k8s_info:
         api_version: v1
         kind: ConfigMap
@@ -75,9 +70,8 @@
       register: r_showroom_cm
       failed_when: false
 
-    - name: Set Gitea admin credentials from ConfigMap
+    - name: Set credentials and URLs from ConfigMap
       when:
-        - lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
         - showroom_ns | default('') != ''
         - r_showroom_cm.resources | default([]) | length > 0
       ansible.builtin.set_fact:
@@ -85,6 +79,14 @@
           regex_search('\"gitea_admin_username\": *\"([^\"]+)\"', '\\1') | first | default('mcpadmin') }}"
         gitea_admin_pass_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
           regex_search('\"gitea_admin_password\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
+        gitea_url_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+          regex_search('\"gitea_url\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
+
+    - name: Set Gitea URL (env > ConfigMap > constructed fallback)
+      ansible.builtin.set_fact:
+        gitea_url: "{{ lookup('env', 'GITEA_URL') or
+          gitea_url_from_cm | default('') or
+          ('https://gitea.' + openshift_cluster_ingress_domain) }}"
 
     # =========================================================================
     # HC-1: MCP OpenShift Server
