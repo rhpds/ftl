@@ -12,7 +12,6 @@
     agent_namespace: "agent-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('', true) }}"
     mcp_gitea_namespace: "mcp-gitea-{{ base_namespace_prefix }}"
-    gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
     gitea_user: "{{ base_namespace_prefix }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('', true) }}"
 
@@ -34,6 +33,39 @@
         - { name: 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN', value: "{{ openshift_cluster_ingress_domain }}" }
       loop_control:
         label: "{{ item.name }}"
+    # Auto-discover gitea_url from Showroom ConfigMap
+    - name: Find Showroom namespace for this user
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+      register: r_all_namespaces
+      failed_when: false
+
+    - name: Set Showroom namespace
+      ansible.builtin.set_fact:
+        showroom_ns: "{{ r_all_namespaces.resources | default([]) |
+          map(attribute='metadata.name') |
+          select('match', 'showroom.*' + base_namespace_prefix + '$') |
+          list | first | default('') }}"
+
+    - name: Read Showroom ConfigMap for URLs
+      when: showroom_ns | default('') != ''
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: showroom-userdata
+        namespace: "{{ showroom_ns }}"
+      register: r_showroom_cm
+      failed_when: false
+
+    - name: Set Gitea URL (env > ConfigMap > constructed fallback)
+      ansible.builtin.set_fact:
+        gitea_url: "{{ lookup('env', 'GITEA_URL') or
+          (r_showroom_cm.resources[0].data['user_data.yml'] |
+           regex_search('\"gitea_url\": *\"([^\"]+)\"', '\\1') | first | default(''))
+          if (showroom_ns | default('') != '' and r_showroom_cm.resources | default([]) | length > 0)
+          else ('https://gitea.' + openshift_cluster_ingress_domain) }}"
+
     - name: Display Module 2 solver info
       ansible.builtin.debug:
         msg: |

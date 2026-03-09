@@ -24,12 +24,50 @@
     agent_namespace: "agent-{{ base_namespace_prefix }}"
     librechat_namespace: "librechat-{{ base_namespace_prefix }}"
     openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('apps.cluster.example.com') }}"
-    gitea_url: "https://gitea.{{ openshift_cluster_ingress_domain }}"
     gitea_user: "{{ base_namespace_prefix }}"
     gitea_password: "{{ lookup('env', 'PASSWORD') | default('changeme') }}"
     grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_module_02.txt"
 
   tasks:
+    # Auto-discover gitea_url from Showroom ConfigMap
+    - name: Find Showroom namespace for this user
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+      register: r_all_namespaces
+      failed_when: false
+
+    - name: Set Showroom namespace
+      ansible.builtin.set_fact:
+        showroom_ns: "{{ r_all_namespaces.resources | default([]) |
+          map(attribute='metadata.name') |
+          select('match', 'showroom.*' + base_namespace_prefix + '$') |
+          list | first | default('') }}"
+
+    - name: Read Showroom ConfigMap for credentials and URLs
+      when: showroom_ns | default('') != ''
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: showroom-userdata
+        namespace: "{{ showroom_ns }}"
+      register: r_showroom_cm
+      failed_when: false
+
+    - name: Set URLs from ConfigMap
+      when:
+        - showroom_ns | default('') != ''
+        - r_showroom_cm.resources | default([]) | length > 0
+      ansible.builtin.set_fact:
+        gitea_url_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+          regex_search('\"gitea_url\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
+
+    - name: Set Gitea URL (env > ConfigMap > constructed fallback)
+      ansible.builtin.set_fact:
+        gitea_url: "{{ lookup('env', 'GITEA_URL') or
+          gitea_url_from_cm | default('') or
+          ('https://gitea.' + openshift_cluster_ingress_domain) }}"
+
     # =========================================================================
     # Pre-check: Determine if Gitea issue exists (for downstream evidence)
     # =========================================================================
@@ -284,15 +322,27 @@
     # =========================================================================
     # Exercise 2.9: LibreChat Can Query Infrastructure
     # =========================================================================
+    - name: "Exercise 2.9: Discover LibreChat route host"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: librechat
+        namespace: "{{ librechat_namespace }}"
+      register: r_librechat_route_2
+      failed_when: false
+
+    - name: "Exercise 2.9: Set LibreChat URL from route"
+      ansible.builtin.set_fact:
+        librechat_url_2: "https://{{ r_librechat_route_2.resources[0].spec.host }}"
+      when: r_librechat_route_2.resources | default([]) | length > 0
+
     - name: "Exercise 2.9: Verify LibreChat UI accessible for querying"
       ansible.builtin.include_role:
-        name: grader_check_command_output
+        name: grader_check_http_endpoint
       vars:
         task_description_message: "Exercise 2.9: LibreChat accessible for infrastructure queries"
-        command: >
-          curl -s -k -o /dev/null -w '%{http_code}'
-          https://librechat-{{ librechat_namespace }}.{{ openshift_cluster_ingress_domain }}
-        expected_output: "200"
+        url: "{{ librechat_url_2 | default('https://librechat-' + librechat_namespace + '.' + openshift_cluster_ingress_domain) }}"
+        expected_status_code: 200
         student_error_message: |
           LibreChat not accessible for querying infrastructure.
           Verify LibreChat is running and accessible.
