@@ -1,0 +1,171 @@
+---
+# E2E Readiness Check: mcp-with-openshift
+# Validates all internal cluster resources (pods, routes, MCP servers, Gitea repos, API keys).
+# Generated from ftl-environment.adoc by FTL skill.
+# Run standalone — not tied to any module grader.
+
+- name: Initialize FTL E2E Readiness Check
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    lab_id: "MCP Lab - E2E Readiness Check"
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_e2e_readiness.txt"
+  roles:
+    - ftl_run_init
+
+- name: E2E Readiness Check - mcp-with-openshift
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_e2e_readiness.txt"
+    openshift_cluster_ingress_domain: "{{ lookup('env', 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN') | default('', true) }}"
+
+  tasks:
+    - name: Validate required environment variables
+      ansible.builtin.fail:
+        msg: |
+          Required environment variable not set: {{ item.name }}
+          export OPENSHIFT_CLUSTER_INGRESS_DOMAIN="apps.cluster-xxx.dynamic.redhatworkshops.io"
+          export LAB_USER="user1"
+      when: item.value == ''
+      loop:
+        - { name: 'OPENSHIFT_CLUSTER_INGRESS_DOMAIN', value: "{{ openshift_cluster_ingress_domain }}" }
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Set base namespace prefix
+      ansible.builtin.set_fact:
+        base_namespace_prefix: "{{ lookup('env', 'LAB_USER') | default('user1', true) }}"
+
+    - name: Set namespace variables
+      ansible.builtin.set_fact:
+        mcp_openshift_namespace: "{{ lookup('env', 'MCP_OPENSHIFT_NAMESPACE') | default('mcp-openshift-' + base_namespace_prefix, true) }}"
+        mcp_gitea_namespace: "{{ lookup('env', 'MCP_GITEA_NAMESPACE') | default('mcp-gitea-' + base_namespace_prefix, true) }}"
+        librechat_namespace: "{{ lookup('env', 'LIBRECHAT_NAMESPACE') | default('librechat-' + base_namespace_prefix, true) }}"
+        gitea_url: "{{ lookup('env', 'GITEA_URL') | default('https://gitea.' + openshift_cluster_ingress_domain, true) }}"
+        gitea_user: "{{ base_namespace_prefix }}"
+
+    - name: Find Showroom namespace for this user
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+      register: r_all_namespaces
+      failed_when: false
+      when: lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+
+    - name: Set Showroom namespace
+      when: lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+      ansible.builtin.set_fact:
+        showroom_ns: "{{ r_all_namespaces.resources | default([]) |
+          map(attribute='metadata.name') |
+          select('match', 'showroom.*' + base_namespace_prefix + '$') |
+          list | first | default('') }}"
+
+    - name: Read Showroom ConfigMap for Gitea admin credentials
+      when:
+        - lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+        - showroom_ns | default('') != ''
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: showroom-userdata
+        namespace: "{{ showroom_ns }}"
+      register: r_showroom_cm
+      failed_when: false
+
+    - name: Set Gitea admin credentials from ConfigMap
+      when:
+        - lookup('env', 'GITEA_ADMIN_PASSWORD') == ''
+        - showroom_ns | default('') != ''
+        - r_showroom_cm.resources | default([]) | length > 0
+      ansible.builtin.set_fact:
+        gitea_admin_user_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+          regex_search('\"gitea_admin_username\": *\"([^\"]+)\"', '\\1') | first | default('mcpadmin') }}"
+        gitea_admin_pass_from_cm: "{{ r_showroom_cm.resources[0].data['user_data.yml'] |
+          regex_search('\"gitea_admin_password\": *\"([^\"]+)\"', '\\1') | first | default('') }}"
+
+    # =========================================================================
+    # HC-1: MCP OpenShift Server
+    # =========================================================================
+    - name: "HC-1: Verify MCP OpenShift Server pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "HC-1: MCP OpenShift Server pod is running"
+        pod_name: "openshift-.*"
+        pod_namespace: "{{ mcp_openshift_namespace }}"
+        student_error_message: "MCP OpenShift Server pod not found in {{ mcp_openshift_namespace }}. Check: oc get pods -n {{ mcp_openshift_namespace }}"
+
+    # =========================================================================
+    # HC-2: MCP Gitea Server
+    # =========================================================================
+    - name: "HC-2: Verify MCP Gitea Server pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "HC-2: MCP Gitea Server pod is running"
+        pod_name: "gitea-.*"
+        pod_namespace: "{{ mcp_gitea_namespace }}"
+        student_error_message: "MCP Gitea Server pod not found in {{ mcp_gitea_namespace }}. Check: oc get pods -n {{ mcp_gitea_namespace }}"
+
+    # =========================================================================
+    # HC-3: LibreChat pod
+    # =========================================================================
+    - name: "HC-3: Verify LibreChat pod is running"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_pod_running
+      vars:
+        task_description_message: "HC-3: LibreChat pod is running"
+        pod_name: "librechat-.*"
+        pod_namespace: "{{ librechat_namespace }}"
+        student_error_message: "LibreChat pod not found in {{ librechat_namespace }}. Check: oc get pods -n {{ librechat_namespace }}"
+
+    # =========================================================================
+    # HC-4: LibreChat route
+    # =========================================================================
+    - name: "HC-4: Verify LibreChat route exists"
+      ansible.builtin.include_role:
+        name: grader_check_ocp_route_exists
+      vars:
+        task_description_message: "HC-4: LibreChat route exists"
+        route_name: "librechat"
+        route_namespace: "{{ librechat_namespace }}"
+        student_error_message: "LibreChat route not found in {{ librechat_namespace }}. Check: oc get routes -n {{ librechat_namespace }}"
+
+    # =========================================================================
+    # HC-5: LibreChat HTTP
+    # =========================================================================
+    - name: "HC-5: Verify LibreChat UI is accessible via HTTP"
+      ansible.builtin.include_role:
+        name: grader_check_http_endpoint
+      vars:
+        task_description_message: "HC-5: LibreChat UI is accessible via HTTP"
+        url: "https://librechat-{{ librechat_namespace }}.{{ openshift_cluster_ingress_domain }}"
+        expected_status_code: 200
+        student_error_message: "LibreChat is not responding. Pod may be running but application not healthy."
+
+    # =========================================================================
+    # HC-6: Gitea repository
+    # =========================================================================
+    - name: "HC-6: Verify Gitea repository exists"
+      ansible.builtin.include_role:
+        name: grader_check_command_output
+      vars:
+        task_description_message: "HC-6: Gitea repository '{{ gitea_user }}/mcp' exists"
+        command: >
+          curl -sk
+          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default(gitea_admin_user_from_cm | default('mcpadmin'), true) }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(gitea_admin_pass_from_cm | default(''), true) }}"
+          {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp | jq -r '.name'
+        expected_output: "mcp"
+        student_error_message: "Gitea repository '{{ gitea_user }}/mcp' not found at {{ gitea_url }}"
+
+- name: Finalize FTL E2E Readiness Check
+  hosts: localhost
+  gather_facts: false
+  vars:
+    grader_student_report_file: "grading_report_{{ lookup('env', 'LAB_USER') | default(lookup('env', 'USER')) | default('student') }}_e2e_readiness.txt"
+  roles:
+    - ftl_run_grade_report_generation
+    - ftl_run_finish
