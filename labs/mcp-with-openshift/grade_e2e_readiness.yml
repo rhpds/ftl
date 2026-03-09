@@ -70,6 +70,13 @@
       register: r_showroom_cm
       failed_when: false
 
+    - name: Debug raw ConfigMap content
+      when:
+        - showroom_ns | default('') != ''
+        - r_showroom_cm.resources | default([]) | length > 0
+      ansible.builtin.debug:
+        msg: "{{ r_showroom_cm.resources[0].data['user_data.yml'] }}"
+
     - name: Set credentials and URLs from ConfigMap
       when:
         - showroom_ns | default('') != ''
