@@ -165,6 +165,29 @@
     # =========================================================================
     # HC-6: Gitea repository
     # =========================================================================
+    - name: "HC-6: Debug — resolved Gitea values"
+      ansible.builtin.debug:
+        msg:
+          gitea_url: "{{ gitea_url }}"
+          gitea_user: "{{ gitea_user }}"
+          gitea_admin_user: "{{ lookup('env', 'GITEA_ADMIN_USER') | default(gitea_admin_user_from_cm | default('mcpadmin'), true) }}"
+          gitea_admin_pass_set: "{{ (lookup('env', 'GITEA_ADMIN_PASSWORD') | default(gitea_admin_pass_from_cm | default(''), true)) | length > 0 }}"
+          showroom_ns: "{{ showroom_ns | default('NOT FOUND') }}"
+          gitea_url_from_cm: "{{ gitea_url_from_cm | default('NOT IN CONFIGMAP') }}"
+
+    - name: "HC-6: Debug — run curl manually"
+      ansible.builtin.command:
+        cmd: >
+          curl -sk
+          -u "{{ lookup('env', 'GITEA_ADMIN_USER') | default(gitea_admin_user_from_cm | default('mcpadmin'), true) }}:{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default(gitea_admin_pass_from_cm | default(''), true) }}"
+          {{ gitea_url }}/api/v1/repos/{{ gitea_user }}/mcp
+      register: r_gitea_debug
+      failed_when: false
+
+    - name: "HC-6: Debug — curl output"
+      ansible.builtin.debug:
+        msg: "{{ r_gitea_debug.stdout | default('NO OUTPUT') }}"
+
     - name: "HC-6: Verify Gitea repository exists"
       ansible.builtin.include_role:
         name: grader_check_command_output
