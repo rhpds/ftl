@@ -12,14 +12,33 @@
     OPENSHIFT_CLUSTER_INGRESS_DOMAIN: "{{ ocp4_workload_ftl_grader_ingress_domain }}"
     GITEA_ADMIN_USER: "{{ ocp4_workload_ftl_grader_gitea_admin_user }}"
     GITEA_ADMIN_PASSWORD: "{{ ocp4_workload_ftl_grader_gitea_admin_password }}"
+    K8S_AUTH_HOST: "{{ lookup('env', 'K8S_AUTH_HOST') }}"
+    K8S_AUTH_API_KEY: "{{ lookup('env', 'K8S_AUTH_API_KEY') }}"
+    K8S_AUTH_VERIFY_SSL: "false"
   register: r_e2e_readiness
   failed_when: false
+
+- name: Debug subprocess stdout
+  ansible.builtin.debug:
+    msg: "{{ r_e2e_readiness.stdout_lines | default([]) }}"
+
+- name: Debug subprocess stderr
+  ansible.builtin.debug:
+    msg: "{{ r_e2e_readiness.stderr_lines | default([]) }}"
+
+- name: Debug subprocess return code
+  ansible.builtin.debug:
+    msg: "ansible-playbook exit code: {{ r_e2e_readiness.rc | default('unknown') }}"
 
 - name: Read E2E Readiness report
   ansible.builtin.slurp:
     src: "{{ ocp4_workload_ftl_grader_report_dir }}/grading_report_{{ ftl_target_user }}_e2e_readiness.txt"
   register: r_report
   failed_when: false
+
+- name: Debug report content
+  ansible.builtin.debug:
+    msg: "{{ r_report.content | default('') | b64decode }}"
 
 - name: Parse PASS/FAIL counts from report
   ansible.builtin.set_fact:
