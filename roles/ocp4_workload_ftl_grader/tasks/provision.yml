@@ -8,7 +8,7 @@
 
 - name: Set target user
   ansible.builtin.set_fact:
-    ftl_target_user: "{{ sandbox_openshift_user | default(ocp4_workload_ftl_grader_user_prefix + '1') }}"
+    ftl_target_user: "{{ ocp4_workload_tenant_keycloak_username | default(sandbox_openshift_user) | default(ocp4_workload_ftl_grader_user_prefix + '1') }}"
 
 - name: Ensure report directory exists
   ansible.builtin.file:
