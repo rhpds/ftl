@@ -1,0 +1,109 @@
+= ftl_workload
+
+AgnosticD workload role for running link:https://github.com/rhpds/ftl[FTL (Finish The Labs)] E2E checks directly inside the AAP Execution Environment as part of catalog provisioning.
+
+No Kubernetes Jobs, no separate namespace — runs in-process via `ansible-playbook` subprocess calls. Technology-agnostic: works with any FTL lab (OpenShift, RHEL, AAP, AI, etc.).
+
+== Features
+
+* *E2E Readiness Check* — validates that all lab resources (pods, routes, endpoints, Gitea repos) are healthy post-provision
+* *E2E Full Lab Check* — automatically solves and grades all lab modules; intended for instructor/CI use
+* *Sandbox (single-user)* — targets the Keycloak-provisioned user
+* *Classical (multi-user)* — fans out checks across all N users in parallel using Ansible async
+
+== Requirements
+
+This role is part of the `rhdp.ftl` collection. Include in `requirements_content`:
+
+[source,yaml]
+----
+requirements_content:
+  collections:
+    - name: https://github.com/rhpds/ftl.git
+      type: git
+      version: main
+----
+
+The target lab must have a `grade_e2e_readiness.yml` playbook in `labs/<lab_id>/`.
+
+== Variables
+
+[cols="1,1,2",options="header"]
+|===
+| Variable | Default | Description
+
+| `ftl_workload_lab_id`
+| `""`
+| FTL lab directory name (e.g. `mcp-with-openshift`). *Required.*
+
+| `ftl_workload_ingress_domain`
+| `"{{ openshift_cluster_ingress_domain }}"`
+| OCP cluster ingress domain. *Required.*
+
+| `ftl_e2e_readiness_check`
+| `false`
+| Run E2E Readiness Check (environment health validation).
+
+| `ftl_e2e_full_lab_check`
+| `false`
+| Run E2E Full Lab Check (solve + grade all modules). Instructor use only.
+
+| `ftl_workload_user_count`
+| `1`
+| Number of users for multi-user (classical) catalogs. Set to 1 for sandbox.
+
+| `ftl_workload_user_prefix`
+| `"user"`
+| Username prefix for multi-user mode (e.g. `user` → `user1`, `user2`…).
+
+| `ftl_workload_report_dir`
+| `"/tmp/grading_dir"`
+| Directory where FTL writes grading report files.
+
+| `ftl_workload_gitea_admin_user`
+| `""`
+| Gitea admin username. Auto-discovered from Showroom ConfigMap if empty.
+
+| `ftl_workload_gitea_admin_password`
+| `""`
+| Gitea admin password. Auto-discovered from Showroom ConfigMap if empty.
+|===
+
+== AgnosticV Catalog Integration
+
+[source,yaml]
+----
+requirements_content:
+  collections:
+    - name: https://github.com/rhpds/ftl.git
+      type: git
+      version: main
+
+# Conditionally include ftl_workload only when a check is enabled
+workloads: >-
+  {{
+    ['rhdp.ftl.ftl_workload']
+    if (ftl_e2e_readiness_check | default(false) | bool) or
+       (ftl_e2e_full_lab_check | default(false) | bool)
+    else []
+  }}
+
+ftl_workload_lab_id: "mcp-with-openshift"
+ftl_workload_ingress_domain: "{{ openshift_cluster_ingress_domain }}"
+
+__meta__:
+  catalog:
+    parameters:
+    - name: ftl_e2e_readiness_check
+      description: "Run FTL E2E Readiness Check — verifies all internal cluster resources."
+      formLabel: "E2E Readiness Check"
+      openAPIV3Schema:
+        type: boolean
+        default: false
+    - name: ftl_e2e_full_lab_check
+      description: "Run FTL E2E Full Lab Check — solves and grades all modules. INSTRUCTOR USE ONLY."
+      formLabel: "E2E Full Lab Check"
+      openAPIV3Schema:
+        type: boolean
+        default: false
+----
